@@ -76,15 +76,15 @@ References
 """
 
 from imports import *
-from psiop import * 
+from psiop import *
 
 class PDESolver:
     """
     A partial differential equation (PDE) solver based on **spectral methods** using Fourier transforms.
 
-    This solver supports symbolic specification of PDEs via SymPy and numerical solution using high-order spectral techniques. 
+    This solver supports symbolic specification of PDEs via SymPy and numerical solution using high-order spectral techniques.
     It is designed for both **linear and nonlinear time-dependent PDEs**, as well as **stationary pseudo-differential problems**.
-    
+
     Key Features:
     -------------
     - Symbolic PDE parsing using SymPy expressions
@@ -113,14 +113,14 @@ class PDESolver:
     >>> import sympy as sp
     >>> from IPython.display import HTML
     >>> from solver import PDESolver
-    >>> 
+    >>>
     >>> u = sp.Function('u')
     >>> t, x = sp.symbols('t x')
     >>> eq = sp.Eq(sp.diff(u(t, x), t), sp.diff(u(t, x), x, 2) + u(t, x)**2)
-    >>> 
-    >>> def initial(x): 
+    >>>
+    >>> def initial(x):
     ...     return np.sin(x)
-    >>> 
+    >>>
     >>> solver = PDESolver(eq)
     >>> solver.setup(Lx=2*np.pi, Nx=128, Lt=1.0, Nt=1000, initial_condition=initial)
     >>> solver.solve()
@@ -128,50 +128,50 @@ class PDESolver:
     >>> HTML(ani.to_jshtml())  # Display animation in Jupyter notebook
     """
     def __init__(
-        self, 
-        equation: Eq, 
-        time_scheme: str = 'default', 
-        dealiasing_ratio: float = 2/3, 
+        self,
+        equation: Eq,
+        time_scheme: str = 'default',
+        dealiasing_ratio: float = 2/3,
         compute_energy: bool = True
     ) -> None:
         """
         Initialize the PDE solver with a given equation.
 
-        This method analyzes the input partial differential equation (PDE), 
-        identifies the unknown function and its dependencies, determines whether 
-        the problem is stationary or time-dependent, and prepares symbolic and 
+        This method analyzes the input partial differential equation (PDE),
+        identifies the unknown function and its dependencies, determines whether
+        the problem is stationary or time-dependent, and prepares symbolic and
         numerical structures for solving in spectral space.
 
         Supported features:
-        
+
         - 1D and 2D problems
         - Time-dependent and stationary equations
         - Linear and nonlinear terms
         - Pseudo-differential operators via `psiOp`
         - Source terms and boundary conditions
 
-        The equation is parsed to extract linear, nonlinear, source, and 
-        pseudo-differential components. Symbolic manipulation is used to derive 
+        The equation is parsed to extract linear, nonlinear, source, and
+        pseudo-differential components. Symbolic manipulation is used to derive
         the Fourier representation of linear operators when applicable.
 
         Parameters
         ----------
-        equation : sympy.Eq 
+        equation : sympy.Eq
             The PDE expressed as a SymPy equation.
         time_scheme : str
-            Temporal integration scheme: 
-                - 'default' for exponential 
-                - time-stepping or 'ETD-RK4' for fourth-order exponential 
+            Temporal integration scheme:
+                - 'default' for exponential
+                - time-stepping or 'ETD-RK4' for fourth-order exponential
                 - time differencing Runge–Kutta.
         dealiasing_ratio : float
-            Fraction of high-frequency modes to zero out 
+            Fraction of high-frequency modes to zero out
             during dealiasing (e.g., 2/3 for standard truncation).
         compute_energy : bool, optional (default True)
             Turn it off if setup is too long, there is maybe a problem during
             computation of the square root of the operator.
 
         Attributes initialized:
-        
+
         - self.u: the unknown function (e.g., u(t, x))
         - self.dim: spatial dimension (1 or 2)
         - self.spatial_vars: list of spatial variables (e.g., [x] or [x, y])
@@ -192,46 +192,46 @@ class PDESolver:
         self.time_scheme = time_scheme # 'default'  or 'ETD-RK4'
         self.dealiasing_ratio = dealiasing_ratio
         self.compute_energy = compute_energy
-        
+
         print("\n*********************************")
         print("* Partial differential equation *")
         print("*********************************\n")
         pprint(equation, num_columns=NUM_COLS)
-        
+
         # Extract symbols and function from the equation
         functions = equation.atoms(Function)
-        
+
         # Ignore the wrappers psiOp and Op
         excluded_wrappers = {'psiOp', 'Op'}
-        
+
         # Extract the candidate fonctions (excluding wrappers)
         candidate_functions = [
-            f for f in functions 
+            f for f in functions
             if f.func.__name__ not in excluded_wrappers
         ]
-        
+
         # Keep only user functions (u(x), u(x, t), etc.)
         candidate_functions = [
             f for f in candidate_functions
             if isinstance(f, AppliedUndef)
         ]
-        
+
         # Stationary detection: no dependence on t
         self.is_stationary = all(
             not any(str(arg) == 't' for arg in f.args)
             for f in candidate_functions
         )
-        
+
         if len(candidate_functions) != 1:
             print("candidate_functions :", candidate_functions)
             raise ValueError("The equation must contain exactly one unknown function")
-        
+
         self.u = candidate_functions[0]
 
         self.u_eq = self.u
 
         args = self.u.args
-        
+
         if self.is_stationary:
             if len(args) not in (1, 2):
                 raise ValueError("Stationary problems must depend on 1 or 2 spatial variables")
@@ -270,7 +270,7 @@ class PDESolver:
                 self.fft = partial(fft2, workers=FFT_WORKERS)
                 self.ifft = partial(ifft2, workers=FFT_WORKERS)
                 print("ℹ️  2D FFT backend: scipy.fft (install pyfftw for better performance)")
-            
+
         # Parse the equation
         self.linear_terms = {}
         self.nonlinear_terms = []
@@ -287,7 +287,7 @@ class PDESolver:
                 if expr.has(self.x) or (self.dim == 2 and expr.has(self.y)):
                     self.is_spatial = True
                     break
-    
+
         if self.dim == 1:
             self.kx = symbols('kx')
         elif self.dim == 2:
@@ -304,7 +304,7 @@ class PDESolver:
                     "(e.g., a*du/dt or a*d2u/dt2). Mixed time derivatives "
                     "(like a*d2u/dt2 + b*du/dt) are not supported."
                 )
-    
+
         # Compute linear operator
         if not self.is_stationary:
             self._compute_linear_operator()
@@ -321,41 +321,41 @@ class PDESolver:
         self.mechanical_energy_history = []
 
     def _parse_equation(
-        self, 
+        self,
         equation: Union[Eq, Expr]
     ) -> Tuple[Dict[Any, Expr], List[Expr], List[Tuple[Any, Expr]], List[Expr], List[Tuple[Any, Expr]]]:
 
 
         """
-        Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op), 
+        Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op),
         source terms, and pseudo-differential operators (psiOp).
-    
+
         This method rewrites the input equation in standard form (lhs - rhs = 0),
         expands it, and classifies each term into one of the following categories:
-        
+
         - Linear terms involving derivatives or the unknown function u
         - Nonlinear terms (products with u, powers of u, etc.)
         - Symbolic pseudo-differential operators (Op)
         - Source terms (independent of u)
         - Pseudo-differential operators (psiOp)
-    
+
         Parameters
-            equation (sympy.Eq): The partial differential equation to be analyzed. 
+            equation (sympy.Eq): The partial differential equation to be analyzed.
                                  Can be provided as an Eq object or a sympy expression.
-    
+
         Returns:
             tuple: A 5-tuple containing:
-            
+
                 - linear_terms (dict): Mapping from derivative/function to coefficient.
                 - nonlinear_terms (list): List of terms classified as nonlinear.
                 - symbol_terms (list): List of (coefficient, symbolic operator) pairs.
                 - source_terms (list): List of terms independent of the unknown function.
                 - pseudo_terms (list): List of (coefficient, pseudo-differential symbol) pairs.
-    
+
         Notes:
             - If `psiOp` is present in the equation, expansion is skipped for safety.
-            - When `psiOp` is used, only nonlinear terms, source terms, and possibly 
-              a time derivative are allowed; other linear terms and symbolic operators 
+            - When `psiOp` is used, only nonlinear terms, source terms, and possibly
+              a time derivative are allowed; other linear terms and symbolic operators
               (Op) are forbidden.
             - Classification logic includes:
                 - Detection of nonlinear structures like products or powers of u
@@ -366,9 +366,9 @@ class PDESolver:
             """
             Determine whether a SymPy expression constitutes a nonlinear term
             with respect to the dependent variable u_func (e.g. u(t, x)).
-        
+
             A term is considered nonlinear if any of the following hold:
-        
+
             1. A nonlinear function (Abs, sin, exp, ...) is applied to any
                expression containing u or its derivatives.
             2. Any Pow node whose base contains u or a Derivative of u,
@@ -377,33 +377,33 @@ class PDESolver:
                u or any Derivative of u — covers u*u_x, u_x*u_xx, u_x*u_y, etc.
             4. A single Derivative of u appears inside a nonlinear function,
                e.g. Abs(u_x), sin(u_xx).
-        
+
             Parameters
             ----------
             term : sympy.Expr
                 The expression to classify.
             u_func : sympy.Function
                 The dependent variable, e.g. u(t, x).
-        
+
             Returns
             -------
             bool
                 True if the term is nonlinear in u_func, False otherwise.
             """
-        
+
             def _contains_u(expr: Expr) -> bool:
                 """True if expr involves u or any Derivative of u."""
                 return expr.has(u_func)
-        
+
             def _is_derivative_of_u(expr: Expr) -> bool:
                 """True if expr is a Derivative whose function is u."""
                 return (isinstance(expr, Derivative)
                         and expr.args[0].func == u_func.func)
-        
+
             def _is_u_or_derivative(expr: Expr) -> bool:
                 """True if expr is u itself or a Derivative of u."""
                 return expr == u_func or _is_derivative_of_u(expr)
-        
+
             # 1. Nonlinear function applied to anything containing u or its derivatives
             #    e.g. Abs(u), sin(u), exp(u_x), Abs(u_xx)
             for sub in preorder_traversal(term):
@@ -412,13 +412,13 @@ class PDESolver:
                         and not isinstance(sub, Derivative)  # exclude Derivative nodes
                         and _contains_u(sub)):
                     return True
-        
+
             # 2. Pow whose base contains u or a Derivative of u, with exponent != 1
             #    e.g. u**2, u**-1, u_x**2, (1 + u)**-1, (u_xx)**3
             for pow_term in term.atoms(Pow):
                 if _contains_u(pow_term.base) and pow_term.exp != 1:
                     return True
-        
+
             # 3. Product containing two or more factors that each involve u or D(u)
             #    e.g. u*u_x, u_x*u_xx, u_x*u_y, u*u_xxx
             if isinstance(term, Mul):
@@ -427,47 +427,47 @@ class PDESolver:
                 ]
                 if len(u_bearing_factors) >= 2:
                     return True
-        
+
             # 4. Add: recurse into each summand — catches mixed sums like u_x**2 + u*u_xx
             if isinstance(term, Add):
                 if any(_is_nonlinear_term(arg, u_func) for arg in term.args):
                     return True
-        
+
             return False
-    
+
         print("\n********************")
         print("* Equation parsing *")
         print("********************\n")
-    
+
         if isinstance(equation, Eq):
             lhs = equation.lhs - equation.rhs
         else:
             lhs = equation
-    
+
         print(f"\nEquation rewritten in standard form: {lhs}")
         if lhs.has(psiOp):
             print("⚠️ psiOp detected: skipping expansion for safety")
             lhs_expanded = lhs
         else:
             lhs_expanded = expand(lhs)
-    
+
         print(f"\nExpanded equation: {lhs_expanded}")
-    
+
         linear_terms = {}
         nonlinear_terms = []
         symbol_terms = []
         source_terms = []
         pseudo_terms = []
-    
+
         for term in lhs_expanded.as_ordered_terms():
             print(f"Analyzing term: {term}")
-    
+
             if isinstance(term, psiOp):
                 expr = term.args[0]
                 pseudo_terms.append((1, expr))
                 print("  --> Classified as pseudo linear term (psiOp)")
                 continue
-    
+
             # Otherwise, look for psiOp inside (general case)
             if term.has(psiOp):
                 psiops = term.atoms(psiOp)
@@ -483,7 +483,7 @@ class PDESolver:
                         nonlinear_terms.append(term)
                         print("  --> Fallback: classified as nonlinear")
                 continue
-    
+
             if term.has(Op):
                 ops = term.atoms(Op)
                 for op in ops:
@@ -492,12 +492,12 @@ class PDESolver:
                     symbol_terms.append((coeff, expr))
                     print("  --> Classified as symbolic linear term (Op)")
                 continue
-    
+
             if _is_nonlinear_term(term, self.u):
                 nonlinear_terms.append(-term)
                 print("  --> Classified as nonlinear")
                 continue
-    
+
             derivs = term.atoms(Derivative)
             if derivs:
                 deriv = derivs.pop()
@@ -512,7 +512,7 @@ class PDESolver:
             else:
                 source_terms.append(-term)
                 print("  --> Classified as source term")
-    
+
         if pseudo_terms:
             # Check if a time derivative is present among the linear terms
             has_time_derivative = any(
@@ -578,19 +578,19 @@ class PDESolver:
         print(f"Symbol terms: {symbol_terms}")
         print(f"Pseudo terms: {pseudo_terms}")
         print(f"Source terms: {source_terms}")
-    
+
         return linear_terms, nonlinear_terms, symbol_terms, source_terms, pseudo_terms
 
     def _compute_linear_operator(self) -> None:
         """
-        Compute the symbolic Fourier representation L(k) of the linear operator 
+        Compute the symbolic Fourier representation L(k) of the linear operator
         derived from the linear part of the PDE.
-    
+
         This method constructs a dispersion relation by applying each symbolic derivative
         to a plane wave exp(i(k·x - ωt)) and extracting the resulting expression.
         It handles arbitrary derivative combinations and includes symbolic and
         pseudo-differential terms.
-    
+
         Steps:
         -------
         1. Construct a plane wave φ(x, t) = exp(i(k·x - ωt)).
@@ -599,7 +599,7 @@ class PDESolver:
         4. Include symbolic terms (e.g., psiOp) if present.
         5. Detect the temporal order from the dispersion relation.
         6. Build the numerical function L(k) via lambdify.
-    
+
         Sets:
         -----
         - self.L_symbolic : sympy.Expr
@@ -612,7 +612,7 @@ class PDESolver:
             Order of time derivatives detected.
         - self.psi_ops : list of (coeff, PseudoDifferentialOperator)
             Pseudo-differential terms present in the equation.
-    
+
         Raises:
         -------
         ValueError if the dimension is unsupported or the dispersion relation fails.
@@ -620,7 +620,7 @@ class PDESolver:
         print("\n*******************************")
         print("* Linear operator computation *")
         print("*******************************\n")
-    
+
         # --- Step 1: symbolic variables ---
         omega = symbols("omega")
         if self.dim == 1:
@@ -631,14 +631,14 @@ class PDESolver:
             space_vars = [self.x, self.y]
         else:
             raise ValueError("Only 1D and 2D are supported.")
-    
+
         kdict = dict(zip(space_vars, kvars))
         self.k_symbols = kvars
-    
+
         # Plane wave expression
         phase = sum(k * x for k, x in zip(kvars, space_vars)) - omega * self.t
         plane_wave = exp(I * phase)
-    
+
         # --- Step 2: build lhs expression from linear terms ---
         lhs = 0
         for deriv, coeff in self.linear_terms.items():
@@ -656,7 +656,7 @@ class PDESolver:
                 lhs += coeff * plane_wave
             else:
                 raise ValueError(f"Unsupported linear term: {deriv}")
-    
+
         # --- Step 3: dispersion relation ---
         equation = simplify(lhs / plane_wave)
         print("\nCharacteristic equation before symbol treatment:")
@@ -665,7 +665,7 @@ class PDESolver:
         print("\n--- Symbolic symbol analysis ---")
         symb_omega = 0
         symb_k = 0
-        
+
         for coeff, symbol in self.symbol_terms:
             if symbol.has(omega):
                 # Ajouter directement les termes dépendant de omega
@@ -675,8 +675,8 @@ class PDESolver:
 
         print(f"symb_omega: {symb_omega}")
         print(f"symb_k: {symb_k}")
-        
-        equation = equation + symb_omega + symb_k         
+
+        equation = equation + symb_omega + symb_k
 
         print("\nRaw characteristic equation:")
         pprint(equation, num_columns=NUM_COLS)
@@ -699,9 +699,9 @@ class PDESolver:
                     self.psi_ops = []
                     for coeff, sym_expr in self.pseudo_terms:
                         psi = PseudoDifferentialOperator(
-                            sym_expr / coeff_time, 
-                            self.spatial_vars, 
-                            self.u, 
+                            sym_expr / coeff_time,
+                            self.spatial_vars,
+                            self.u,
                             mode='symbol',
                             apply_backend="peetre",      # <--- Dispatch apply() to apply_peetre()
                             compute_peetre=True,         # <--- Precompute decomposition once
@@ -714,37 +714,37 @@ class PDESolver:
                 # 1. Build the total operator first
                 total_symbol = sum(coeff * psi.expr for coeff, psi in self.psi_ops)
                 total_op = PseudoDifferentialOperator(
-                    total_symbol, 
-                    self.spatial_vars, 
-                    self.u, 
+                    total_symbol,
+                    self.spatial_vars,
+                    self.u,
                     mode='symbol',
                     apply_backend="direct",  # <--- Also optimize energy monitoring
                     compute_peetre=False,
                 )
-                
+
                 if self.compute_energy:
                     # 2. Compute the fractional power P^{1/2}
                     # We use order=1 to capture the first microlocal spatial corrections.
                     # (If you only want the principal symbol, use order=0).
-                    # Note: We drop Abs() to preserve the C^\infty smoothness required 
-                    # for pseudo-differential calculus. If the operator is positive-definite, 
+                    # Note: We drop Abs() to preserve the C^\infty smoothness required
+                    # for pseudo-differential calculus. If the operator is positive-definite,
                     # this is exact. If not, it correctly handles complex branch cuts.
                     energy_symbol = total_op.fractional_power(
-                        alpha=0.5, 
-                        order=1, 
+                        alpha=0.5,
+                        order=1,
                         method='symbolic'
                     )
-                    
+
                     # 3. Create the final energy operator
                     self._energy_psi_op = PseudoDifferentialOperator(
-                        energy_symbol, 
-                        self.spatial_vars, 
-                        self.u, 
+                        energy_symbol,
+                        self.spatial_vars,
+                        self.u,
                         mode='symbol',
                         apply_backend="direct",  # <--- Also optimize energy monitoring
                         compute_peetre=False,
                     )
-                
+
                     # 4. Check for spatial dependence
                     self._energy_is_spatial = any(
                         energy_symbol.has(var) for var in self.spatial_vars
@@ -755,7 +755,7 @@ class PDESolver:
                 raise ValueError("No solution found for omega")
             print("\n--- Solutions found ---")
             pprint(dispersion, num_columns=NUM_COLS)
-        
+
             if self.temporal_order == 2:
                 omega_expr = simplify(sqrt(dispersion[0]**2))
                 self.omega_symbolic = omega_expr
@@ -763,12 +763,12 @@ class PDESolver:
                 self.L_symbolic = -omega_expr**2
             else:
                 self.L_symbolic = -I * dispersion[0]
-        
-        
+
+
             self.L = lambdify(self.k_symbols, self.L_symbolic, "numpy")
-  
+
             print("\n--- Final linear operator ---")
-            pprint(self.L_symbolic, num_columns=NUM_COLS)   
+            pprint(self.L_symbolic, num_columns=NUM_COLS)
 
 
     def _linear_rhs(self, u: np.ndarray, is_v: bool = False) -> np.ndarray:
@@ -799,33 +799,33 @@ class PDESolver:
         return self.ifft(u_hat)
 
     def setup(
-        self, 
-        Lx: float, 
-        Ly: Optional[float] = None, 
-        Nx: Optional[int] = None, 
-        Ny: Optional[int] = None, 
-        Lt: float = 1.0, 
-        Nt: int = 100, 
+        self,
+        Lx: float,
+        Ly: Optional[float] = None,
+        Nx: Optional[int] = None,
+        Ny: Optional[int] = None,
+        Lt: float = 1.0,
+        Nt: int = 100,
         boundary_condition: str = 'periodic',
-        initial_condition: Optional[Callable[..., np.ndarray]] = None, 
-        initial_velocity: Optional[Callable[..., np.ndarray]] = None, 
-        n_frames: int = 100, 
+        initial_condition: Optional[Callable[..., np.ndarray]] = None,
+        initial_velocity: Optional[Callable[..., np.ndarray]] = None,
+        n_frames: int = 100,
         plot: bool = True
     ) -> None:
         """
         Configure the spatial/temporal grid and initialize the solution field.
-    
+
         This method sets up the computational domain, initializes spatial and temporal grids,
         applies boundary conditions, and prepares symbolic and numerical operators.
         It also performs essential analyses such as:
-        
+
             - CFL condition verification (for stability)
             - Symbol analysis (e.g., dispersion relation, regularity)
             - Wave propagation analysis for second-order equations
-    
+
         If pseudo-differential operators (ψOp) are present, symbolic analysis is skipped
         in favor of interactive exploration via `interactive_symbol_analysis`.
-    
+
         Parameters
         ----------
         Lx : float
@@ -847,12 +847,12 @@ class PDESolver:
             required for second-order equations.
         n_frames : int, default=100
             Number of time frames to store during simulation for visualization or output.
-    
+
         Raises
         ------
         ValueError
             If mandatory parameters are missing (e.g., Nx not given in 1D, Ly/Ny not given in 2D).
-    
+
         Notes
         -----
         - The spatial discretization assumes periodic boundary conditions by default.
@@ -862,7 +862,7 @@ class PDESolver:
         - For second-order equations, initial acceleration is derived from the governing operator.
         - Symbolic analysis includes plotting of the symbol's real/imaginary/absolute values
           and dispersion relation.
-    
+
         See Also
         --------
         setup_1D : Sets up internal variables for one-dimensional problems.
@@ -873,7 +873,7 @@ class PDESolver:
         analyze_wave_propagation : Analyzes group velocity.
         interactive_symbol_analysis : Interactive tools for ψOp-based equations.
         """
-        
+
         # Temporal parameters
         self.Lt, self.Nt = Lt, Nt
         self.dt = Lt / Nt
@@ -888,7 +888,7 @@ class PDESolver:
                 "Dirichlet or Neumann boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). "
                 "Please provide an equation involving psiOp for non-periodic boundary treatment."
             )
-    
+
         # Dimension checks
         if self.dim == 1:
             if Nx is None:
@@ -898,14 +898,14 @@ class PDESolver:
             if None in (Ly, Ny):
                 raise ValueError("In 2D, Ly and Ny must be provided.")
             self._setup_2D(Lx, Ly, Nx, Ny)
-    
+
         # Initialization of solution and velocities
         if not self.is_stationary:
             self._initialize_conditions(initial_condition, initial_velocity)
 
         # Pre-compile lambdified source functions once (avoids re-creating them at every time step)
         self._precompile_source_funcs()
-            
+
         # Symbol analysis if present
         if self.has_psi:
             print("⚠️ For psiOp, use interactive_symbol_analysis.")
@@ -923,20 +923,20 @@ class PDESolver:
     def _setup_1D(self, Lx: float, Nx: int) -> None:
         """
         Configure internal variables for one-dimensional (1D) problems.
-    
+
         This private method initializes spatial and frequency grids, applies dealiasing,
         and prepares either pseudo-differential symbols or linear operators for use in time evolution.
-        
+
         It assumes periodic boundary conditions and uses real-to-complex FFT conventions.
         The spatial domain is centered at zero: [-Lx/2, Lx/2].
-    
+
         Parameters
         ----------
         Lx : float
             Physical size of the spatial domain along the x-axis.
         Nx : int
             Number of grid points in the x-direction.
-    
+
         Attributes Set
         --------------
         - self.Lx : float
@@ -961,14 +961,14 @@ class PDESolver:
             Cosine and sine of ω(k)·dt for dispersive propagation.
         - self.inv_omega : np.ndarray
             Inverse of ω(k), used to avoid division-by-zero in time stepping.
-    
+
         Notes
         -----
         - Frequencies are computed using `scipy.fft.fftfreq` and then shifted to center zero frequency.
         - Dealiasing is applied using a sharp cutoff filter based on `self.dealiasing_ratio`.
         - If pseudo-differential operators (ψOp) are present, symbolic tables are precomputed via `prepare_symbol_tables`.
         - For second-order equations, the dispersion relation ω(k) is extracted from the linear operator L(k).
-    
+
         See Also
         --------
         setup_2D : Equivalent setup for two-dimensional problems.
@@ -980,11 +980,11 @@ class PDESolver:
         self.X = self.x_grid
         self.kx = 2 * np.pi * fftfreq(Nx, d=Lx / Nx)
         self.KX = self.kx
-    
+
         # Dealiasing mask
         k_max = self.dealiasing_ratio * np.max(np.abs(self.kx))
         self.dealiasing_mask = (np.abs(self.KX) <= k_max)
-    
+
         # Preparation of symbol or linear operator
         if self.has_psi:
             self._prepare_symbol_tables()
@@ -994,17 +994,17 @@ class PDESolver:
             if self.temporal_order == 2:
                 omega_val = self.omega(self.KX)
                 self._setup_omega_terms(omega_val)
-    
+
     def _setup_2D(self, Lx: float, Ly: float, Nx: int, Ny: int) -> None:
         """
         Configure internal variables for two-dimensional (2D) problems.
-    
+
         This private method initializes spatial and frequency grids, applies dealiasing,
         and prepares either pseudo-differential symbols or linear operators for use in time evolution.
-        
+
         It assumes periodic boundary conditions and uses real-to-complex FFT conventions.
         The spatial domain is centered at zero: [-Lx/2, Lx/2] × [-Ly/2, Ly/2].
-    
+
         Parameters
         ----------
         Lx : float
@@ -1015,7 +1015,7 @@ class PDESolver:
             Number of grid points along the x-direction.
         Ny : int
             Number of grid points along the y-direction.
-    
+
         Attributes Set
         --------------
         - self.Lx, self.Ly : float
@@ -1040,14 +1040,14 @@ class PDESolver:
             Cosine and sine of ω(kx, ky)·dt for dispersive propagation.
         - self.inv_omega : np.ndarray
             Inverse of ω(kx, ky), used to avoid division-by-zero in time stepping.
-    
+
         Notes
         -----
         - Frequencies are computed using `scipy.fft.fftfreq` and then shifted to center zero frequency.
         - Dealiasing is applied using a sharp cutoff filter based on `self.dealiasing_ratio`.
         - If pseudo-differential operators (ψOp) are present, symbolic tables are precomputed via `prepare_symbol_tables`.
         - For second-order equations, the dispersion relation ω(kx, ky) is extracted from the linear operator L(kx, ky).
-    
+
         See Also
         --------
         setup_1D : Equivalent setup for one-dimensional problems.
@@ -1062,12 +1062,12 @@ class PDESolver:
         self.kx = 2 * np.pi * fftfreq(Nx, d=Lx / Nx)
         self.ky = 2 * np.pi * fftfreq(Ny, d=Ly / Ny)
         self.KX, self.KY = np.meshgrid(self.kx, self.ky, indexing='ij')
-    
+
         # Dealiasing mask
         kx_max = self.dealiasing_ratio * np.max(np.abs(self.kx))
         ky_max = self.dealiasing_ratio * np.max(np.abs(self.ky))
         self.dealiasing_mask = (np.abs(self.KX) <= kx_max) & (np.abs(self.KY) <= ky_max)
-    
+
         # Preparation of symbol or linear operator
         if self.has_psi:
             self._prepare_symbol_tables()
@@ -1077,25 +1077,25 @@ class PDESolver:
             if self.temporal_order == 2:
                 omega_val = self.omega(self.KX, self.KY)
                 self._setup_omega_terms(omega_val)
-    
+
     def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
         """
         Initialize terms derived from the angular frequency ω for time evolution.
-    
+
         This private method precomputes and stores key trigonometric and inverse quantities
         based on the dispersion relation ω(k), used in second-order time integration schemes.
-        
+
         These values are essential for solving wave-like equations with dispersive behavior:
             cos(ω·dt), sin(ω·dt), 1/ω
-        
+
         The inverse frequency is computed safely to avoid division by zero.
-    
+
         Parameters
         ----------
         omega_val : np.ndarray
             Array of angular frequency values ω(k) evaluated at discrete wavenumbers.
             Can be one-dimensional (1D) or two-dimensional (2D) depending on spatial dimension.
-    
+
         Attributes Set
         --------------
         - self.omega_val : np.ndarray
@@ -1106,14 +1106,14 @@ class PDESolver:
             Sine of ω(k) multiplied by time step: sin(ω(k) · dt).
         - self.inv_omega : np.ndarray
             Inverse of ω(k), with zeros where ω(k) == 0 to avoid division by zero.
-    
+
         Notes
         -----
         - This method is typically called during setup when solving second-order PDEs
           involving dispersive waves (e.g., Klein-Gordon, Schrödinger, or water wave equations).
         - The safe computation of 1/ω ensures numerical stability even when low frequencies are present.
         - These precomputed arrays are used in spectral propagators for accurate time stepping.
-    
+
         See Also
         --------
         setup_1D : Sets up internal variables for one-dimensional problems.
@@ -1167,18 +1167,18 @@ class PDESolver:
     def _evaluate_source_at_t0(self) -> np.ndarray:
         """
         Evaluate source terms at initial time t = 0 over the spatial grid.
-    
+
         This private method computes the total contribution of all source terms at the initial time,
         evaluated across the entire spatial domain. It supports both one-dimensional (1D) and
         two-dimensional (2D) configurations.
-    
+
         Returns
         -------
         np.ndarray
             A numpy array representing the evaluated source term at t=0:
             - In 1D: Shape (Nx,), evaluated at each x in `self.x_grid`.
             - In 2D: Shape (Nx, Ny), evaluated at each (x, y) pair in the grid.
-    
+
         Notes
         -----
         - The symbolic expressions in `self.source_terms` are substituted with numerical values at t=0.
@@ -1186,7 +1186,7 @@ class PDESolver:
         - In 2D, each term is evaluated at (t=0, x=x_val, y=y_val).
         - Evaluated using SymPy's `evalf()` to ensure numeric conversion.
         - This method assumes that the source terms have already been lambdified or are compatible with symbolic substitution.
-    
+
         See Also
         --------
         setup : Initializes the spatial grid and source terms.
@@ -1207,23 +1207,23 @@ class PDESolver:
                  for y_val in self.y_grid]
                 for x_val in self.x_grid
             ], dtype=np.complex128)
-    
+
     def _initialize_conditions(
-        self, 
-        initial_condition: Callable[..., np.ndarray], 
+        self,
+        initial_condition: Callable[..., np.ndarray],
         initial_velocity: Optional[Callable[..., np.ndarray]] = None
     ) -> None:
         """
         Initialize the solution and velocity fields at t = 0.
-    
+
         This private method sets up the initial state of the solution `u_prev` and, if applicable,
         the time derivative (velocity) `v_prev` for second-order evolution equations.
-        
+
         For second-order equations, it also computes the backward-in-time value `u_prev2`
         needed by the Leap-Frog method. The acceleration at t = 0 is computed from:
             ∂ₜ²u = L(u) + N(u) + f(x, t=0)
         where L is the linear operator, N is the nonlinear term, and f is the source term.
-    
+
         Parameters
         ----------
         initial_condition : callable
@@ -1231,19 +1231,19 @@ class PDESolver:
         initial_velocity : callable or None
             Function returning the initial velocity ∂ₜu(x, 0) or ∂ₜu(x, y, 0). Required for
             second-order equations; ignored otherwise.
-    
+
         Raises
         ------
         ValueError
             If `initial_velocity` is not provided for second-order equations.
-    
+
         Notes
         -----
         - Applies periodic boundary conditions after setting initial data.
         - Stores a copy of the initial state in `self.frames` for visualization/output.
         - In second-order systems, initializes `self.u_prev2` using a Taylor expansion:
           u_prev2 = u_prev - dt * v_prev + 0.5 * dt² * (∂ₜ²u)
-    
+
         See Also
         --------
         apply_boundary : Enforces periodic boundary conditions on the solution field.
@@ -1258,7 +1258,7 @@ class PDESolver:
         else:
             self.u_prev = initial_condition(self.X, self.Y)
         self._apply_boundary(self.u_prev)
-    
+
         # Initial velocity (second order)
         if self.temporal_order == 2:
             if initial_velocity is None:
@@ -1269,7 +1269,7 @@ class PDESolver:
                 self.v_prev = initial_velocity(self.X, self.Y)
             self.u0 = np.copy(self.u_prev)
             self.v0 = np.copy(self.v_prev)
-    
+
             # Calculation of u_prev2 (initial acceleration)
             if not hasattr(self, 'u_prev2'):
                 if self.has_psi:
@@ -1281,30 +1281,30 @@ class PDESolver:
                 if hasattr(self, 'source_terms') and self.source_terms:
                     acc0 += self._evaluate_source_at_t0()
                 self.u_prev2 = self.u_prev - self.dt * self.v_prev + 0.5 * self.dt**2 * acc0
-    
+
         self.frames = [self.u_prev.copy()]
-           
+
     def _apply_boundary(self, u: np.ndarray) -> None:
         """
         Apply boundary conditions to the solution array based on the specified type.
-    
+
         This method supports two types of boundary conditions:
-        
+
         - 'periodic': Enforces periodicity by copying opposite boundary values.
         - 'dirichlet': Sets all boundary values to zero (homogeneous Dirichlet condition).
         - 'neumann': Sets all boundary values to zero (homogeneous Dirichlet condition).
-    
+
         Parameters
         ----------
         u : np.ndarray
             The solution array representing the field values on a spatial grid.
             In 1D, shape must be (Nx,). In 2D, shape must be (Nx, Ny).
-    
+
         Raises
         ------
         ValueError
             If `self.boundary_condition` is not one of {'periodic', 'dirichlet', 'neumann'}.
-    
+
         Notes
         -----
         - For 'periodic':
@@ -1313,7 +1313,7 @@ class PDESolver:
         - For 'dirichlet':
             * All boundary points are explicitly set to zero.
         """
-    
+
         if self.boundary_condition == 'periodic':
             if self.dim == 1:
                 u[0] = u[-2]
@@ -1323,7 +1323,7 @@ class PDESolver:
                 u[-1, :] = u[1, :]
                 u[:, 0] = u[:, -2]
                 u[:, -1] = u[:, 1]
-    
+
         elif self.boundary_condition == 'dirichlet':
             if self.dim == 1:
                 u[0] = 0
@@ -1351,33 +1351,33 @@ class PDESolver:
     def _apply_nonlinear(self, u: np.ndarray, is_v: bool = False) -> np.ndarray:
         """
         Apply nonlinear terms to the solution using spectral differentiation with dealiasing.
-    
+
         This method evaluates all nonlinear contributions present in the PDE at the current
         time step. Spatial derivatives appearing in nonlinear expressions are approximated
         spectrally via FFT up to third order in 1D and second order (including cross
         derivatives) in 2D. A dealiasing mask is applied to u before any nonlinear product
         is formed, preventing aliasing errors from energy accumulation at high wavenumbers.
-    
+
         If no nonlinear terms are registered (self.nonlinear_terms is empty), the method
         returns a zero array immediately.
-    
+
         **Derivative bank:**
-    
+
             1D:
                 u_x   = IFFT(i·kₓ         · û)     — ∂ₓu   (first derivative)
                 u_xx  = IFFT((i·kₓ)²      · û)     — ∂ₓₓu  (second derivative)
                 u_xxx = IFFT((i·kₓ)³      · û)     — ∂ₓₓₓu (third derivative)
-    
+
             2D:
                 u_x   = IFFT(i·kₓ          · û)    — ∂ₓu
                 u_y   = IFFT(i·kᵧ          · û)    — ∂ᵧu
                 u_xx  = IFFT((i·kₓ)²       · û)    — ∂ₓₓu
                 u_yy  = IFFT((i·kᵧ)²       · û)    — ∂ᵧᵧu
                 u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)    — ∂ₓᵧu  (mixed cross derivative)
-    
+
         All derivatives are computed from the same dealiased û, requiring only pointwise
         wavenumber multiplications followed by IFFTs — no additional FFT of u is needed.
-    
+
         **SymPy Derivative normalisation:**
             SymPy represents derivatives in several equivalent forms depending on version
             and context:
@@ -1387,7 +1387,7 @@ class PDESolver:
             The internal helper _get_diff_order() normalises all forms to (variable, order)
             by name-based variable matching, making the substitution robust across SymPy
             versions and independently constructed symbol objects.
-    
+
         **1D procedure:**
             1. Transform u to Fourier space and apply the dealiasing mask in-place.
             2. Compute the full derivative bank from û.
@@ -1396,7 +1396,7 @@ class PDESolver:
                  spectral symbol ('u_x', 'u_xx', 'u_xxx') via _get_diff_order().
                - Lambdify the resulting expression over (t, x, u, u_x, u_xx, u_xxx).
                - Evaluate numerically on the physical grid and accumulate.
-    
+
         **2D procedure:**
             1. Transform u to Fourier space and apply the dealiasing mask in-place.
             2. Compute the full derivative bank (∂ₓ, ∂ᵧ, ∂ₓₓ, ∂ᵧᵧ, ∂ₓᵧ) from û.
@@ -1409,24 +1409,24 @@ class PDESolver:
             4. When two or more independent terms are present, evaluations are
                parallelised via ThreadPoolExecutor. For a single term the thread
                pool overhead is avoided and evaluation is performed directly.
-    
+
         **Velocity field variant:**
             When is_v=True, self.v_prev is passed as the pointwise field value u_sym
             in each lambdified expression instead of u. Spectral derivatives are still
             computed from the argument u, so the caller is responsible for passing the
             correct array for derivative computation.
-    
+
         **Aliasing note for high-order terms:**
             Nonlinear terms involving second or third derivatives (e.g. u·u_xx, u_x·u_xx)
             have a wider effective wavenumber support than first-order terms. The dealiasing
             mask on u is necessary but may not be sufficient in strongly nonlinear regimes;
             consider tightening self.dealiasing_ratio for such problems.
-    
+
         **Return scaling:**
             The accumulated nonlinear contribution is multiplied by self.dt before
             returning, so the caller can add it directly to the time-stepping update
             without an extra scaling step.
-    
+
         Parameters
         ----------
         u : numpy.ndarray
@@ -1437,7 +1437,7 @@ class PDESolver:
             If True, evaluates nonlinear expressions using self.v_prev as the
             pointwise field value instead of u. Intended for coupled PDE systems
             where nonlinear terms involve a separate velocity field v.
-    
+
         Returns
         -------
         numpy.ndarray, dtype complex128
@@ -1445,7 +1445,7 @@ class PDESolver:
             scaled by Δt:  Δt · N(uₙ).
             Returns a zero array of the same shape and dtype if no nonlinear terms
             are present.
-    
+
         Raises
         ------
         ValueError
@@ -1455,29 +1455,29 @@ class PDESolver:
         """
         if not self.nonlinear_terms:
             return np.zeros_like(u, dtype=np.complex128)
-    
+
         nonlinear_term = np.zeros_like(u, dtype=np.complex128)
-    
+
         from sympy import Symbol, Tuple as SympyTuple
-        
+
         def _get_diff_order(deriv: Derivative) -> Optional[Tuple[str, int]]:
             """
             Normalise a SymPy Derivative atom to (variable_name, order) or None.
-        
+
             Handles all known SymPy representations robustly:
                 Derivative(u(t, x), x)        args[1] = Symbol('x')
                 Derivative(u(t, x), (x, 1))   args[1] = sympy.Tuple(Symbol('x'), Integer(1))
                 Derivative(u(t, x), (x, 2))   args[1] = sympy.Tuple(Symbol('x'), Integer(2))
                 Derivative(u(t, x), x, x)     args[1] = Symbol('x'), args[2] = Symbol('x')
-        
+
             Variable matching is done by name string to avoid object identity issues
             across independently constructed SymPy symbols.
-        
+
             Returns (variable_name: str, order: int), or None for mixed derivatives.
             """
             variable_name = None
             order = 0
-        
+
             for arg in deriv.args[1:]:
                 # Tuple form — covers both Python tuple and sympy.Tuple
                 if isinstance(arg, (tuple, list, SympyTuple)):
@@ -1489,38 +1489,38 @@ class PDESolver:
                     n = 1
                 else:
                     continue
-        
+
                 if variable_name is None:
                     variable_name = var_name
                 elif variable_name != var_name:
                     return None  # mixed derivative
                 order += n
-        
+
             if variable_name is None:
                 return None
-        
+
             return (variable_name, order)
-    
+
         if self.dim == 1:
             x_name = self.x.name
-    
+
             u_hat = self.fft(u)
             u_hat *= self.dealiasing_mask
             u     = self.ifft(u_hat)
-    
+
             # Derivative bank — all from the same dealiased û
             u_x   = self.ifft((1j * self.KX)      * u_hat)
             u_xx  = self.ifft((1j * self.KX) ** 2 * u_hat)
             u_xxx = self.ifft((1j * self.KX) ** 3 * u_hat)
-    
+
             order_map = {
                 (x_name, 1): symbols('u_x'),
                 (x_name, 2): symbols('u_xx'),
                 (x_name, 3): symbols('u_xxx'),
             }
-    
+
             field = self.v_prev if is_v else u
-    
+
             for term in self.nonlinear_terms:
                 term_replaced = term
                 if term.has(Derivative):
@@ -1537,48 +1537,48 @@ class PDESolver:
                                 f"Supported: orders 1, 2, 3 w.r.t. '{x_name}'."
                             )
                         term_replaced = term_replaced.subs(deriv, order_map[key])
-    
+
                 term_func = lambdify(
                     (self.t, self.x, self.u_eq, 'u_x', 'u_xx', 'u_xxx'),
                     term_replaced, 'numpy'
                 )
                 nonlinear_term += term_func(0, self.X, field, u_x, u_xx, u_xxx)
-    
+
         elif self.dim == 2:
             x_name = self.x.name
             y_name = self.y.name
-    
+
             u_hat = self.fft(u)
             u_hat *= self.dealiasing_mask
             u     = self.ifft(u_hat)
-    
+
             # Derivative bank — all from the same dealiased û
             u_x  = self.ifft((1j * self.KX)                * u_hat)
             u_y  = self.ifft((1j * self.KY)                * u_hat)
             u_xx = self.ifft((1j * self.KX) ** 2           * u_hat)
             u_yy = self.ifft((1j * self.KY) ** 2           * u_hat)
             u_xy = self.ifft((1j * self.KX) * (1j*self.KY) * u_hat)
-    
+
             order_map = {
                 (x_name, 1): symbols('u_x'),
                 (y_name, 1): symbols('u_y'),
                 (x_name, 2): symbols('u_xx'),
                 (y_name, 2): symbols('u_yy'),
             }
-    
+
             u_phys = self.v_prev if is_v else u
             X, Y   = self.X, self.Y
             t_sym, x_sym, y_sym, u_sym = self.t, self.x, self.y, self.u_eq
-                
+
             def _eval_nl_term(term: Expr) -> np.ndarray:
                 """Evaluate one nonlinear term; called directly or from a thread pool."""
                 from sympy import Symbol, Tuple as SympyTuple
-            
+
                 # Build a replacement mapping: Derivative atom → placeholder Symbol
                 replacement = {}
                 for deriv in term.atoms(Derivative):
                     key = _get_diff_order(deriv)
-            
+
                     if key is None:
                         # Mixed derivative — check which variables are involved
                         vars_in_deriv = set()
@@ -1587,7 +1587,7 @@ class PDESolver:
                                 vars_in_deriv.add(str(arg[0]))
                             elif hasattr(arg, 'name'):
                                 vars_in_deriv.add(arg.name)
-            
+
                         if vars_in_deriv == {x_name, y_name}:
                             replacement[deriv] = symbols('u_xy')
                         else:
@@ -1605,11 +1605,11 @@ class PDESolver:
                         )
                     else:
                         replacement[deriv] = order_map[key]
-            
+
                 # Apply all replacements at once using xreplace — exact structural match,
                 # no ambiguity, no silent misses unlike subs()
                 term_replaced = term.xreplace(replacement)
-            
+
                 # Safety check — if any Derivative survived, substitution was incomplete
                 remaining = term_replaced.atoms(Derivative)
                 if remaining:
@@ -1619,13 +1619,13 @@ class PDESolver:
                         f"Unresolved derivatives: {remaining}\n"
                         f"This likely means a derivative involves an unsupported variable or order."
                     )
-            
+
                 fn = lambdify(
                     (t_sym, x_sym, y_sym, u_sym, 'u_x', 'u_y', 'u_xx', 'u_yy', 'u_xy'),
                     term_replaced, 'numpy'
                 )
                 return fn(0, X, Y, u_phys, u_x, u_y, u_xx, u_yy, u_xy)
-    
+
             if len(self.nonlinear_terms) >= 2:
                 with ThreadPoolExecutor() as executor:
                     for contrib in executor.map(_eval_nl_term, self.nonlinear_terms):
@@ -1637,36 +1637,36 @@ class PDESolver:
             raise ValueError(
                 f"Unsupported spatial dimension: {self.dim}. Expected 1 or 2."
             )
-    
+
         return nonlinear_term * self.dt
-    
+
     def _prepare_symbol_tables(self) -> None:
         """
         Precompute and store evaluated pseudo-differential operator symbols for spectral methods.
-        
-        This method evaluates the symbolic pseudo-differential operators (ψOp) on the 
-        spatial and frequency grids. It performs a fast vectorized conversion to complex128 
-        arrays, bypassing per-element SymPy `N()` evaluation, and prepares the combined 
+
+        This method evaluates the symbolic pseudo-differential operators (ψOp) on the
+        spatial and frequency grids. It performs a fast vectorized conversion to complex128
+        arrays, bypassing per-element SymPy `N()` evaluation, and prepares the combined
         symbol for the Peetre backend or direct application.
-        
+
         Attributes Set
         --------------
         self.precomputed_symbols : list of tuple
-            List of tuples containing the scalar coefficient and the evaluated complex128 
+            List of tuples containing the scalar coefficient and the evaluated complex128
             array for each pseudo-differential operator.
         self.combined_symbol : np.ndarray
-            The accumulated sum of all coefficient-weighted evaluated symbols, representing 
+            The accumulated sum of all coefficient-weighted evaluated symbols, representing
             the total pseudo-differential operator on the grid.
-            
+
         Notes
         -----
-        - This method is automatically called during `_setup_1D` or `_setup_2D` when 
+        - This method is automatically called during `_setup_1D` or `_setup_2D` when
           pseudo-differential operators are present.
         - The vectorized accumulation is performed directly in NumPy memory for efficiency.
         """
         self.precomputed_symbols = []
         combined = None
-    
+
         for coeff, psi in self.psi_ops:
             # Evaluate operator on spatial and frequency grids
             if self.dim == 1:
@@ -1675,43 +1675,43 @@ class PDESolver:
                 raw = psi.evaluate(self.X, self.Y, self.KX, self.KY)
             else:
                 raise ValueError('Unsupported spatial dimension.')
-    
+
             # Fast vectorized conversion to complex128 array (bypassing per-element SymPy N() evaluation)
             if isinstance(raw, np.ndarray):
                 raw_eval = raw.astype(np.complex128, copy=False)
             else:
                 raw_eval = np.array(raw, dtype=np.complex128)
-    
+
             # Convert the scalar coefficient explicitly (cheap: one N() call per operator, not per grid point)
             if not isinstance(coeff, (int, float, complex, np.number)):
                 coeff_val = complex(N(coeff))
             else:
                 coeff_val = complex(coeff)
-    
+
             self.precomputed_symbols.append((coeff_val, raw_eval))
-    
+
             # Vectorized accumulation directly in NumPy memory
             if combined is None:
                 combined = np.zeros_like(raw_eval, dtype=np.complex128)
-    
+
             combined += coeff_val * raw_eval
-    
+
         self.combined_symbol = combined
 
     def _total_symbol_expr(self) -> Expr:
         """
         Compute the total pseudo-differential symbol expression from all pseudo_terms.
-        
-        Constructs the full symbol of the pseudo-differential operator by summing up 
-        all coefficient-weighted symbolic expressions. The result is cached in 
+
+        Constructs the full symbol of the pseudo-differential operator by summing up
+        all coefficient-weighted symbolic expressions. The result is cached in
         `self.symbol_expr` to avoid recomputation.
-        
+
         Returns
         -------
         sympy.Expr
-            The combined symbol expression, representing the full pseudo-differential 
+            The combined symbol expression, representing the full pseudo-differential
             operator in symbolic form.
-            
+
         Examples
         --------
         Given `pseudo_terms = [(2, ξ²), (1, x·ξ)]`, this returns `2·ξ² + x·ξ`.
@@ -1723,16 +1723,16 @@ class PDESolver:
     def _build_symbol_func(self, expr: Expr) -> Callable[..., np.ndarray]:
         """
         Build a numerical evaluation function from a symbolic pseudo-differential operator expression.
-        
+
         Converts a symbolic expression representing a pseudo-differential operator into
         a callable NumPy-compatible function.
-        
+
         Parameters
         ----------
         expr : sympy.Expr
-            A SymPy expression representing the symbol of the pseudo-differential operator. 
+            A SymPy expression representing the symbol of the pseudo-differential operator.
             It may depend on spatial variables (x, y) and frequency variables (ξ, η).
-            
+
         Returns
         -------
         callable
@@ -1740,7 +1740,7 @@ class PDESolver:
             - In 1D: `(x, ξ)` — spatial coordinate and frequency.
             - In 2D: `(x, y, ξ, η)` — spatial coordinates and frequencies.
             Returns a NumPy array of evaluated symbol values over input grids.
-            
+
         Notes
         -----
         - Uses `lambdify` from SymPy with the `'numpy'` backend for efficient vectorized evaluation.
@@ -1754,19 +1754,19 @@ class PDESolver:
             return lambdify((x, y, xi, eta), expr, 'numpy')
 
     def _apply_psiOp(
-        self, 
-        u: np.ndarray, 
-        psi_ops: Optional[List[Tuple[Any, Any]]] = None, 
+        self,
+        u: np.ndarray,
+        psi_ops: Optional[List[Tuple[Any, Any]]] = None,
         is_spatial: Optional[bool] = None
     ) -> np.ndarray:
         """
         Apply a pseudo-differential operator to the input field u.
-        
+
         This method delegates to the apply() method of each PseudoDifferentialOperator.
-        If the operators are configured with the Peetre backend, local and separable 
-        terms will automatically bypass the slow double-chunking integration and use 
+        If the operators are configured with the Peetre backend, local and separable
+        terms will automatically bypass the slow double-chunking integration and use
         fast global FFTs instead.
-        
+
         For any remaining joint residuals that require the slow path, the underlying
         kohn_nirenberg_fft function already handles memory-bounded parallel row-blocking
         internally, so no outer ThreadPoolExecutor is needed here.
@@ -1780,10 +1780,10 @@ class PDESolver:
             raise ValueError("No pseudo-differential operators defined")
 
         result = np.zeros_like(u, dtype=np.complex128)
-        
+
         for coeff, psi_op in psi_ops:
             coeff = np.complex128(coeff)
-            
+
             if self.dim == 1:
                 contribution = psi_op.apply(
                     u=u,
@@ -1808,36 +1808,36 @@ class PDESolver:
                 )
             else:
                 raise ValueError("Only 1D and 2D supported")
-            
+
             result += coeff * contribution
-        
+
         return result
 
     def _step_order1_with_psi(self, source_contribution: Union[np.ndarray, float, int]) -> np.ndarray:
         """
         Perform one time step of a first-order evolution using a pseudo-differential operator.
-        
-        Updates the solution field using an exponential integrator scheme, depending on 
+
+        Updates the solution field using an exponential integrator scheme, depending on
         boundary conditions and the structure of the pseudo-differential symbol.
-        
+
         Parameters
         ----------
         source_contribution : np.ndarray or scalar
-            Array representing the external source term at the current time step. 
-            Pass a scalar 0 to indicate no source; it will be broadcast to a zero array 
+            Array representing the external source term at the current time step.
+            Pass a scalar 0 to indicate no source; it will be broadcast to a zero array
             internally. Must match the spatial dimensions of `self.u_prev`.
-            
+
         Returns
         -------
         np.ndarray
             Updated solution array after one time step.
-            
+
         Notes
         -----
         The update follows three distinct computational paths:
         1. Periodic boundaries + diagonalizable symbol: Exact Fourier-based exponential integrator.
         2. Non-periodic boundaries + spatially uniform symbol: General ETD1 scheme in Fourier space.
-        3. Spatially varying symbol (Kohn-Nirenberg regime): Uses pointwise symbol as an 
+        3. Spatially varying symbol (Kohn-Nirenberg regime): Uses pointwise symbol as an
            approximate integrating factor, with a residual correction `R(uₙ) = L(uₙ) + σ·uₙ`.
         """
         # Handling null source
@@ -1867,7 +1867,7 @@ class PDESolver:
         # Recalculate symbol if necessary
         # if self.is_spatial:
         #     self._prepare_symbol_tables()  # Recalculates self.combined_symbol
-    
+
         # Case with FFT (symbol diagonalizable in Fourier space)
         if self.boundary_condition == 'periodic' and not self.is_spatial:
             u_hat = self.fft(self.u_prev)
@@ -1880,25 +1880,25 @@ class PDESolver:
             if self.boundary_condition in ('dirichlet', 'neumann') and not self.is_spatial:
                 # General case with ETD1
                 u_nl = self._apply_nonlinear(self.u_prev)
-    
+
                 # Calculation of exp(dt * L) and phi1(dt * L)
                 L_vals = self.combined_symbol  # Uses the updated symbol
                 exp_L = np.exp(-self.dt * L_vals)
                 phi1_L = (exp_L - 1.0) / (self.dt * L_vals)
                 phi1_L[np.isnan(phi1_L)] = 1.0  # Handling division by zero
-    
+
                 # Fourier transform
                 u_hat = self.fft(self.u_prev)
                 u_nl_hat = self.fft(u_nl)
                 source_hat = self.fft(source)
-    
+
                 # Assembling the solution in Fourier space
                 u_hat_new = exp_L * u_hat + self.dt * phi1_L * (u_nl_hat + source_hat)
                 u_new = self.ifft(u_hat_new)
             else:
                 Lu_prev = -self._apply_psiOp(self.u_prev)
                 u_nl = self._apply_nonlinear(self.u_prev)
-                
+
                 # Use the symbol pointwise as an approximate integrating factor
                 # This is exact when the symbol is spatially constant, and a good
                 # approximation when it varies slowly — which is the Kohn-Nirenberg regime
@@ -1909,7 +1909,7 @@ class PDESolver:
                     (exp_sigma - 1.0) / (-self.dt * sigma),
                     1.0
                 )
-                
+
                 # ETD1-like update using pointwise symbol (no extra _apply_psiOp call)
                 # Lu_prev already incorporates the full nonlocal action;
                 # the exponential factor corrects the linear stiffness locally
@@ -1926,17 +1926,17 @@ class PDESolver:
 
         """
         Perform one time step of a second-order time evolution using a pseudo-differential operator.
-        
-        Updates the solution field using a second-order accurate leapfrog-style finite 
+
+        Updates the solution field using a second-order accurate leapfrog-style finite
         difference in time:
             uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ + Δt² ⋅ (L(uⁿ) + N(uⁿ) + F)
-            
+
         Parameters
         ----------
         source_contribution : np.ndarray
             Array representing the external source term at current time step.
             Must match the spatial dimensions of `self.u_prev`.
-            
+
         Returns
         -------
         np.ndarray
@@ -1954,21 +1954,21 @@ class PDESolver:
     def solve(self) -> List[np.ndarray]:
         """
         Solve the partial differential equation numerically using spectral methods.
-        
-        This method evolves the solution in time using a combination of Fourier-based 
-        linear evolution, nonlinear term handling via pseudo-spectral evaluation, and 
+
+        This method evolves the solution in time using a combination of Fourier-based
+        linear evolution, nonlinear term handling via pseudo-spectral evaluation, and
         support for pseudo-differential operators (ψOp), source terms, and boundary conditions.
-        
+
         Returns
         -------
         list of np.ndarray
             A list of solution arrays at each saved time frame.
-            
+
         Notes
         -----
         - Updates `self.frames` to store solution snapshots.
         - Updates `self.energy_history` to record total energy if enabled.
-        
+
         Algorithm Overview
         ------------------
         For each time step:
@@ -1989,7 +1989,7 @@ class PDESolver:
         self.mechanical_energy_history = []
         self.work_history = []
         self._prev_power = 0.0  # For trapezoidal rule
-        
+
         for step in range(self.Nt):
             t_val = step * self.dt
             source_contribution = self._eval_source(t_val)
@@ -2038,20 +2038,20 @@ class PDESolver:
             if step % save_interval == 0:
                 self.frames.append(self.u_prev.copy())
 
-        return self.frames  
-                
+        return self.frames
+
     def solve_stationary_psiOp(self, order: int = 3) -> np.ndarray:
         """
         Solve stationary pseudo-differential equations of the form P[u] = f(x) or P[u] = f(x,y) using asymptotic inversion.
-    
+
         This method computes the solution to a stationary (time-independent) pseudo-differential equation
-        where the operator P is defined via symbolic expressions (psiOp). It constructs an asymptotic right inverse R 
-        such that P∘R ≈ Id, then applies it to the source term f using either direct Fourier multiplication 
+        where the operator P is defined via symbolic expressions (psiOp). It constructs an asymptotic right inverse R
+        such that P∘R ≈ Id, then applies it to the source term f using either direct Fourier multiplication
         (when the symbol is spatially independent) or Kohn–Nirenberg quantization (when spatial dependence is present).
-    
+
         The inversion is based on the principal symbol of the operator and its asymptotic expansion up to the given order.
         Ellipticity of the symbol is checked numerically before inversion to ensure well-posedness.
-    
+
         Parameters
         ----------
         order : int, default=3
@@ -2060,12 +2060,12 @@ class PDESolver:
             Inversion strategy:
             - 'diagonal' (default): Fast approximate inversion using diagonal operators in frequency space.
             - 'full'                : Pointwise exact inversion (slower but more accurate).
-    
+
         Returns
         -------
         ndarray
             The computed solution u(x) in 1D or u(x, y) in 2D as a NumPy array over the spatial grid.
-    
+
         Raises
         ------
         ValueError
@@ -2073,14 +2073,14 @@ class PDESolver:
             If linear or nonlinear terms other than psiOp are present.
             If the symbol is not elliptic on the grid.
             If no source term is provided for the right-hand side.
-    
+
         Notes
         -----
         - The method assumes the problem is fully stationary: time derivatives must be absent.
         - Requires the equation to be purely pseudo-differential (no Op, Derivative, or nonlinear terms).
         - Symbol evaluation and inversion are dimension-aware (supports both 1D and 2D problems).
         - Supports optimization paths when the symbol does not depend on spatial variables.
-    
+
         See Also
         --------
         right_inverse_asymptotic : Constructs the asymptotic inverse of the pseudo-differential operator.
@@ -2092,11 +2092,11 @@ class PDESolver:
         print("* Solving the stationnary PDE *")
         print("*******************************\n")
         print("boundary condition: ",self.boundary_condition)
-        
+
 
         if not self.has_psi:
             raise ValueError("Only supports problems with psiOp.")
-    
+
         if self.linear_terms or self.nonlinear_terms:
             raise ValueError("Stationary psiOp problems must be linear and purely pseudo-differential.")
 
@@ -2104,8 +2104,8 @@ class PDESolver:
             raise ValueError(
                 "For stationary PDEs, boundary conditions must be explicitly defined. "
                 "Supported types are 'periodic', 'dirichlet' and 'neumann'."
-            )    
-            
+            )
+
         if self.dim == 1:
             x = self.x
             xi = symbols('xi', real=True)
@@ -2120,16 +2120,16 @@ class PDESolver:
             X, Y, KX, KY = self.X, self.Y, self.KX, self.KY
         else:
             raise ValueError("Unsupported spatial dimension.")
-    
+
         total_symbol = sum(coeff * psi.expr for coeff, psi in self.psi_ops)
         psi_total = PseudoDifferentialOperator(
-                    total_symbol, 
-                    spatial_vars, 
+                    total_symbol,
+                    spatial_vars,
                     mode='symbol',
                     apply_backend="peetre",  # <--- Also optimize energy monitoring
                     compute_peetre=True,
                 )
-    
+
         # Check ellipticity
         if self.dim == 1:
             is_elliptic = psi_total.is_elliptic_numerically(X, KX)
@@ -2138,11 +2138,11 @@ class PDESolver:
         if not is_elliptic:
             raise ValueError("❌ The pseudo-differential symbol is not numerically elliptic on the grid.")
         print("✅ Elliptic pseudo-differential symbol: inversion allowed.")
-    
+
         R_symbol = psi_total.right_inverse_asymptotic(order=order)
         print('Right inverse asymptotic symbol:')
         pprint(R_symbol, num_columns=NUM_COLS)
-        
+
         # ========================================================================
         # FIX: Always lambdify with all variables for consistency
         # ========================================================================
@@ -2152,7 +2152,7 @@ class PDESolver:
         elif self.dim == 2:
             # Always include all four variables
             R_func = lambdify((x, y, xi, eta), R_symbol, modules='numpy')
-        
+
         # Prepare right-hand side
         if self.source_terms:
             f_expr = sum(self.source_terms)
@@ -2166,13 +2166,13 @@ class PDESolver:
             raise ValueError('Initial condition should be None for stationnary equation.')
         else:
             raise ValueError('No source term provided to construct the right-hand side.')
-        
+
         f_hat = self.fft(rhs)
-        
+
         # ========================================================================
         # Application of the inverse operator via PseudoDifferentialOperator.apply
         # ========================================================================
-        
+
         R_op = PseudoDifferentialOperator(
             R_symbol,
             list(spatial_vars),
@@ -2180,13 +2180,13 @@ class PDESolver:
             quantization="kohn-nirenberg",
             apply_backend = 'peetre',
         )
-        
+
         # If you have implemented apply_backend / use_peetre in PseudoDifferentialOperator,
         # and your global default is "peetre", you may want to force the direct path here
         # for the stationary inverse, unless you explicitly want Peetre acceleration.
         if hasattr(R_op, "apply_backend"):
             R_op.apply_backend = "direct"
-        
+
         apply_kwargs = dict(
             boundary_condition=self.boundary_condition,
             dealiasing_mask=None,
@@ -2194,7 +2194,7 @@ class PDESolver:
             clamp=np.inf,           # no artificial clipping
             space_window=False,
         )
-        
+
         if self.dim == 1:
             u = R_op.apply(
                 rhs,
@@ -2202,7 +2202,7 @@ class PDESolver:
                 kx=self.kx,
                 **apply_kwargs,
             )
-        
+
         elif self.dim == 2:
             u = R_op.apply(
                 rhs,
@@ -2212,31 +2212,31 @@ class PDESolver:
                 ky=self.ky,
                 **apply_kwargs,
             )
-        
+
         else:
             raise ValueError("Unsupported spatial dimension.")
-        
+
         self.u = u
         return u
-    
+
     def _eval_source(self, t_val: float) -> Union[np.ndarray, float]:
         """
         Evaluate the total source term f(x,t) (or f(x,y,t)) at a given time `t_val`.
-        
+
         This factors out the source-evaluation logic used in the main time-stepping
         loop so that sub-step schemes (e.g., ETD-RK4) can sample the source at the
         intermediate stage times they require (t, t+Δt/2, t+Δt, ...) instead of
         reusing a single value computed at the start of the step.
-        
+
         Parameters
         ----------
         t_val : float
             Time at which to evaluate the source term(s).
-            
+
         Returns
         -------
         np.ndarray or float
-            Source contribution on the spatial grid, or 0.0 if no source terms 
+            Source contribution on the spatial grid, or 0.0 if no source terms
             are registered.
         """
         if hasattr(self, '_compiled_source_funcs') and self._compiled_source_funcs:
@@ -2255,30 +2255,30 @@ class PDESolver:
 
     def _step_ETD_RK4_order1(self, u: np.ndarray, t: float = 0.0) -> np.ndarray:
         """
-        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step 
+        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step
         for first-order in time PDEs.
-        
+
         Solves equations of the form:
             ∂ₜu = L u + N(u) + f(x,t)
-        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a 
+        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a
         nonlinear term treated via pseudo-spectral methods.
-        
-        The ETD-RK4 scheme uses four stages to approximate the integral of the 
+
+        The ETD-RK4 scheme uses four stages to approximate the integral of the
         variation-of-constants formula:
             uⁿ⁺¹ = e^(L Δt) uⁿ + Δt ∫₀¹ e^(L Δt (1 - τ)) φ(N(u(τ))) dτ
-            
+
         Parameters
         ----------
         u : np.ndarray
             Current solution in real space (physical grid values).
         t : float, optional
             Current time. Default is 0.0.
-            
+
         Returns
         -------
         np.ndarray
             Updated solution in real space after one ETD-RK4 time step.
-            
+
         Notes
         -----
         - The linear part L is diagonal in Fourier space and precomputed as `self.L(k)`.
@@ -2287,7 +2287,7 @@ class PDESolver:
               φ₁(z) = (eᶻ - 1)/z   if z ≠ 0, else 1
               φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0, else ½
         - Assumes periodic boundary conditions and uses spectral differentiation via FFT.
-        
+
         See Also
         --------
         _step_ETD_RK4_order2 : For second-order in time equations.
@@ -2296,55 +2296,57 @@ class PDESolver:
         """
         dt = self.dt
         L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
-    
+
         E  = np.exp(dt * L_fft)
         E2 = np.exp(dt * L_fft / 2)
-    
+
         def phi1(z):
             return np.where(np.abs(z) > 1e-12, (np.exp(z) - 1) / z, 1.0)
-    
+
         def phi2(z):
             return np.where(np.abs(z) > 1e-12, (np.exp(z) - 1 - z) / z**2, 0.5)
-    
+
         phi1_dtL = phi1(dt * L_fft)
         phi2_dtL = phi2(dt * L_fft)
-    
+
         fft = self.fft
         ifft = self.ifft
-    
+
         # Source term sampled at the stage times required for 4th-order accuracy
         f0    = self._eval_source(t)
         fhalf = self._eval_source(t + 0.5 * dt)
         f1    = self._eval_source(t + dt)
-    
+
+        # NOTE: _apply_nonlinear returns dt*N(u); ETD-RK4 needs the bare N(u)
+        # (it multiplies by dt itself), so divide the dt back out here.
         u_hat = fft(u)
-        N1 = fft(self._apply_nonlinear(u) + f0)
-    
+        N1 = fft(self._apply_nonlinear(u) / dt + f0)
+
         a = ifft(E2 * (u_hat + 0.5 * dt * N1 * phi1_dtL))
-        N2 = fft(self._apply_nonlinear(a) + fhalf)
-    
+        N2 = fft(self._apply_nonlinear(a) / dt + fhalf)
+
         b = ifft(E2 * (u_hat + 0.5 * dt * N2 * phi1_dtL))
-        N3 = fft(self._apply_nonlinear(b) + fhalf)
-    
+        N3 = fft(self._apply_nonlinear(b) / dt + fhalf)
+
         c = ifft(E * (u_hat + dt * N3 * phi1_dtL))
-        N4 = fft(self._apply_nonlinear(c) + f1)
-    
+        N4 = fft(self._apply_nonlinear(c) / dt + f1)
+
         u_new_hat = E * u_hat + dt * (
             N1 * phi1_dtL + 2 * (N2 + N3) * phi2_dtL + N4 * phi1_dtL
         ) / 6
-    
+
         return ifft(u_new_hat)
 
 
     def _step_ETD_RK4_order2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
         """
         Perform one time step of the ETD-RK4 scheme for second-order PDEs.
-        
-        Evolves the solution u and its time derivative v forward in time by one step 
+
+        Evolves the solution u and its time derivative v forward in time by one step
         using the ETD-RK4 integrator. Designed for systems of the form:
             ∂ₜ²u = L u + N(u) + f(x,t)
         where L is a linear operator and N is a nonlinear term.
-        
+
         Parameters
         ----------
         u : np.ndarray
@@ -2353,12 +2355,12 @@ class PDESolver:
             Current time derivative of the solution (∂ₜu) in real space.
         t : float, optional
             Current time. Default is 0.0.
-            
+
         Returns
         -------
         tuple of np.ndarray
             `(u_new, v_new)`: Updated solution and its time derivative after one time step.
-            
+
         Notes
         -----
         - Assumes periodic boundary conditions and uses FFT-based spectral methods.
@@ -2366,56 +2368,56 @@ class PDESolver:
         - Uses phi functions to compute exponential integrators efficiently.
         """
         dt = self.dt
-    
+
         L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
         fft = self.fft
         ifft = self.ifft
 
         def rhs(u_val, t_val):
             return (ifft(L_fft * fft(u_val))
-                    + self._apply_nonlinear(u_val, is_v=False)
+                    + self._apply_nonlinear(u_val, is_v=False) / dt
                     + self._eval_source(t_val))
-    
+
         # Stage A (t)
         A = rhs(u, t)
         ua = u + 0.5 * dt * v
         va = v + 0.5 * dt * A
-    
+
         # Stage B (t + dt/2)
         B = rhs(ua, t + 0.5 * dt)
         ub = u + 0.5 * dt * va
         vb = v + 0.5 * dt * B
-    
+
         # Stage C (t + dt/2)
         C = rhs(ub, t + 0.5 * dt)
         uc = u + dt * vb
-    
+
         # Stage D (t + dt)
         D = rhs(uc, t + dt)
-    
+
         # Final update
         u_new = u + dt * v + (dt**2 / 6.0) * (A + 2*B + 2*C + D)
         v_new = v + (dt / 6.0) * (A + 2*B + 2*C + D)
-    
+
         return u_new, v_new
 
 
     def _check_cfl_condition(self) -> None:
         """
-        Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity 
+        Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity
         for second-order time-dependent PDEs.
-        
-        Verifies whether the chosen time step Δt satisfies the numerical stability 
+
+        Verifies whether the chosen time step Δt satisfies the numerical stability
         condition derived from the maximum wave propagation speed in the system.
-        
+
         Notes
         -----
         - In 1D, the group velocity v₉(k) = dω/dk is used to compute the maximum wave speed.
         - In 2D, the x- and y-directional group velocities are evaluated independently.
-        - If no dispersion relation is available, the imaginary part of the linear operator L(k) 
+        - If no dispersion relation is available, the imaginary part of the linear operator L(k)
           is used as an approximation for wave speed.
         - Prints a warning message if the current time step Δt exceeds the CFL-stable limit.
-        
+
         Raises
         ------
         NotImplementedError
@@ -2426,7 +2428,7 @@ class PDESolver:
         print("*****************\n")
 
         cfl_factor = 0.5  # Safety factor
-        
+
         if self.dim == 1:
             if self.temporal_order == 2 and hasattr(self, 'omega'):
                 k_vals = self.kx
@@ -2436,13 +2438,13 @@ class PDESolver:
                 max_speed = np.max(np.abs(v_group))
             else:
                 max_speed = np.max(np.abs(np.imag(self.L(self.kx))))
-            
+
             dx = self.Lx / self.Nx
             cfl_limit = cfl_factor * dx / max_speed if max_speed != 0 else np.inf
-            
+
             if self.dt > cfl_limit:
                 print(f"CFL condition violated: dt = {self.dt}, max allowed dt = {cfl_limit}")
-    
+
         elif self.dim == 2:
             if self.temporal_order == 2 and hasattr(self, 'omega'):
                 k_vals = self.kx
@@ -2456,49 +2458,49 @@ class PDESolver:
             else:
                 max_speed_x = np.max(np.abs(np.imag(self.L(self.kx, 0))))
                 max_speed_y = np.max(np.abs(np.imag(self.L(0, self.ky))))
-            
+
             dx = self.Lx / self.Nx
             dy = self.Ly / self.Ny
             cfl_limit = cfl_factor / (max_speed_x / dx + max_speed_y / dy) if (max_speed_x + max_speed_y) != 0 else np.inf
-            
+
             if self.dt > cfl_limit:
                 print(f"CFL condition violated: dt = {self.dt}, max allowed dt = {cfl_limit}")
-    
+
         else:
             raise NotImplementedError("Only 1D and 2D problems are supported.")
 
     def _check_symbol_conditions(
-        self, 
-        k_range: Optional[Tuple[float, float, int]] = None, 
+        self,
+        k_range: Optional[Tuple[float, float, int]] = None,
         verbose: bool = True
     ) -> None:
         """
         Check strict analytic conditions on the linear symbol `self.L_symbolic`.
-        
-        Evaluates three key properties of the Fourier multiplier symbol a(k) = self.L(k), 
+
+        Evaluates three key properties of the Fourier multiplier symbol a(k) = self.L(k),
         which are crucial for well-posedness, stability, and numerical efficiency.
-        
+
         Parameters
         ----------
         k_range : tuple or None, optional
             Specifies the range of frequencies to test in the form `(k_min, k_max, N)`.
-            If None, defaults are used: `[-10, 10]` with 500 points in 1D, or `[-10, 10]` 
+            If None, defaults are used: `[-10, 10]` with 500 points in 1D, or `[-10, 10]`
             with 100 points per axis in 2D.
         verbose : bool, default=True
             If True, prints detailed results of each condition check.
-            
+
         Returns
         -------
         None
             Output is printed directly to the console for interpretability.
-            
+
         Notes
         -----
         - **Stability condition**: Re(a(k)) ≤ 0 for all k ≠ 0.
         - **Dissipation condition**: Re(a(k)) ≤ -δ |k|² for large |k|.
         - **Growth condition**: |a(k)| ≤ C (1 + |k|)^m with m ≤ 4.
         - In 2D, the radial frequency |k| = √(kx² + ky²) is used for comparisons.
-        
+
         See Also
         --------
         _analyze_wave_propagation : For further symbolic and numerical analysis of dispersion.
@@ -2508,35 +2510,35 @@ class PDESolver:
         print("* Symbol condition *")
         print("********************\n")
 
-    
-        if self.dim == 1:    
+
+        if self.dim == 1:
             if k_range is None:
                 k_vals = np.linspace(-10, 10, 500)
             else:
                 k_min, k_max, N = k_range
                 k_vals = np.linspace(k_min, k_max, N)
-    
+
             L_vals = self.L(k_vals)
             k_abs = np.abs(k_vals)
-    
+
         elif self.dim == 2:
             if k_range is None:
                 k_vals = np.linspace(-10, 10, 100)
             else:
                 k_min, k_max, N = k_range
                 k_vals = np.linspace(k_min, k_max, N)
-    
+
             KX, KY = np.meshgrid(k_vals, k_vals)
             L_vals = self.L(KX, KY)
             k_abs = np.sqrt(KX**2 + KY**2)
-    
+
         else:
             raise ValueError("Only 1D and 2D dimensions are supported.")
 
-    
+
         re_vals = np.real(L_vals)
         abs_vals = np.abs(L_vals)
-    
+
         # === Condition 1: Stability
         if np.any(re_vals > 1e-12):
             max_pos = np.max(re_vals)
@@ -2545,7 +2547,7 @@ class PDESolver:
             print("Unstable symbol: Re(a(k)) > 0")
         elif verbose:
             print("✅ Spectral stability satisfied: Re(a(k)) ≤ 0")
-    
+
         # === Condition 2: Dissipation
         mask = k_abs > 2
         if np.any(mask):
@@ -2557,7 +2559,7 @@ class PDESolver:
             else:
                 if verbose:
                     print("✅ Proper high-frequency dissipation")
-    
+
         # === Condition 3: Growth
         growth_ratio = abs_vals / (1 + k_abs)**4
         if np.max(growth_ratio) > 100:
@@ -2566,7 +2568,7 @@ class PDESolver:
         else:
             if verbose:
                 print("✅ Reasonable spectral growth")
-    
+
         if verbose:
             print("✔ Symbol analysis completed.")
 
@@ -2574,19 +2576,19 @@ class PDESolver:
     def _analyze_wave_propagation(self) -> None:
         """
         Perform a detailed analysis of wave propagation characteristics based on the dispersion relation ω(k).
-        
+
         Visualizes key wave properties in both 1D and 2D settings:
         - Dispersion relation: ω(k)
         - Phase velocity: vₚ(k) = ω(k)/|k|
         - Group velocity: v₉(k) = ∇ₖ ω(k)
-        
+
         Notes
         -----
         - The symbolic dispersion relation `omega_symbolic` must be defined beforehand.
         - In 1D: Plots ω(k), vₚ(k), and v₉(k) over a range of k values.
         - In 2D: Displays heatmaps of ω(kx, ky), vₚ(kx, ky), and |v₉(kx, ky)|.
         - Generates and displays matplotlib plots as a side effect.
-        
+
         Raises
         ------
         AttributeError
@@ -2598,20 +2600,20 @@ class PDESolver:
         if not hasattr(self, 'omega_symbolic'):
             print("❌ omega_symbolic not defined. Only available for 2nd order in time.")
             return
-    
+
         if self.dim == 1:
             k = self.k_symbols[0]
             omega_func = lambdify(k, self.omega_symbolic, 'numpy')
-    
+
             k_vals = np.linspace(-10, 10, 1000)
             omega_vals = omega_func(k_vals)
-    
+
             with np.errstate(divide='ignore', invalid='ignore'):
                 v_phase = np.where(k_vals != 0, omega_vals / k_vals, 0.0)
-    
+
             dk = k_vals[1] - k_vals[0]
             v_group = np.gradient(omega_vals, dk)
-    
+
             plt.figure(figsize=(10, 6))
             plt.plot(k_vals, omega_vals, label=r'$\omega(k)$')
             plt.plot(k_vals, v_phase, label=r'$v_p(k)$')
@@ -2622,63 +2624,63 @@ class PDESolver:
             plt.legend()
             plt.tight_layout()
             plt.show()
-    
+
         elif self.dim == 2:
             kx, ky = self.k_symbols
             omega_func = lambdify((kx, ky), self.omega_symbolic, 'numpy')
-    
+
             k_vals = np.linspace(-10, 10, 200)
             KX, KY = np.meshgrid(k_vals, k_vals)
             K_mag = np.sqrt(KX**2 + KY**2)
             K_mag[K_mag == 0] = 1e-8  # Avoid division by 0
-    
+
             omega_vals = omega_func(KX, KY)
             v_phase = np.real(omega_vals) / K_mag
-    
+
             dk = k_vals[1] - k_vals[0]
             domega_dx = np.gradient(omega_vals, dk, axis=0)
             domega_dy = np.gradient(omega_vals, dk, axis=1)
             v_group_norm = np.sqrt(np.abs(domega_dx)**2 + np.abs(domega_dy)**2)
-    
+
             fig, axs = plt.subplots(1, 3, figsize=(18, 5))
             im0 = axs[0].imshow(np.real(omega_vals), extent=[-10, 10, -10, 10],
                                 origin='lower', cmap='viridis')
             axs[0].set_title(r'$\omega(k_x, k_y)$')
             plt.colorbar(im0, ax=axs[0])
-    
+
             im1 = axs[1].imshow(v_phase, extent=[-10, 10, -10, 10],
                                 origin='lower', cmap='plasma')
             axs[1].set_title(r'$v_p(k_x, k_y)$')
             plt.colorbar(im1, ax=axs[1])
-    
+
             im2 = axs[2].imshow(v_group_norm, extent=[-10, 10, -10, 10],
                                 origin='lower', cmap='inferno')
             axs[2].set_title(r'$|v_g(k_x, k_y)|$')
             plt.colorbar(im2, ax=axs[2])
-    
+
             for ax in axs:
                 ax.set_xlabel(r'$k_x$')
                 ax.set_ylabel(r'$k_y$')
                 ax.set_aspect('equal')
-    
+
             plt.tight_layout()
             plt.show()
-    
+
         else:
             print("❌ Only 1D and 2D wave analysis supported.")
-        
+
     def _plot_symbol(
-        self, 
-        component: str = "abs", 
-        k_range: Optional[Tuple[float, float, int]] = None, 
+        self,
+        component: str = "abs",
+        k_range: Optional[Tuple[float, float, int]] = None,
         cmap: str = "viridis"
     ) -> None:
         """
         Visualize the spectral symbol L(k) or L(kx, ky) in 1D or 2D.
-        
-        Plots the linear operator's symbolic Fourier representation either as a function 
+
+        Plots the linear operator's symbolic Fourier representation either as a function
         of a single wavenumber k (1D), or two wavenumbers kx and ky (2D).
-        
+
         Parameters
         ----------
         component : str {'abs', 're', 'im'}
@@ -2690,12 +2692,12 @@ class PDESolver:
             Wavenumber range for evaluation. If None, defaults to `[-10, 10]` with high resolution.
         cmap : str, optional
             Colormap used for 2D surface plots. Default is 'viridis'.
-            
+
         Raises
         ------
         ValueError
             If the spatial dimension is not 1D or 2D.
-            
+
         Notes
         -----
         - In 1D, the symbol is plotted using a standard 2D line plot.
@@ -2704,10 +2706,10 @@ class PDESolver:
         print("\n*******************")
         print("* Symbol plotting *")
         print("*******************\n")
-        
+
         assert component in ("abs", "re", "im"), "component must be 'abs', 're' or 'im'"
-        
-    
+
+
         if self.dim == 1:
             if k_range is None:
                 k_vals = np.linspace(-10, 10, 1000)
@@ -2715,7 +2717,7 @@ class PDESolver:
                 kmin, kmax, N = k_range
                 k_vals = np.linspace(kmin, kmax, N)
             L_vals = self.L(k_vals)
-    
+
             if component == "re":
                 vals = np.real(L_vals)
                 label = "Re[a(k)]"
@@ -2725,24 +2727,24 @@ class PDESolver:
             else:
                 vals = np.abs(L_vals)
                 label = "|a(k)|"
-    
+
             plt.plot(k_vals, vals)
             plt.xlabel("k")
             plt.ylabel(label)
             plt.title(f"Spectral symbol: {label}")
             plt.grid(True)
             plt.show()
-    
+
         elif self.dim == 2:
             if k_range is None:
                 k_vals = np.linspace(-10, 10, 300)
             else:
                 kmin, kmax, N = k_range
                 k_vals = np.linspace(kmin, kmax, N)
-    
+
             KX, KY = np.meshgrid(k_vals, k_vals)
             L_vals = self.L(KX, KY)
-    
+
             if component == "re":
                 Z = np.real(L_vals)
                 title = "Re[a(kx, ky)]"
@@ -2752,51 +2754,51 @@ class PDESolver:
             else:
                 Z = np.abs(L_vals)
                 title = "|a(kx, ky)|"
-    
+
             fig = plt.figure(figsize=(8, 6))
             ax = fig.add_subplot(111, projection='3d')
-        
+
             surf = ax.plot_surface(KX, KY, Z, cmap=cmap, edgecolor='none', antialiased=True)
             fig.colorbar(surf, ax=ax, shrink=0.6)
-        
+
             ax.set_xlabel("kx")
             ax.set_ylabel("ky")
             ax.set_zlabel(title)
             ax.set_title(f"2D spectral symbol: {title}")
             plt.tight_layout()
             plt.show()
-    
+
         else:
             raise ValueError("Only 1D and 2D supported.")
-            
+
     def _compute_energy(
-        self, 
-        t_val: float, 
+        self,
+        t_val: float,
         source_contribution: Union[np.ndarray, float, int] = 0.0
     ) -> Optional[float]:
             """
             Compute the total energy of the system at time `t_val`.
-    
-            For second-order time-dependent equations (∂ₜ²u = L u + N(u) + f), the total energy 
+
+            For second-order time-dependent equations (∂ₜ²u = L u + N(u) + f), the total energy
             is defined as the sum of kinetic and potential energy:
-            
+
             E(t) = Eₖ(t) + Eₚ(t)
-    
+
             where:
             - Eₖ(t) = ½ ∫ |∂ₜu|² dx is the kinetic energy.
             - Eₚ(t) = -½ ∫ u · (L u + N(u) + f(x,t)) dx is the potential energy.
-    
-            For equations involving pseudo-differential operators (ψOp), the linear 
-            part L u is evaluated using Kohn–Nirenberg quantization, and the fractional 
+
+            For equations involving pseudo-differential operators (ψOp), the linear
+            part L u is evaluated using Kohn–Nirenberg quantization, and the fractional
             power P¹/² symbol is used where applicable.
-    
+
             Parameters
             ----------
             t_val : float
                 Current simulation time t.
             source_contribution : np.ndarray or float, optional
                 Evaluated source term f(x,t) on the spatial grid at time `t_val`. Default is 0.0.
-    
+
             Returns
             -------
             float
@@ -2804,88 +2806,88 @@ class PDESolver:
             """
             if self.temporal_order != 2:
                 return None
-        
+
             # Warning for nonlinear/source terms (once)
             if not getattr(self, '_energy_warning_issued', False):
                 if self.nonlinear_terms or self.source_terms:
                     print("⚠️ Warning: Energy monitoring includes work from nonlinear/source terms.")
                     self._energy_warning_issued = True
-        
+
             u = self.u_prev
             dx = self.Lx / self.Nx
             dy = self.Ly / self.Ny if self.dim > 1 else 1.0
-            
+
             # 1. Compute Velocity and Potential Operator Terms Consistent with Physics
             if self.has_psi:
-                if self.u_prev2 is None: 
+                if self.u_prev2 is None:
                     return None
                 # Centered difference for velocity when using staggered states
                 v = (self.u_prev - self.u_prev2) / self.dt
-                if not hasattr(self, '_energy_psi_op'): 
+                if not hasattr(self, '_energy_psi_op'):
                     return None
-                
+
                 # For psi_op path, Lu already represents the correct square-root potential mapped state
                 Lu = self._apply_psiOp(
-                    u, psi_ops=[(1, self._energy_psi_op)], 
+                    u, psi_ops=[(1, self._energy_psi_op)],
                     is_spatial=self._energy_is_spatial
                 )
                 pot_density = 0.5 * np.abs(Lu)**2
             else:
-                if self.v_prev is None: 
+                if self.v_prev is None:
                     return None
                 v = self.v_prev
-                
+
                 # FIXED: Compute Potential Energy via explicit Fourier representation of -L
                 u_hat = self.fft(u)
                 L_vals = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
-                
+
                 # If L is negative definite (e.g. -xi^2), -L_vals represents the positive energy operator
                 # We use np.abs to ensure safety across varying user sign conventions
-                minus_L = np.abs(L_vals) 
-                
+                minus_L = np.abs(L_vals)
+
                 # Compute potential energy density directly via inverse FFT of (-L * u_hat) multiplied by u
                 Lu_pot = self.ifft(minus_L * u_hat)
                 pot_density = 0.5 * np.real(u * np.conj(Lu_pot))
-        
+
             # 2. Compute Total Mechanical Energy
             kin_density = 0.5 * np.abs(v)**2
             energy_density = kin_density + pot_density
-            
+
             if self.dim == 1:
                 E_mech = np.sum(energy_density) * dx
             else:
                 E_mech = np.sum(energy_density) * dx * dy
-        
+
             # 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx
             N_u = self._apply_nonlinear(self.u_prev, is_v=False)
-            
+
             if source_contribution is None or np.isscalar(source_contribution):
                 f = np.zeros_like(u)
             else:
                 f = source_contribution
-        
+
             power_density = np.real(v * np.conj(N_u + f))
-            
+
             if self.dim == 1:
                 power = np.sum(power_density) * dx
             else:
                 power = np.sum(power_density) * dx * dy
-        
+
             # 4. Accumulate Work via Trapezoidal Rule
             if not hasattr(self, '_prev_power'):
                 self._prev_power = power
-            
+
             work_increment = 0.5 * (self._prev_power + power) * self.dt
             self.accumulated_work += work_increment
             self._prev_power = power
-            
+
             # Store histories
             self.mechanical_energy_history.append(E_mech)
             self.work_history.append(self.accumulated_work)
-        
+
             # Total conserved energy
             E_total = E_mech - self.accumulated_work
-            
+
             return E_total
 
     def plot_energy(self, log: bool = False) -> None:
@@ -2898,74 +2900,74 @@ class PDESolver:
         3. Total Conserved Energy: Eₜₒₜₐₗ(t) = Eₘₑ꜀ₕ(t) - W(t)
 
         Prints the initial total energy E₀ and the maximum relative drift:
-        
+
             Relative Drift = max |Eₜₒₜₐₗ(t) - E₀| / |E₀|
 
         Parameters
         ----------
         log : bool, optional
-            If True, plots the total conserved energy using a logarithmic 
+            If True, plots the total conserved energy using a logarithmic
             y-axis (semilogy). Default is False.
         """
         if not hasattr(self, 'energy_history') or not self.energy_history or not self.compute_energy:
             print("No energy data recorded.")
             return
-    
+
         t = np.linspace(0, self.Lt, len(self.energy_history))
-    
+
         plt.figure(figsize=(10, 9))
-    
+
         if hasattr(self, 'mechanical_energy_history'):
             plt.subplot(3, 1, 1)
             plt.plot(t, self.mechanical_energy_history, color='blue')
             plt.ylabel('Mechanical Energy')
             plt.title('Mechanical Energy (Oscillates/Grows due to terms)')
             plt.grid(True)
-    
+
         if hasattr(self, 'work_history'):
             plt.subplot(3, 1, 2)
             plt.plot(t, self.work_history, color='orange')
             plt.ylabel('Accumulated Work')
             plt.title('Accumulated Work (Energy injected/extracted by terms)')
             plt.grid(True)
-    
+
         plt.subplot(3, 1, 3)
         if log:
             plt.semilogy(t, self.energy_history, color='green', linewidth=2)
         else:
             plt.plot(t, self.energy_history, color='green', linewidth=2)
-    
+
         plt.xlabel('Time')
         plt.ylabel('Total Energy')
         plt.title(r'Total Conserved Energy $E_{\mathrm{mech}} - W$')
         plt.grid(True)
-    
+
         plt.tight_layout()
         plt.show()
-    
+
         E0 = self.energy_history[0]
         drift = np.max(np.abs(np.asarray(self.energy_history) - E0)) / np.abs(E0)
         print(f"✅ Initial Total Energy: {E0:.6f}")
         print(f"✅ Max Relative Drift:   {drift:.2e}")
 
     def show_stationary_solution(
-        self, 
-        u: Optional[np.ndarray] = None, 
-        component: str = 'abs', 
+        self,
+        u: Optional[np.ndarray] = None,
+        component: str = 'abs',
         cmap: str = 'viridis'
     ) -> None:
         """
         Display the stationary solution computed by solve_stationary_psiOp.
 
-        This method visualizes the solution of a pseudo-differential equation 
-        solved in stationary mode. It supports both 1D and 2D spatial domains, 
-        with options to display different components of the solution (real, 
+        This method visualizes the solution of a pseudo-differential equation
+        solved in stationary mode. It supports both 1D and 2D spatial domains,
+        with options to display different components of the solution (real,
         imaginary, absolute value, or phase).
 
         Parameters
         ----------
         u : ndarray, optional
-            Precomputed solution array. If None, calls solve_stationary_psiOp() 
+            Precomputed solution array. If None, calls solve_stationary_psiOp()
             to compute the solution.
         component : str, optional {'real', 'imag', 'abs', 'angle'}
             Component of the complex-valued solution to display:
@@ -2979,7 +2981,7 @@ class PDESolver:
         Raises
         ------
         ValueError
-            If an invalid component is specified or if the spatial dimension 
+            If an invalid component is specified or if the spatial dimension
             is not supported (only 1D and 2D are implemented).
 
         Notes
@@ -2998,7 +3000,7 @@ class PDESolver:
                 return np.angle(u)
             else:
                 raise ValueError("Invalid component")
-                
+
         if u is None:
             u = self.solve_stationary_psiOp()
 
@@ -3013,39 +3015,39 @@ class PDESolver:
             plt.legend()
             plt.tight_layout()
             plt.show()
-    
+
         elif self.dim == 2:
             fig = plt.figure(figsize=(12, 6))
             ax = fig.add_subplot(111, projection='3d')
             ax.set_xlabel('x')
             ax.set_ylabel('y')
             ax.set_zlabel(f'{component.title()} of u')
-            plt.title('Stationary solution (2D)')    
+            plt.title('Stationary solution (2D)')
             data0 = _get_component(u)
             ax.plot_surface(self.X, self.Y, data0, cmap='viridis')
             plt.tight_layout()
             plt.show()
-    
+
         else:
             raise ValueError("Only 1D and 2D display are supported.")
-        
+
     def animate(
-        self, 
-        component: str = 'abs', 
-        overlay: Optional[str] = 'contour', 
-        mode: str = 'surface', 
+        self,
+        component: str = 'abs',
+        overlay: Optional[str] = 'contour',
+        mode: str = 'surface',
         physical: bool = True
     ) -> FuncAnimation:
         """
         Create an animated plot of the solution evolution over time.
-    
+
         This method generates a dynamic visualization of the stored solution frames
         `self.frames`. It supports:
           - 1D line animation (unchanged),
           - 2D surface animation (original behavior, 'surface'),
           - 2D image animation using imshow (new, 'imshow') which is faster and
             often clearer for large grids.
-    
+
         Parameters
         ----------
         component : str, optional, one of {'real', 'imag', 'abs', 'angle'}
@@ -3055,13 +3057,13 @@ class PDESolver:
               - 'abs'   : |u|
               - 'angle' : arg(u)
             Default is 'abs'.
-    
+
         overlay : str or None, optional, one of {'contour', 'front', None}
             For 2D modes only. If None, no overlay is drawn.
               - 'contour' : draw contour lines on top (or beneath for 3D surface)
               - 'front'   : detect and mark wavefronts using gradient maxima
             Default is 'contour'.
-    
+
         mode : str, optional, one of {'surface', 'imshow'}
             2D rendering mode. 'surface' keeps the original 3D surface plot.
             'imshow' draws a 2D raster (faster, often more readable).
@@ -3069,13 +3071,13 @@ class PDESolver:
 
         physical : bool, default=True
             If True, the animation is displayed using true physical proportions of the domain.
-    
+
         Returns
         -------
         FuncAnimation
             A Matplotlib `FuncAnimation` instance (you can display it in a notebook
             or save it to file).
-    
+
         Notes
         -----
         - The method uses the same time-mapping logic as before (linear sampling of
@@ -3098,23 +3100,23 @@ class PDESolver:
                 return np.angle(u)
             else:
                 raise ValueError("Invalid component: choose 'real','imag','abs' or 'angle'")
-    
+
         print("\n*********************")
         print("* Solution plotting *")
         print("*********************\n")
-    
+
         # === Calculate time vector of stored frames ===
         save_interval = max(1, self.Nt // self.n_frames)
         frame_times = np.arange(0, self.Lt + self.dt, save_interval * self.dt)
-    
+
         # === Target times for animation ===
         target_times = np.linspace(0, self.Lt, self.n_frames // 2)
-    
+
         # Map target times to nearest frame indices
         frame_indices = [np.argmin(np.abs(frame_times - t)) for t in target_times]
 
         plt.ioff()
-    
+
         # -------------------------
         # 1D case (unchanged logic)
         # -------------------------
@@ -3127,7 +3129,7 @@ class PDESolver:
             ax.set_ylabel(f'{component} of u')
             ax.set_title('Initial condition', pad=20)
             plt.tight_layout(rect=[0, 0, 1, 0.95])
-    
+
             def _update_1d(frame_number):
                 frame = frame_indices[frame_number]
                 ydata = _get_component(self.frames[frame])
@@ -3139,21 +3141,21 @@ class PDESolver:
                 title = f'${eq_latex}$\nSolution at t = {current_time:.2f}' if eq_latex else f'Solution at t = {current_time:.2f}'
                 ax.set_title(title, pad=20)
                 return (line,)
-    
+
             ani = FuncAnimation(fig, _update_1d, frames=len(target_times), blit=True, interval=50)
             plt.close(fig)
             return ani
-    
+
         # -------------------------
         # 2D case
         # -------------------------
         # Validate mode
         if mode not in ('surface', 'imshow'):
             raise ValueError("Invalid mode: choose 'surface' or 'imshow'")
-    
+
         # Common data
         data0 = _get_component(self.frames[0])
-    
+
         if mode == 'surface':
             # original surface behavior, but ensure clean updates
             fig = plt.figure(figsize=(20, 12))
@@ -3164,27 +3166,27 @@ class PDESolver:
             ax.zaxis.labelpad = 0
             ax.set_title('Initial condition', pad=20)
             plt.tight_layout(rect=[0, 0, 1, 0.95])
-    
+
             # Calculate physical domain lengths
             Lx = self.x_grid[-1] - self.x_grid[0]
             Ly = self.y_grid[-1] - self.y_grid[0]
-            
+
             surf = ax.plot_surface(self.X, self.Y, data0, cmap='viridis')
             plt.tight_layout(rect=[0, 0, 1, 0.95])
-    
+
             def _update_surface(frame_number):
                 frame = frame_indices[frame_number]
                 current_data = _get_component(self.frames[frame])
                 z_offset = np.max(current_data) + 0.05 * (np.max(current_data) - np.min(current_data))
-    
+
                 ax.clear()
 
                 # This forces the X-Y plane to match your Lx and Ly (e.g., 10 and 40)
-                # The '1' represents the Z-axis scale. 
+                # The '1' represents the Z-axis scale.
                 if physical:
                     ax.set_box_aspect([Lx, Ly, 1])
                 # --------------------------------
-                
+
                 surf_obj = ax.plot_surface(self.X, self.Y, current_data,
                                            cmap='viridis',
                                            vmin=(-np.pi if component == 'angle' else None),
@@ -3197,7 +3199,7 @@ class PDESolver:
                     except Exception:
                         # fallback: simple contour without offset if not supported
                         ax.contour(self.X, self.Y, current_data, levels=10, cmap='cool')
-    
+
                 elif overlay == 'front':
                     dx = self.x_grid[1] - self.x_grid[0]
                     dy = self.y_grid[1] - self.y_grid[0]
@@ -3213,7 +3215,7 @@ class PDESolver:
                     ax.scatter(self.X[local_max], self.Y[local_max],
                                z_offset * np.ones_like(self.X[local_max]),
                                color=colors, s=10, alpha=0.8)
-    
+
                 ax.set_xlabel('x')
                 ax.set_ylabel('y')
                 ax.set_zlabel(f'{component.title()} of u')
@@ -3222,11 +3224,11 @@ class PDESolver:
                 title = f'${eq_latex}$\nSolution at t = {current_time:.2f}' if eq_latex else f'Solution at t = {current_time:.2f}'
                 ax.set_title(title, pad=2)
                 return (surf_obj,)
-    
+
             ani = FuncAnimation(fig, _update_surface, frames=len(target_times), interval=50)
             plt.close(fig)
             return ani
-    
+
         else:  # mode == 'imshow'
             fig, ax = plt.subplots(figsize=(8, 7))
             ax.set_xlabel('x')
@@ -3234,10 +3236,10 @@ class PDESolver:
             eq_latex = latex(self.equation) if hasattr(self, 'equation') else ''
             init_title = 'Initial condition\n$' + eq_latex + '$' if eq_latex else 'Initial condition'
             ax.set_title(init_title, fontsize=9)
-    
+
             # extent uses physical coordinates so axes show real x/y values
             extent = [self.x_grid[0], self.x_grid[-1], self.y_grid[0], self.y_grid[-1]]
-    
+
             if component == 'angle':
                 vmin, vmax = -np.pi, np.pi
                 cmap = 'twilight'
@@ -3249,21 +3251,21 @@ class PDESolver:
                 aspect = 'equal'
             else:
                 aspect = 'auto'
-                
+
             im = ax.imshow(data0, extent=extent, origin='lower', cmap=cmap,
                            vmin=vmin, vmax=vmax, aspect=aspect)
             cbar = fig.colorbar(im, ax=ax)
             cbar.set_label(f"{component} of u")
             plt.tight_layout(rect=[0, 0, 1, 0.95])
             fig.subplots_adjust(top=0.85)
-    
+
             # containers for dynamic overlay artists (stored on function object)
             # update_im.contour_art and update_im.scatter_art will be created dynamically
-    
+
             def update_im(frame_number):
                 frame = frame_indices[frame_number]
                 current_data = _get_component(self.frames[frame])
-    
+
                 # update raster
                 im.set_data(current_data)
                 if component != 'angle':
@@ -3273,7 +3275,7 @@ class PDESolver:
                     # avoid identical vmin==vmax
                     if cmax > cmin:
                         im.set_clim(cmin, cmax)
-    
+
                 # remove previous contour if exists
                 if overlay == 'contour':
                     if hasattr(update_im, 'contour_art') and update_im.contour_art is not None:
@@ -3289,7 +3291,7 @@ class PDESolver:
                         # fallback: contour with axis coordinates (x_grid, y_grid)
                         Xc, Yc = np.meshgrid(self.x_grid, self.y_grid)
                         update_im.contour_art = ax.contour(Xc, Yc, current_data.T, levels=10, cmap='cool')
-    
+
                 # remove previous scatter if exists
                 if overlay == 'front':
                     if hasattr(update_im, 'scatter_art') and update_im.scatter_art is not None:
@@ -3298,7 +3300,7 @@ class PDESolver:
                         except Exception:
                             pass
                         update_im.scatter_art = None
-    
+
                     dx = self.x_grid[1] - self.x_grid[0]
                     dy = self.y_grid[1] - self.y_grid[0]
                     du_dy, du_dx = np.gradient(current_data, dy, dx)
@@ -3311,7 +3313,7 @@ class PDESolver:
                     colors = cm.plasma(normalized)
                     update_im.scatter_art = ax.scatter(self.X[local_max], self.Y[local_max],
                                                        c=colors, s=10, alpha=0.8)
-    
+
                 current_time = target_times[frame_number]
                 eq_latex = latex(self.equation) if hasattr(self, 'equation') else ''
                 title = f'${eq_latex}$\nSolution at t = {current_time:.2f}' if eq_latex else f'Solution at t = {current_time:.2f}'
@@ -3325,25 +3327,25 @@ class PDESolver:
                 if overlay == 'front' and hasattr(update_im, 'scatter_art') and update_im.scatter_art is not None:
                     artists.append(update_im.scatter_art)
                 return tuple(artists)
-    
+
             ani = FuncAnimation(fig, update_im, frames=len(target_times), interval=50)
             plt.close(fig)
             return ani
 
     def test(
-        self, 
-        u_exact: Callable[..., np.ndarray], 
-        t_eval: Optional[float] = None, 
-        norm: str = 'relative', 
-        threshold: float = 1e-2, 
+        self,
+        u_exact: Callable[..., np.ndarray],
+        t_eval: Optional[float] = None,
+        norm: str = 'relative',
+        threshold: float = 1e-2,
         component: str = 'real'
     ) -> float:
         """
         Test the solver against an exact solution.
-        
-        Quantitatively compares the numerical solution with a provided exact solution 
+
+        Quantitatively compares the numerical solution with a provided exact solution
         at a specified time using either relative or absolute error norms.
-        
+
         Parameters
         ----------
         u_exact : callable
@@ -3356,14 +3358,14 @@ class PDESolver:
             Acceptable error threshold; raises an assertion if exceeded.
         component : str {'real', 'imag', 'abs'}
             Component of the solution to compare and visualize.
-            
+
         Raises
         ------
         ValueError
             If unsupported dimension is encountered or requested evaluation time exceeds simulation duration.
         AssertionError
             If computed error exceeds the given threshold.
-            
+
         Notes
         -----
         - For time-dependent problems, the solution is extracted from precomputed frames.
@@ -3373,7 +3375,7 @@ class PDESolver:
         if self.is_stationary:
             print("Testing a stationary solution.")
             u_num = self.u
-    
+
             # Compute exact solution
             if self.dim == 1:
                 u_ex = u_exact(self.X)
@@ -3385,18 +3387,18 @@ class PDESolver:
         else:
             if t_eval is None:
                 t_eval = self.Lt
-    
+
             save_interval = max(1, self.Nt // self.n_frames)
             frame_times = np.arange(0, self.Lt + self.dt, save_interval * self.dt)
             frame_index = np.argmin(np.abs(frame_times - t_eval))
             actual_t = frame_times[frame_index]
             print(f"Closest available time to t_eval={t_eval}: {actual_t}")
-    
+
             if frame_index >= len(self.frames):
                 raise ValueError(f"Time t = {t_eval} exceeds simulation duration.")
-    
+
             u_num = self.frames[frame_index]
-    
+
             # Compute exact solution at the actual time
             if self.dim == 1:
                 u_ex = u_exact(self.X, actual_t)
@@ -3404,7 +3406,7 @@ class PDESolver:
                 u_ex = u_exact(self.X, self.Y, actual_t)
             else:
                 raise ValueError("Unsupported dimension.")
-    
+
         # Select component
         if component == 'real':
             diff = np.real(u_num) - np.real(u_ex)
@@ -3417,7 +3419,7 @@ class PDESolver:
             ref = np.abs(u_ex)
         else:
             raise ValueError("Invalid component.")
-    
+
         # Compute error
         if norm == 'relative':
             error = np.linalg.norm(diff) / np.linalg.norm(ref)
@@ -3425,11 +3427,11 @@ class PDESolver:
             error = np.linalg.norm(diff)
         else:
             raise ValueError("Unknown norm type.")
-    
+
         label_time = f"t = {actual_t}" if actual_t is not None else ""
         print(f"Test error {label_time}: {error:.3e}")
         assert error < threshold, f"Error too large {label_time}: {error:.3e}"
-    
+
         # Plot
         if self.plot:
             if self.dim == 1:
@@ -3440,7 +3442,7 @@ class PDESolver:
                 plt.title(f'Solution {label_time}, error = {error:.2e}')
                 plt.legend()
                 plt.grid()
-    
+
                 plt.subplot(2, 1, 2)
                 plt.plot(self.X, np.abs(diff), color='red')
                 plt.title('Absolute Error')
@@ -3454,12 +3456,12 @@ class PDESolver:
                 plt.title("Numerical Solution")
                 plt.imshow(np.abs(u_num), origin='lower', extent=extent, cmap='viridis')
                 plt.colorbar()
-    
+
                 plt.subplot(1, 3, 2)
                 plt.title("Exact Solution")
                 plt.imshow(np.abs(u_ex), origin='lower', extent=extent, cmap='viridis')
                 plt.colorbar()
-    
+
                 plt.subplot(1, 3, 3)
                 plt.title(f"Error (Norm = {error:.2e})")
                 plt.imshow(np.abs(diff), origin='lower', extent=extent, cmap='inferno')
