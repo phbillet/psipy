@@ -157,7 +157,7 @@ Quasi-linear IMEX for conformal Ricci flow
 
 Numerical design notes
 ----------------------
-- Grid generation strictly follows FFT ordering (``np.fft.fftfreq``) to 
+- Grid generation strictly follows FFT ordering (``fftfreq``) to 
   ensure compatibility with the fast-path FFT multipliers in ``psiop_apply``.
 - Time-stepping loops include automatic ``np.isfinite`` checks to raise 
   ``FloatingPointError`` immediately upon divergence, rather than silently 
@@ -228,7 +228,7 @@ def make_grid_1d(
     """
     x = np.linspace(-L, L, N, endpoint=False)
     dx = x[1] - x[0]
-    kx = 2.0 * np.pi * np.fft.fftfreq(N, d=dx)
+    kx = 2.0 * np.pi * fftfreq(N, d=dx)
     return x, kx
 
 def make_grid_2d(
@@ -1563,9 +1563,9 @@ def solve_ricci_flow_conformal_2d(
         # Fourier multiplier exp(-dt * c0 * |k|^2) for this x-independent
         # generator -- apply it directly instead of rebuilding an
         # asymptotic exponential-symbol propagator every step.
-        phi_hat = np.fft.fft2(phi_explicit)
+        phi_hat = fft2(phi_explicit)
         phi_hat *= np.exp(-dt * c0 * K2)
-        phi = np.fft.ifft2(phi_hat).real
+        phi = ifft2(phi_hat).real
 
         if check_finite and not np.isfinite(phi).all():
             raise FloatingPointError(
