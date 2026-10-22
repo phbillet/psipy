@@ -242,7 +242,7 @@
 
 <span class="sd">Numerical design notes</span>
 <span class="sd">----------------------</span>
-<span class="sd">- Grid generation strictly follows FFT ordering (``np.fft.fftfreq``) to </span>
+<span class="sd">- Grid generation strictly follows FFT ordering (``fftfreq``) to </span>
 <span class="sd">  ensure compatibility with the fast-path FFT multipliers in ``psiop_apply``.</span>
 <span class="sd">- Time-stepping loops include automatic ``np.isfinite`` checks to raise </span>
 <span class="sd">  ``FloatingPointError`` immediately upon divergence, rather than silently </span>
@@ -315,7 +315,7 @@
 <span class="sd">    """</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">L</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">dx</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">kx</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span>
+    <span class="n">kx</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">fftfreq</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span></div>
 
 
@@ -1686,9 +1686,9 @@
         <span class="c1"># Fourier multiplier exp(-dt * c0 * |k|^2) for this x-independent</span>
         <span class="c1"># generator -- apply it directly instead of rebuilding an</span>
         <span class="c1"># asymptotic exponential-symbol propagator every step.</span>
-        <span class="n">phi_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">phi_explicit</span><span class="p">)</span>
+        <span class="n">phi_hat</span> <span class="o">=</span> <span class="n">fft2</span><span class="p">(</span><span class="n">phi_explicit</span><span class="p">)</span>
         <span class="n">phi_hat</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dt</span> <span class="o">*</span> <span class="n">c0</span> <span class="o">*</span> <span class="n">K2</span><span class="p">)</span>
-        <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">phi_hat</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">ifft2</span><span class="p">(</span><span class="n">phi_hat</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
 
         <span class="k">if</span> <span class="n">check_finite</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">FloatingPointError</span><span class="p">(</span>
