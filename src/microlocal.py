@@ -1987,7 +1987,7 @@ def interactive_symbol_analysis(
             elif mode == 'Hamiltonian Flow':
                 plot_hamiltonian_flow(pseudo_op, x0=x0, xi0=xi0)
             elif mode == 'Wavefront Set':
-                visualize_wavefront_set(pseudo_op, x0=x0, xi0=xi0, spread=xi_range[1] - xi_range[0], tspan=(0, 2.0), n_seeds=9, n_steps=150)
+                visualize_wavefront_set(pseudo_op, x0=x0, xi0=xi0, spread=xi_range[1] - xi_range[0], tspan=(0, 5.0), n_seeds=density, n_steps=150)
                 plt.show()
         interactive_kwargs = {'mode': mode_selector, 'xi0': xi_slider, 'x0': x_slider}
         slider_order = ['xi', 'x']
@@ -2037,7 +2037,7 @@ def interactive_symbol_analysis(
             elif mode == 'Hamiltonian Flow':
                 plot_hamiltonian_flow(pseudo_op, x0=x0, y0=y0, xi0=xi0, eta0=eta0)
             elif mode == 'Wavefront Set':
-                visualize_wavefront_set(pseudo_op, x0=x0, y0=y0, xi0=xi0, eta0=eta0, projection='full')
+                visualize_wavefront_set(pseudo_op, x0=x0, y0=y0, xi0=xi0, eta0=eta0, projection='full', tspan=(0, 5.0), n_seeds=density, n_steps=150)
             if mode not in ('Cotangent Fiber', 'Characteristic Set', 'Characteristic Gradient', 'Hamiltonian Flow'):
                 plt.show()
         interactive_kwargs = {'mode': mode_selector, 'xi0': xi_slider, 'eta0': eta_slider, 'x0': x_slider, 'y0': y_slider}

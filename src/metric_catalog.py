@@ -1531,7 +1531,7 @@ METRICS = {
     #              y‑circles shrink as |x| increases.  The curvature is always
     #              negative and becomes large near the “horizon” x = ±1/Ω.
     # ──────────────────────────────────────────────────────────────────────────
-    'goedel_slice': dict(
+    'godel_slice': dict(
         g           = Matrix([[1, 0], [0, 1 - 0.25 * x**2]]),
         coords      = (x, y),
         domain      = (3.0, 2*np.pi),
