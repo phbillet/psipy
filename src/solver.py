@@ -2320,16 +2320,16 @@ class PDESolver:
         # NOTE: _apply_nonlinear returns dt*N(u); ETD-RK4 needs the bare N(u)
         # (it multiplies by dt itself), so divide the dt back out here.
         u_hat = fft(u)
-        N1 = fft(self._apply_nonlinear(u) / dt + f0)
+        N1 = fft(self._apply_nonlinear(u) + f0)
 
         a = ifft(E2 * (u_hat + 0.5 * dt * N1 * phi1_dtL))
-        N2 = fft(self._apply_nonlinear(a) / dt + fhalf)
+        N2 = fft(self._apply_nonlinear(a) + fhalf)
 
         b = ifft(E2 * (u_hat + 0.5 * dt * N2 * phi1_dtL))
-        N3 = fft(self._apply_nonlinear(b) / dt + fhalf)
+        N3 = fft(self._apply_nonlinear(b) + fhalf)
 
         c = ifft(E * (u_hat + dt * N3 * phi1_dtL))
-        N4 = fft(self._apply_nonlinear(c) / dt + f1)
+        N4 = fft(self._apply_nonlinear(c) + f1)
 
         u_new_hat = E * u_hat + dt * (
             N1 * phi1_dtL + 2 * (N2 + N3) * phi2_dtL + N4 * phi1_dtL
@@ -2375,7 +2375,7 @@ class PDESolver:
 
         def rhs(u_val, t_val):
             return (ifft(L_fft * fft(u_val))
-                    + self._apply_nonlinear(u_val, is_v=False) / dt
+                    + self._apply_nonlinear(u_val, is_v=False)
                     + self._eval_source(t_val))
 
         # Stage A (t)
