@@ -1011,6 +1011,632 @@ def plot_wavefront_set(
     plt.tight_layout()
     return (fig, axes)
 
+def _wavefront_flow_batch(
+    symbol: Expr,
+    z0: np.ndarray,
+    tspan: Tuple[float, float],
+    dim: int,
+    n_steps: int
+) -> Dict[str, np.ndarray]:
+    """Integrate many bicharacteristics at once (vectorised over rays).
+
+    Same fixed-step symplectic-Euler scheme and time grid as
+    `bicharacteristic_flow(..., method='symplectic')`, but the symbolic
+    differentiation / lambdify is done once and each step updates every
+    ray simultaneously with NumPy arrays.  The stability matrix, which
+    plotting does not need, is not computed.
+
+    Parameters
+    ----------
+    z0 : ndarray, shape (N, 2*dim)
+        Initial points (x, xi) in 1D or (x, y, xi, eta) in 2D.
+
+    Returns
+    -------
+    dict
+        't' of shape (n_steps,) and, for each coordinate name, an array
+        of shape (N, n_steps).
+    """
+    if dim == 1:
+        x, xi = symbols('x xi', real=True)
+        args, names = (x, xi), ['x', 'xi']
+        dpos, dmom = [diff(symbol, xi)], [-diff(symbol, x)]
+    else:
+        x, y, xi, eta = symbols('x y xi eta', real=True)
+        args, names = (x, y, xi, eta), ['x', 'y', 'xi', 'eta']
+        dpos = [diff(symbol, xi), diff(symbol, eta)]
+        dmom = [-diff(symbol, x), -diff(symbol, y)]
+    f_pos = [lambdify(args, e, 'numpy') for e in dpos]
+    f_mom = [lambdify(args, e, 'numpy') for e in dmom]
+
+    z0 = np.asarray(z0, dtype=float)
+    N = z0.shape[0]
+    t = np.linspace(tspan[0], tspan[1], n_steps)
+    dt = (tspan[1] - tspan[0]) / n_steps
+    out = np.empty((2 * dim, N, n_steps))
+    out[:, :, 0] = z0.T
+    ones = np.ones(N)
+    for i in range(n_steps - 1):
+        q = [out[k, :, i] for k in range(dim)]
+        p = [out[dim + k, :, i] for k in range(dim)]
+        p_new = [p[k] + dt * (np.asarray(f_mom[k](*q, *p), dtype=float) * ones) for k in range(dim)]
+        q_new = [q[k] + dt * (np.asarray(f_pos[k](*q, *p_new), dtype=float) * ones) for k in range(dim)]
+        for k in range(dim):
+            out[k, :, i + 1] = q_new[k]
+            out[dim + k, :, i + 1] = p_new[k]
+    res = {'t': t}
+    for k, name in enumerate(names):
+        res[name] = out[k]
+    return res
+
+
+def _wavefront_3d_animation(
+    frames: List[Tuple[Dict[str, np.ndarray], float]],
+    dim: int,
+    var_label: str,
+    coords3d: Optional[Sequence[str]],
+    color_by: Optional[str],
+    cmap: str,
+    show_flow: bool,
+    show_endpoints: bool,
+    pad: float,
+    xlim: Optional[Tuple[float, float]],
+    ylim: Optional[Tuple[float, float]],
+    zlim: Optional[Tuple[float, float]],
+    fixed_limits: bool,
+    figsize: Optional[Tuple[float, float]],
+    view: Tuple[float, float],
+    rotate: float,
+    title: Optional[str],
+    ax: Optional[Any],
+    interval: int,
+    save_path: Optional[str],
+    i0: Optional[int] = None
+) -> FuncAnimation:
+    """3D version of `animate_wavefront_set` (see its docstring)."""
+    from matplotlib.animation import FuncAnimation
+    from mpl_toolkits.mplot3d.art3d import Line3DCollection
+
+    phase = ['x', 'y', 'xi', 'eta'] if dim == 2 else ['x', 'xi']
+    allowed = phase + ['t'] + (['u', 'v'] if dim == 2 else [])
+    if dim == 2:   # sign-invariant (doubled-angle) frequencies
+        frames = [({**d, 'u': d['xi'] ** 2 - d['eta'] ** 2, 'v': 2 * d['xi'] * d['eta']}, v)
+                  for d, v in frames]
+    if coords3d is None:
+        coords3d = ('x', 'y', 'xi') if dim == 2 else ('x', 'xi', 't')
+    coords3d = tuple(coords3d)
+    if len(coords3d) != 3 or len(set(coords3d)) != 3 or any(c not in allowed for c in coords3d):
+        raise ValueError(f"coords3d must be 3 distinct names among {allowed}, got {coords3d}.")
+    if color_by is None:
+        rest = [c for c in phase if c not in coords3d]
+        color_by = rest[0] if rest else 'index'
+    if color_by != 'index' and color_by not in allowed:
+        raise ValueError(f"color_by must be 'index' or one of {allowed}, got '{color_by}'.")
+
+    labs = {'x': 'x', 'y': 'y', 'xi': 'ξ', 'eta': 'η', 't': 't', 'u': 'ξ²−η²', 'v': '2ξη'}
+    n_pts = frames[0][0]['x'].shape[1]
+    sel = np.unique(np.concatenate([np.arange(0, n_pts, max(1, n_pts // 200)), [n_pts - 1], [] if i0 is None else [i0]]).astype(int))   # light-weight rendering
+
+    def _colour_values(d):
+        n = d['x'].shape[0]
+        if color_by == 'index':
+            return np.repeat(np.linspace(0, 1, n)[:, None], len(sel), axis=1)
+        return np.asarray(d[color_by])[:, sel]
+
+    cvals = [_colour_values(d) for d, _ in frames]
+    cmin = min(float(c.min()) for c in cvals)
+    cmax = max(float(c.max()) for c in cvals)
+    if cmax <= cmin:
+        cmax = cmin + 1.0
+
+    if ax is None:
+        fig = plt.figure(figsize=figsize or (9, 7))
+        axes = fig.add_subplot(111, projection='3d')
+        created = True
+    else:
+        axes, fig, created = ax, ax.get_figure(), False
+        if not hasattr(axes, 'get_zlim'):
+            raise ValueError("For projection='3d', `ax` must be a 3D axes (projection='3d').")
+
+    def _pts(d):
+        return np.stack([np.asarray(d[c])[:, sel] for c in coords3d], axis=-1)   # (n, m, 3)
+
+    def _padded(lo, hi):
+        span = hi - lo
+        m = span * pad if span > 0 else (abs(lo) * pad or 1.0)
+        return lo - m, hi + m
+
+    def _set_limits(subset):
+        P = np.concatenate([_pts(d).reshape(-1, 3) for d, _ in subset])
+        for k, (setter, user) in enumerate(((axes.set_xlim, xlim), (axes.set_ylim, ylim), (axes.set_zlim, zlim))):
+            setter(*(user or _padded(float(P[:, k].min()), float(P[:, k].max()))))
+
+    _set_limits(frames)
+    axes.set_xlabel(labs[coords3d[0]], fontsize=12)
+    axes.set_ylabel(labs[coords3d[1]], fontsize=12)
+    axes.set_zlabel(labs[coords3d[2]], fontsize=12)
+    try:   # honour zorder (otherwise markers are depth-sorted behind the semi-transparent strips)
+        axes.computed_zorder = False
+    except AttributeError:
+        pass
+    axes.view_init(elev=view[0], azim=view[1])
+    base_title = title or f'Wavefront set  WF(u)  [{dim}D, 3D: ({", ".join(labs[c] for c in coords3d)})]'
+    title_artist = axes.set_title(base_title, fontsize=12)
+
+    def _segments(P):
+        return np.stack([P[:, :-1], P[:, 1:]], axis=2).reshape(-1, 2, 3)
+
+    def _seg_colours(C):
+        return (0.5 * (C[:, :-1] + C[:, 1:])).ravel()
+
+    lc = None
+    if show_flow:
+        lc = Line3DCollection(_segments(_pts(frames[0][0])), cmap=cmap, linewidths=1.4, alpha=0.8, zorder=1)
+        lc.set_array(_seg_colours(cvals[0]))
+        lc.set_clim(cmin, cmax)
+        axes.add_collection3d(lc, autolim=False)
+        if color_by != 'index':
+            cb = fig.colorbar(lc, ax=axes, shrink=0.6, pad=0.1)
+            cb.set_label(labs[color_by] + ' (colour)')
+    st = hd = None
+    if show_endpoints:
+        st, = axes.plot([], [], [], 'o', color='limegreen', ms=6, markeredgecolor='k', markeredgewidth=0.4,
+                        zorder=10, label='initial')
+        hd, = axes.plot([], [], [], 's', color='crimson', ms=4.5, markeredgewidth=0, zorder=9, label='final')
+        axes.legend(fontsize=9, loc='upper left')
+
+    def update(i):
+        d, v = frames[i]
+        P = _pts(d)
+        if lc is not None:
+            lc.set_segments(_segments(P))
+            lc.set_array(_seg_colours(cvals[i]))
+        if show_endpoints:
+            k0 = 0 if i0 is None else int(np.where(sel == i0)[0][0])
+            ends = (P[:, [-1]] if i0 is None else P[:, [0, -1]]).reshape(-1, 3)   # final points only
+            st.set_data(P[:, k0, 0], P[:, k0, 1]); st.set_3d_properties(P[:, k0, 2])
+            hd.set_data(ends[:, 0], ends[:, 1]); hd.set_3d_properties(ends[:, 2])
+        if not fixed_limits:
+            _set_limits([frames[i]])
+        if rotate:
+            axes.view_init(elev=view[0], azim=view[1] + rotate * i)
+        title_artist.set_text(f"{base_title}   [{var_label}₀ = {v:.2f}]")
+        return [a for a in (lc, st, hd) if a is not None]
+
+    update(0)
+    if created:
+        fig.tight_layout()
+    anim = FuncAnimation(fig, update, frames=len(frames), interval=interval, blit=False)
+    if save_path:
+        anim.save(save_path)
+    if created:
+        plt.close(fig)
+    return anim
+
+
+def animate_wavefront_set(
+    symbol: Expr,
+    tspan: Tuple[float, float],
+    x0: Optional[float] = None,
+    y0: Optional[float] = None,
+    xi0: Optional[float] = None,
+    eta0: Optional[float] = None,
+    x_range: Optional[Tuple[float, float]] = None,
+    y_range: Optional[Tuple[float, float]] = None,
+    xi_range: Optional[Tuple[float, float]] = None,
+    eta_range: Optional[Tuple[float, float]] = None,
+    seeds: int = 100,
+    radius: float = 0.15,
+    spread: float = 2.0,
+    seed_family: Literal['circle', 'fiber'] = 'circle',
+    half_turn: bool = True,
+    n_frames: int = 40,
+    dim: Optional[int] = None,
+    projection: str = 'cotangent',
+    n_steps: int = 500,
+    cmap: str = 'plasma',
+    show_flow: bool = True,
+    show_endpoints: bool = True,
+    pad: float = 0.25,
+    xlim: Optional[Union[Tuple[float, float], Sequence[Optional[Tuple[float, float]]]]] = None,
+    ylim: Optional[Union[Tuple[float, float], Sequence[Optional[Tuple[float, float]]]]] = None,
+    figsize: Optional[Tuple[float, float]] = None,
+    equal_aspect: Optional[bool] = None,
+    fixed_limits: bool = True,
+    fast: bool = True,
+    coords3d: Optional[Sequence[str]] = None,
+    color_by: Optional[str] = None,
+    zlim: Optional[Tuple[float, float]] = None,
+    view: Tuple[float, float] = (25.0, -60.0),
+    rotate: float = 0.0,
+    title: Optional[str] = None,
+    ax: Optional[Union[Axes, Sequence[Axes]]] = None,
+    interval: int = 80,
+    save_path: Optional[str] = None
+) -> FuncAnimation:
+    """
+    Animate the wavefront set WF(u) while one initial coordinate varies.
+
+    Each frame is the picture `visualize_wavefront_set` /
+    `interactive_symbol_analysis` would give for one value of the
+    animated variable: a family of `seeds` seed singularities is
+    propagated along the bicharacteristics over `tspan` and drawn
+    (strips, initial points in green, end points in red).  The animated
+    variable is the coordinate that has a range; it sweeps this range
+    over `n_frames` frames while the other coordinates stay fixed.
+
+    The seed family is the default one of `visualize_wavefront_set`:
+
+    - 2D: a point-source circle of radius `radius` around (x0, y0), with
+      outward covectors of norm |(ξ0, η0)|.  Varying x or y moves the
+      circle; varying ξ or η changes the norm of the covectors.
+    - 1D: a fan of `seeds` frequencies ξ ∈ [ξ0 - spread, ξ0 + spread] at
+      the point x0.  Varying x moves the fan, varying ξ shifts it.
+
+    Möbius strip: the covector (ξ, η) and its opposite -(ξ, η) define the
+    same line, and since p is even they give the same geometric ray run
+    in opposite directions: (ξ0, η0) at time t is the same point as
+    -(ξ0, η0) at time -t.  Taking the whole fiber over a point
+    (directions modulo π, times in [-T, T]) therefore gives a strip whose
+    two edges are glued with a flip of t, i.e. a Möbius strip.  To see it,
+    plot quantities that are invariant under (ξ, η) -> -(ξ, η) in
+    projection='3d', e.g. coords3d=('u', 'v', 'y') with the doubled-angle
+    frequencies u = ξ² - η², v = 2ξη.
+
+    Parameters
+    ----------
+    symbol : sympy expression
+        Principal symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.
+    tspan : tuple
+        (t_start, t_end) for bicharacteristic integration.
+    x0, y0, xi0, eta0 : float, optional
+        Fixed values of the coordinates (defaults 0, 0, 1, 0, as in
+        `visualize_wavefront_set`).  The one that has a range is ignored.
+    x_range, y_range, xi_range, eta_range : tuple (lo, hi)
+        Range of the animated variable.  Give exactly one (y and eta only
+        in 2D).
+    seeds : int, default=100
+        Number of rays in each frame.
+    radius : float, default=0.15
+        2D: radius of the circle of seed points.
+    spread : float, default=2.0
+        1D: half-width of the fan of frequencies.
+    seed_family : {'circle', 'fiber'}, default='circle'
+        2D only.  'circle': the point-source circle described above.
+        'fiber': all seeds sit at the single point (x0, y0) and only the
+        direction of the covector varies, over a half turn (see
+        `half_turn`) with norm |(ξ0, η0)|; every ray is integrated in
+        both time directions (the seed is at t = 0).  Modulo the
+        identification (ξ, η) ~ -(ξ, η) of a covector with its opposite,
+        this is a Möbius strip (see the notes below).  `radius` is
+        ignored.  If tspan[0] >= 0 the flow is run over
+        (-tspan[1], tspan[1]); otherwise over tspan.
+    half_turn : bool, default=True
+        'fiber' only: directions φ ∈ [0, π] (True) or [0, 2π] (False,
+        which covers the Möbius strip twice).  Both end points are
+        included, so the initial curve closes up in sign-invariant
+        coordinates such as ('u', 'v'); in (ξ, η) itself a half turn is
+        only an arc (use half_turn=False for the full circle there).
+    n_frames : int, default=40
+        Number of values of the animated variable (one frame each).
+    dim : int, optional
+        1 or 2.  Inferred from the arguments (y0, eta0, y_range or
+        eta_range present -> 2D), else from the symbols of `symbol`.
+    projection, n_steps, cmap, show_flow, show_endpoints, title, ax
+        As in `plot_wavefront_set` (all projections, including 'full' in
+        2D); colour encodes the index of the ray.  Additionally
+        projection='3d' draws the rays in a 3D plot (see `coords3d`).
+    pad : float, default=0.25
+        Margin around the rays on each side, as a fraction of the data
+        extent (computed over all frames).  Increase it for a wider view.
+    xlim, ylim : tuple (lo, hi), optional
+        Explicit axis limits, overriding `pad`.  For a single panel give
+        a tuple; for projection='full' (2D) give a list of 4 tuples (or
+        None entries) in the panel order position, frequency, (x, ξ),
+        (y, η).  Limits stay fixed during the whole animation.
+    figsize : tuple (width, height) in inches, optional
+        Size of the figure created here (ignored if `ax` is given).
+        Default (12, 10) for projection='full' and (8, 6) otherwise.
+    equal_aspect : bool, optional
+        True: equal scaling on both axes of every panel.  False: every
+        panel fills its cell.  Default (None): equal scaling only for the
+        position panel (x, y).
+    fixed_limits : bool, default=True
+        True: the axis limits cover all frames and never change.
+        False: the limits are re-fitted to the current frame (ignored
+        for the axes with explicit `xlim`/`ylim`).
+    fast : bool, default=True
+        True: integrate all the rays of all the frames at once with
+        NumPy (same symplectic scheme as `bicharacteristic_flow`, but
+        orders of magnitude faster).  False: call `bicharacteristic_flow`
+        ray by ray (slow reference path).
+    coords3d : tuple of 3 names, optional
+        projection='3d' only: which three coordinates are the axes, among
+        'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and, in
+        2D, the sign-invariant frequencies 'u' = ξ²-η², 'v' = 2ξη.
+        Default ('x', 'y', 'xi') in 2D and ('x', 'xi', 't') in 1D.
+    color_by : str, optional
+        projection='3d' only: quantity mapped to colour -- a coordinate
+        name, 't' or 'index' (ray index).  Default: the 4th phase-space
+        coordinate not used by the axes (e.g. 'eta'), so that all four
+        dimensions of T*ℝ² are visible; 'index' in 1D.
+    zlim : tuple (lo, hi), optional
+        projection='3d' only: explicit z limits (`xlim` and `ylim` give
+        the x and y limits, each a plain tuple).
+    view : tuple (elevation, azimuth), default (25, -60)
+        projection='3d' only: camera angles in degrees.
+    rotate : float, default=0.0
+        projection='3d' only: degrees the camera turns around the z axis
+        at each frame (e.g. 3.0 for a slowly turning view).
+    interval : int, default=80
+        Delay between frames, in milliseconds.
+    save_path : str, optional
+        If given, the animation is saved to this path via `anim.save`.
+
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation object (``anim._fig`` is the figure).  The figure is
+        closed if created here; use ``HTML(anim.to_jshtml())`` in a
+        notebook.
+
+    Examples
+    --------
+    ::
+
+        anim = animate_wavefront_set(p, tspan=(0, 4), x0=1, xi0=1, eta0=1,
+                                     y_range=(-5, 5), seeds=100,
+                                     projection='position')
+
+        # 3D view of the 4D phase space: axes (x, y, ξ), colour = η
+        anim = animate_wavefront_set(p, tspan=(0, 4), x0=1, xi0=1, eta0=1,
+                                     y_range=(-5, 5), seeds=100,
+                                     projection='3d', rotate=2.0)
+
+        # Möbius strip: whole fiber over a point, both time directions
+        anim = animate_wavefront_set(p, tspan=(0, 3), x0=0, xi0=1, eta0=0,
+                                     y_range=(0.2, 1.0), seeds=120,
+                                     seed_family='fiber', projection='3d',
+                                     coords3d=('u', 'v', 'y'))
+
+        # 1D
+        anim = animate_wavefront_set(p, tspan=(0, 4), x0=1, xi_range=(-2, 2),
+                                     seeds=40)
+    """
+    from matplotlib.animation import FuncAnimation
+    from matplotlib.collections import LineCollection
+
+    given = {'x': x0, 'y': y0, 'xi': xi0, 'eta': eta0}
+    ranges = {'x': x_range, 'y': y_range, 'xi': xi_range, 'eta': eta_range}
+    if dim is None:
+        if any(given[k] is not None or ranges[k] is not None for k in ('y', 'eta')):
+            dim = 2
+        else:
+            names = {s.name for s in symbol.free_symbols}
+            dim = 2 if ({'y', 'eta'} & names) else 1
+    coord_names = ['x', 'y', 'xi', 'eta'] if dim == 2 else ['x', 'xi']
+    extra = [k for k in ('y', 'eta') if dim == 1 and (given[k] is not None or ranges[k] is not None)]
+    if extra:
+        raise ValueError(f"{extra} given but dim=1.")
+    swept = [k for k in coord_names if ranges[k] is not None]
+    if len(swept) != 1:
+        raise ValueError(f"Give exactly one range among {[k + '_range' for k in coord_names]}; got {len(swept)}.")
+    var = swept[0]
+    if given[var] is not None:
+        raise ValueError(f"'{var}' has a range, so '{var}0' must not be given.")
+
+    if seed_family not in ('circle', 'fiber'):
+        raise ValueError("seed_family must be 'circle' or 'fiber'.")
+    if seed_family == 'fiber' and dim != 2:
+        raise ValueError("seed_family='fiber' requires dim=2.")
+    two_sided = seed_family == 'fiber'
+
+    defaults = {'x': 0.0, 'y': 0.0, 'xi': 1.0, 'eta': 0.0}
+    base = {k: float(defaults[k] if given[k] is None else given[k]) for k in coord_names}
+    values = np.linspace(ranges[var][0], ranges[var][1], max(2, n_frames))
+
+    def _seed_family(v):
+        c = {**base, var: float(v)}
+        if dim == 1:
+            xi_vals = np.linspace(c['xi'] - spread, c['xi'] + spread, seeds)
+            nonzero = xi_vals[np.abs(xi_vals) > 1e-06]
+            if len(nonzero) > 0:
+                xi_vals = nonzero
+            return [(c['x'], float(xi)) for xi in xi_vals]
+        mag = float(np.hypot(c['xi'], c['eta'])) or 1.0
+        if seed_family == 'fiber':
+            phis = np.linspace(0, np.pi if half_turn else 2 * np.pi, seeds)   # both end points: the initial curve closes up
+            return [(c['x'], c['y'], mag * np.cos(f), mag * np.sin(f)) for f in phis]
+        angles = np.linspace(0, 2 * np.pi, seeds, endpoint=False)
+        return [(c['x'] + radius * np.cos(a), c['y'] + radius * np.sin(a),
+                 mag * np.cos(a), mag * np.sin(a)) for a in angles]
+
+    # ---- flows: frames[i] = {coord name: array (n_rays_i, n_pts), 't': ...}
+    families = [_seed_family(v) for v in values]
+    counts = [len(fam) for fam in families]
+    if two_sided:
+        T = tspan[1] if tspan[0] >= 0 else None
+        t_fwd = (0.0, tspan[1]) if T is None else (0.0, T)
+        t_bwd = (0.0, tspan[0]) if T is None else (0.0, -T)
+    else:
+        t_fwd, t_bwd = tspan, None
+
+    def _two_sided(fwd, bwd):
+        # backward branch reversed (without t=0), then forward branch
+        out = {k: np.concatenate([bwd[k][:, :0:-1], fwd[k]], axis=1) for k in coord_names}
+        out['t'] = np.concatenate([np.asarray(bwd['t'])[:0:-1], np.asarray(fwd['t'])])
+        return out
+
+    if fast:
+        Z = np.array([z for fam in families for z in fam])
+        flat = _wavefront_flow_batch(symbol, Z, t_fwd, dim, n_steps)
+        if two_sided:
+            flat = _two_sided(flat, _wavefront_flow_batch(symbol, Z, t_bwd, dim, n_steps))
+        bounds = np.cumsum([0] + counts)
+        frames = []
+        for i, v in enumerate(values):
+            sl = slice(bounds[i], bounds[i + 1])
+            d = {k: flat[k][sl] for k in coord_names}
+            d['t'] = np.broadcast_to(flat['t'], (counts[i], len(flat['t'])))
+            frames.append((d, v))
+    else:
+        def _slow(fam, span):
+            trajs = [bicharacteristic_flow(symbol, z0, span, dim=dim, method='symplectic', n_steps=n_steps)
+                     for z0 in fam]
+            n = min(len(tr['x']) for tr in trajs)
+            return {k: np.array([np.asarray(tr[k])[:n] for tr in trajs]) for k in coord_names + ['t']}
+        frames = []
+        for fam, v in zip(families, values):
+            d = _slow(fam, t_fwd)
+            if two_sided:
+                d_b = _slow(fam, t_bwd)
+                d_b['t'] = d_b['t'][0]
+                d_f = dict(d); d_f['t'] = d['t'][0]
+                d = _two_sided(d_f, d_b)
+                d['t'] = np.broadcast_to(d['t'], (len(fam), len(d['t'])))
+            frames.append((d, v))
+    i0 = n_steps - 1 if two_sided else None      # index of the seed (t = 0) when two-sided
+    if projection == '3d':
+        return _wavefront_3d_animation(frames, dim, {'x': 'x', 'y': 'y', 'xi': 'ξ', 'eta': 'η'}[var],
+                                       coords3d, color_by, cmap, show_flow, show_endpoints, pad,
+                                       xlim, ylim, zlim, fixed_limits, figsize, view, rotate,
+                                       title, ax, interval, save_path, i0=i0)
+    n_rays = max(counts)
+    colors = plt.get_cmap(cmap)(np.linspace(0.05, 0.95, n_rays))
+    lbl = {'x': 'x', 'y': 'y', 'xi': 'ξ', 'eta': 'η'}
+
+    # ---- panels ------------------------------------------------------
+    labs = {'x': 'x', 'xi': 'ξ', 'y': 'y', 'eta': 'η', 't': 't'}
+    if projection == 'full' and dim == 2:
+        panel_specs = [('x', 'y', 'Position space  (x, y)'),
+                       ('xi', 'eta', 'Frequency space  (ξ, η)'),
+                       ('x', 'xi', 'Cotangent slice  (x, ξ)'),
+                       ('y', 'eta', 'Cotangent slice  (y, η)')]
+        if ax is None:
+            fig, axes = plt.subplots(2, 2, figsize=figsize or (12, 10))
+            created = True
+        else:
+            axes = np.asarray(ax)
+            fig = axes.flatten()[0].get_figure()
+            created = False
+        ax_list = list(np.asarray(axes).flatten())
+    else:
+        if dim == 1:
+            table = {'cotangent': ('x', 'xi'), 'phase': ('x', 'xi'), 'position': ('t', 'x')}
+        else:
+            table = {'cotangent': ('x', 'xi'), 'mixed_x': ('x', 'xi'), 'position': ('x', 'y'),
+                     'frequency': ('xi', 'eta'), 'mixed_y': ('y', 'eta')}
+        if projection not in table:
+            raise ValueError(f"Unknown projection '{projection}' for dim={dim}. "
+                             f"Choose from {sorted(table)}" + (" or 'full'." if dim == 2 else "."))
+        ku, kv = table[projection]
+        panel_specs = [(ku, kv, None)]
+        if projection == 'position' and dim == 1:
+            labs['x'] = 'x  (singular support)'
+        if ax is None:
+            fig, axes = plt.subplots(figsize=figsize or (8, 6))
+            created = True
+        else:
+            axes = ax
+            fig = axes.get_figure()
+            created = False
+        ax_list = [axes]
+
+    def _padded(lo, hi, frac=pad):
+        span = hi - lo
+        margin = span * frac if span > 0 else (abs(lo) * frac or 1.0)
+        return lo - margin, hi + margin
+
+    def _user_lim(lim, p):
+        if lim is None:
+            return None
+        if len(lim) == 2 and np.isscalar(lim[0]):
+            return tuple(lim)
+        return lim[p]
+
+    def _set_limits(p_idx, subset):
+        ku, kv, _ = panel_specs[p_idx]
+        lo_u = min(float(np.min(d[ku])) for d, _ in subset)
+        hi_u = max(float(np.max(d[ku])) for d, _ in subset)
+        lo_v = min(float(np.min(d[kv])) for d, _ in subset)
+        hi_v = max(float(np.max(d[kv])) for d, _ in subset)
+        ax_obj = ax_list[p_idx]
+        ax_obj.set_xlim(*(_user_lim(xlim, p_idx) or _padded(lo_u, hi_u)))
+        ax_obj.set_ylim(*(_user_lim(ylim, p_idx) or _padded(lo_v, hi_v)))
+
+    for p_idx, (ax_obj, (ku, kv, ptitle)) in enumerate(zip(ax_list, panel_specs)):
+        _set_limits(p_idx, frames)
+        ax_obj.set_xlabel(labs[ku], fontsize=12)
+        ax_obj.set_ylabel(labs[kv], fontsize=12)
+        if ptitle:
+            ax_obj.set_title(ptitle, fontsize=10)
+        ax_obj.grid(alpha=0.3)
+        use_equal = equal_aspect if equal_aspect is not None else (dim == 2 and (ku, kv) == ('x', 'y'))
+        if use_equal:
+            ax_obj.set_aspect('equal', adjustable='box')
+
+    base_title = title or (
+        'Wavefront set  WF(u)  [2D, full cotangent bundle]'
+        if (projection == 'full' and dim == 2)
+        else f'Wavefront set  WF(u)  [{dim}D, projection: {projection}]')
+    title_artist = (fig.suptitle if len(ax_list) > 1 else ax_list[0].set_title)(base_title)
+
+    # ---- artists: one LineCollection + two marker lines per panel -----
+    strips, starts, heads = [], [], []
+    for p, ax_obj in enumerate(ax_list):
+        if show_flow:
+            lc = LineCollection([], linewidths=1.5, alpha=0.65, zorder=2)
+            ax_obj.add_collection(lc)
+            strips.append(lc)
+        if show_endpoints:
+            st, = ax_obj.plot([], [], 'o', color='limegreen', ms=6, zorder=5, markeredgewidth=0,
+                              linestyle='none', label='initial' if p == 0 else '')
+            hd, = ax_obj.plot([], [], 's', color='crimson', ms=4.5, zorder=5, markeredgewidth=0,
+                              linestyle='none', label='final' if p == 0 else '')
+            starts.append(st)
+            heads.append(hd)
+    if show_endpoints:
+        ax_list[0].legend(fontsize=9, loc='best')
+
+    def update(i):
+        d, v = frames[i]
+        n_i = d['x'].shape[0]
+        artists = []
+        for p, (ku, kv, _) in enumerate(panel_specs):
+            U, W = d[ku], d[kv]
+            if show_flow:
+                strips[p].set_segments(np.stack((U, W), axis=-1))
+                strips[p].set_color(colors[:n_i])
+                strips[p].set_alpha(0.65)
+                artists.append(strips[p])
+            if show_endpoints:
+                if i0 is None:
+                    starts[p].set_data(U[:, 0], W[:, 0])
+                    heads[p].set_data(U[:, -1], W[:, -1])
+                else:
+                    starts[p].set_data(U[:, i0], W[:, i0])
+                    heads[p].set_data(np.r_[U[:, 0], U[:, -1]], np.r_[W[:, 0], W[:, -1]])
+                artists += [starts[p], heads[p]]
+        if not fixed_limits:
+            for p_idx in range(len(ax_list)):
+                _set_limits(p_idx, [frames[i]])
+        title_artist.set_text(f"{base_title}   [{lbl[var]}₀ = {v:.2f}]")
+        return artists
+
+    update(0)
+    if created:
+        if len(ax_list) > 1:
+            fig.tight_layout(rect=(0, 0, 1, 0.96))
+        else:
+            fig.tight_layout()
+    anim = FuncAnimation(fig, update, frames=len(frames), interval=interval, blit=False)
+    if save_path:
+        anim.save(save_path)
+    if created:
+        plt.close(fig)
+    return anim
+
+
 def compute_maslov_index(
     traj: Dict[str, np.ndarray]
 ) -> int:

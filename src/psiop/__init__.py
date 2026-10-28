@@ -196,7 +196,7 @@ from microlocal import (
     plot_scalar_1d, plot_matrix_1d, plot_scalar_2d, animate_scalar_1d,
     plot_matrix_field_1d, plot_matrix_field_2d, plot_wave_solution_1d,
     animate_singularity, animate_singularity_3d,
-    characteristic_hamiltonians, integrate_singularity,
+    characteristic_hamiltonians, integrate_singularity, animate_wavefront_set, 
 )
 
 # --- NEW: Import numerical backends from the new psiop_apply submodule ---
