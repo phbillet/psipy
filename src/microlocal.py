@@ -22,6 +22,7 @@ The `microlocal` module provides a high‑level interface for studying the propa
 * **Characteristic variety** `Char(P) = {(x,ξ) : p(x,ξ)=0}` – the set of phase‑space points where the principal symbol vanishes, indicating where singularities can propagate.
 * **Bicharacteristic flow** – Hamilton’s equations for the principal symbol, whose integral curves (bicharacteristics) govern the propagation of wave‑front sets.
 * **Wavefront set** `WF(u)` – a refinement of the singular support that also records the directions (frequencies) in which the singularity occurs.  The module visualises how an initial wavefront set evolves under the flow.
+* **Wavefront-set animation** – `animate_wavefront_set` animates `WF(u)` while one initial coordinate (`x`, `y`, `ξ` or `η`) sweeps a range: each frame is the propagated wavefront set of a family of seeds (point source, grid with a phase, rectangle, curve, ...), shown in 2D projections or in a 3D view of the 4D phase space.  See *Animating the wavefront set* below.
 * **WKB approximation** (re‑exported from `wkb`) – asymptotic solutions of the form `u ≈ A e^{iS/ε}`.
 * **Caustics and Maslov index** – detection of caustics (where rays focus) and computation of the associated Maslov phase shifts, crucial for correct semiclassical quantisation.
 * **Bohr–Sommerfeld quantisation** (1D) – semiclassical energy levels for bound states.
@@ -45,13 +46,49 @@ The module integrates these concepts into a coherent toolkit, allowing the user 
 
 * Symbolically compute the characteristic variety.
 * Numerically integrate bicharacteristics with symplectic integrators.
-* Visualise the evolution of wavefront sets, including 2D and 3D singularity animations.
+* Visualise the evolution of wavefront sets, including 2D and 3D singularity animations and animated families of wavefront sets (`animate_wavefront_set`).
 * Obtain semiclassical spectra via Bohr–Sommerfeld quantisation (1D).
 * Detect caustics and compute the Maslov index (using the `caustics` module).
 * Interactively explore symbol properties such as amplitude, phase, and micro-support.
 * Analyse matrix-valued symbols by computing their characteristic branches.
 * Plot ε-pseudospectra and overlay complex eigenvalues.
 * Render scalar, matrix, and wave PDE solutions in space-time.
+
+Animating the wavefront set
+---------------------------
+`animate_wavefront_set(symbol, tspan, ...)` is the animated counterpart of `plot_wavefront_set`.  Each frame shows the wavefront set obtained by propagating a family of seed singularities along the bicharacteristics over `tspan`; the animation variable is the initial coordinate that is given a range (exactly one of `x_range`, `y_range`, `xi_range`, `eta_range`), the others being fixed by `x0`, `y0`, `xi0`, `eta0`.
+
+*Seed families* (2D; in 1D the seeds are a fan of frequencies at the point `x0`), selected by `seed_family`:
+
+* ``'circle'`` (default) – point source: a small circle of seeds with outward covectors, as in `visualize_wavefront_set`.
+* ``'fiber'`` – all directions of the covector at one point, run in both time directions.  Modulo ξ → -ξ this is a Möbius strip, best seen in 3D with the sign-invariant coordinates ``'u'`` = ξ²-η² and ``'v'`` = 2ξη.
+* ``'grid'`` – seeds on a rectangular grid (`corner_ul`, `corner_lr`, `step`) with a constant covector or the covector ∇S(x, y) of a phase function `phase`, i.e. the initial Lagrangian manifold of a WKB or plane wave.
+* ``'rectangle'`` – wavefront set of the indicator of a rectangle: edge conormals plus a fan of directions at each corner.
+* ``'curve'`` – conormal bundle of a parametrised curve (x(s), y(s)): a name from the catalogue `WAVEFRONT_CURVES` (20 curves: ellipse, parabola, astroid, cardioid, lemniscate, spirals, ...), two sympy expressions or two callables.  With `covector_angle` the covector direction is prescribed instead of the normal, which makes 'circle' and 'fiber' special cases of 'curve'.
+
+*Views.*  All the projections of `plot_wavefront_set` are available (including ``'full'`` with the four 2D slices of the 4D phase space), plus ``projection='3d'``: three coordinates `coords3d` as axes (position, frequency, time, or the invariants ``'u'``, ``'v'``) and a fourth quantity `color_by` as colour, so that all four dimensions of `T*ℝ²` are visible.  The camera is controlled by `view`, `rotate` and `ortho`.  Axis limits are fixed over the whole animation (`pad`, `xlim`, `ylim`, `zlim`, or `fixed_limits=False` to re-fit each frame).
+
+*Performance.*  All the rays of all the frames are integrated at once with a vectorised version of the fixed-step symplectic scheme of `bicharacteristic_flow` (`fast=True`, the default), which is orders of magnitude faster than ray-by-ray integration.
+
+The function returns a `matplotlib.animation.FuncAnimation`; use ``HTML(anim.to_jshtml())`` in a notebook or `save_path` to write a file.
+
+Examples::
+
+    # Point source whose position moves vertically, 4 slices of phase space
+    anim = animate_wavefront_set(p, tspan=(0, 4), x0=1, xi0=1, eta0=1,
+                                 y_range=(-5, 5), seeds=100, projection='full')
+
+    # Plane-wave grid with a focusing phase, in 3D (x, y, t) with eta as colour
+    anim = animate_wavefront_set(p, tspan=(0, 1), seed_family='grid',
+                                 corner_ul=(-1, 1), corner_lr=(1, -1), step=0.125,
+                                 phase=-(x**2 + y**2)/4, y_range=(-2, 2),
+                                 projection='3d', coords3d=('x', 'y', 't'),
+                                 color_by='eta', ortho=True)
+
+    # Conormals of an astroid, then of a user-defined curve
+    anim = animate_wavefront_set(p, tspan=(0, 2), seed_family='curve',
+                                 curve='astroid', seeds=120, xi0=1, eta0=0,
+                                 x_range=(-1, 1))
 
 References
 ----------
@@ -1070,6 +1107,86 @@ def _wavefront_flow_batch(
     return res
 
 
+def _wavefront_curve_catalogue() -> Dict[str, Dict[str, Any]]:
+    """Build the catalogue of ready-made curves (see WAVEFRONT_CURVES)."""
+    from sympy import Symbol, cos, sin, cosh, sinh, exp, pi
+    s = Symbol('s', real=True)
+    TAU = 2 * pi
+    c = {}
+    def add(name, xy, rng, note):
+        c[name] = {'curve': xy, 'range': (float(rng[0]), float(rng[1])), 'note': note}
+    add('circle', (cos(s), sin(s)), (0, TAU),
+        'Smooth, closed, constant curvature: the conormal rays focus at the centre (a point caustic).')
+    add('ellipse', (2 * cos(s), sin(s)), (0, TAU),
+        'Closed, curvature varies: inward conormal rays envelope the evolute (a caustic with 4 cusps).')
+    add('parabola', (s, s ** 2), (-2, 2),
+        'Open curve: inward conormal rays envelope the evolute (a semicubical parabola).')
+    add('hyperbola', (cosh(s), sinh(s)), (-1.5, 1.5),
+        'One branch of x² - y² = 1; open curve with curvature decaying at infinity.')
+    add('line', (s, 0 * s), (-3, 3),
+        'Zero curvature: a plane wave, the conormals are parallel and no caustic ever forms.')
+    add('sine', (s, sin(s)), (-2 * pi, 2 * pi),
+        'Inflection points: the curvature changes sign, so rays switch between converging and diverging.')
+    add('cubic', (s, s ** 3), (-1.2, 1.2),
+        'Flat inflection at the origin (zero curvature there).')
+    add('cusp', (s ** 2, s ** 3), (-1.2, 1.2),
+        'Semicubical parabola: a cusp at s=0 where the velocity vanishes (that seed is skipped).')
+    add('astroid', (cos(s) ** 3, sin(s) ** 3), (0, TAU),
+        'Four cusps (velocity vanishes there); strongly non-convex between them.')
+    add('cardioid', ((1 + cos(s)) * cos(s), (1 + cos(s)) * sin(s)), (0, TAU),
+        'One cusp; the curvature is large near it.')
+    add('nephroid', (3 * cos(s) - cos(3 * s), 3 * sin(s) - sin(3 * s)), (0, TAU),
+        'Two cusps; also the caustic of light rays in a circular cup.')
+    add('deltoid', (2 * cos(s) + cos(2 * s), 2 * sin(s) - sin(2 * s)), (0, TAU),
+        'Three cusps (hypocycloid).')
+    add('limacon_loop', ((1 + 2 * cos(s)) * cos(s), (1 + 2 * cos(s)) * sin(s)), (0, TAU),
+        'Limaçon with an inner loop: one self-crossing, the loop has opposite orientation.')
+    add('lemniscate', (cos(s) / (1 + sin(s) ** 2), sin(s) * cos(s) / (1 + sin(s) ** 2)), (0, TAU),
+        'Figure eight: a transversal self-crossing at the origin, where two branches of WF meet.')
+    add('lissajous_3_2', (sin(3 * s), sin(2 * s)), (0, TAU),
+        'Lissajous 3:2: several transversal self-crossings, a "braid" in the conormal bundle.')
+    add('trefoil', (sin(s) + 2 * sin(2 * s), cos(s) - 2 * cos(2 * s)), (0, TAU),
+        'Planar projection of the trefoil knot: three lobes and three crossings.')
+    add('archimedes_spiral', (s * cos(s), s * sin(s)), (0, 4 * pi),
+        'Open spiral with evenly spaced turns; the curvature decays outward.')
+    add('log_spiral', (exp(0.15 * s) * cos(s), exp(0.15 * s) * sin(s)), (0, 4 * pi),
+        'Self-similar spiral: the conormal rays make a constant angle with the radius.')
+    add('cycloid', (s - sin(s), 1 - cos(s)), (0, 4 * pi),
+        'Arches meeting in cusps at s = 2πk (velocity vanishes there).')
+    add('rose3', (cos(3 * s) * cos(s), cos(3 * s) * sin(s)), (0, pi),
+        'Three-petal rose: passes through the origin three times with different tangents.')
+    return c
+
+
+WAVEFRONT_CURVES: Dict[str, Dict[str, Any]] = _wavefront_curve_catalogue()
+"""Ready-made curves for ``animate_wavefront_set(..., seed_family='curve', curve=<name>)``.
+
+Each entry has ``'curve'`` (a pair of sympy expressions in a parameter s),
+``'range'`` (the default parameter interval) and ``'note'`` (why the curve
+is interesting for wavefront-set propagation).  Names: circle, ellipse,
+parabola, hyperbola, line, sine, cubic, cusp, astroid, cardioid, nephroid,
+deltoid, limacon_loop, lemniscate, lissajous_3_2, trefoil,
+archimedes_spiral, log_spiral, cycloid, rose3.
+"""
+
+
+def _fin_range(arrays: Sequence[np.ndarray]) -> Tuple[float, float]:
+    """(min, max) over the finite entries of several arrays ((0, 1) if there are none)."""
+    vals = np.concatenate([np.asarray(a, dtype=float).ravel() for a in arrays])
+    vals = vals[np.isfinite(vals)]
+    return (float(vals.min()), float(vals.max())) if vals.size else (0.0, 1.0)
+
+
+def _last_finite(*arrays: np.ndarray) -> np.ndarray:
+    """For each row, index of the last column where all the arrays are finite (0 if none)."""
+    ok = np.ones(arrays[0].shape, dtype=bool)
+    for a in arrays:
+        ok &= np.isfinite(a)
+    n = ok.shape[1]
+    idx = np.where(ok.any(axis=1), n - 1 - np.argmax(ok[:, ::-1], axis=1), 0)
+    return idx
+
+
 def _wavefront_3d_animation(
     frames: List[Tuple[Dict[str, np.ndarray], float]],
     dim: int,
@@ -1091,7 +1208,8 @@ def _wavefront_3d_animation(
     ax: Optional[Any],
     interval: int,
     save_path: Optional[str],
-    i0: Optional[int] = None
+    i0: Optional[int] = None,
+    ortho: bool = False
 ) -> FuncAnimation:
     """3D version of `animate_wavefront_set` (see its docstring)."""
     from matplotlib.animation import FuncAnimation
@@ -1124,8 +1242,7 @@ def _wavefront_3d_animation(
         return np.asarray(d[color_by])[:, sel]
 
     cvals = [_colour_values(d) for d, _ in frames]
-    cmin = min(float(c.min()) for c in cvals)
-    cmax = max(float(c.max()) for c in cvals)
+    cmin, cmax = _fin_range(cvals)
     if cmax <= cmin:
         cmax = cmin + 1.0
 
@@ -1149,7 +1266,7 @@ def _wavefront_3d_animation(
     def _set_limits(subset):
         P = np.concatenate([_pts(d).reshape(-1, 3) for d, _ in subset])
         for k, (setter, user) in enumerate(((axes.set_xlim, xlim), (axes.set_ylim, ylim), (axes.set_zlim, zlim))):
-            setter(*(user or _padded(float(P[:, k].min()), float(P[:, k].max()))))
+            setter(*(user or _padded(*_fin_range([P[:, k]]))))
 
     _set_limits(frames)
     axes.set_xlabel(labs[coords3d[0]], fontsize=12)
@@ -1159,6 +1276,8 @@ def _wavefront_3d_animation(
         axes.computed_zorder = False
     except AttributeError:
         pass
+    if ortho:
+        axes.set_proj_type('ortho')
     axes.view_init(elev=view[0], azim=view[1])
     base_title = title or f'Wavefront set  WF(u)  [{dim}D, 3D: ({", ".join(labs[c] for c in coords3d)})]'
     title_artist = axes.set_title(base_title, fontsize=12)
@@ -1193,7 +1312,9 @@ def _wavefront_3d_animation(
             lc.set_array(_seg_colours(cvals[i]))
         if show_endpoints:
             k0 = 0 if i0 is None else int(np.where(sel == i0)[0][0])
-            ends = (P[:, [-1]] if i0 is None else P[:, [0, -1]]).reshape(-1, 3)   # final points only
+            last = _last_finite(P[..., 0], P[..., 1], P[..., 2])        # diverged rays end at their last finite point
+            rows = np.arange(P.shape[0])
+            ends = (P[rows, last][:, None] if i0 is None else np.stack([P[:, 0], P[rows, last]], axis=1)).reshape(-1, 3)
             st.set_data(P[:, k0, 0], P[:, k0, 1]); st.set_3d_properties(P[:, k0, 2])
             hd.set_data(ends[:, 0], ends[:, 1]); hd.set_3d_properties(ends[:, 2])
         if not fixed_limits:
@@ -1228,8 +1349,19 @@ def animate_wavefront_set(
     seeds: int = 100,
     radius: float = 0.15,
     spread: float = 2.0,
-    seed_family: Literal['circle', 'fiber'] = 'circle',
+    seed_family: Literal['circle', 'fiber', 'grid', 'rectangle', 'curve'] = 'circle',
     half_turn: bool = True,
+    corner_ul: Optional[Tuple[float, float]] = None,
+    corner_lr: Optional[Tuple[float, float]] = None,
+    step: Union[float, Tuple[float, float]] = 0.5,
+    phase: Optional[Expr] = None,
+    both_normals: bool = True,
+    fan: int = 9,
+    curve: Optional[Tuple[Any, Any]] = None,
+    curve_range: Optional[Tuple[float, float]] = None,
+    covector_angle: Optional[Any] = None,
+    closed: Optional[bool] = None,
+    two_sided: Optional[bool] = None,
     n_frames: int = 40,
     dim: Optional[int] = None,
     projection: str = 'cotangent',
@@ -1249,6 +1381,7 @@ def animate_wavefront_set(
     zlim: Optional[Tuple[float, float]] = None,
     view: Tuple[float, float] = (25.0, -60.0),
     rotate: float = 0.0,
+    ortho: bool = False,
     title: Optional[str] = None,
     ax: Optional[Union[Axes, Sequence[Axes]]] = None,
     interval: int = 80,
@@ -1301,7 +1434,7 @@ def animate_wavefront_set(
         2D: radius of the circle of seed points.
     spread : float, default=2.0
         1D: half-width of the fan of frequencies.
-    seed_family : {'circle', 'fiber'}, default='circle'
+    seed_family : {'circle', 'fiber', 'grid', 'rectangle', 'curve'}, default='circle'
         2D only.  'circle': the point-source circle described above.
         'fiber': all seeds sit at the single point (x0, y0) and only the
         direction of the covector varies, over a half turn (see
@@ -1311,6 +1444,65 @@ def animate_wavefront_set(
         this is a Möbius strip (see the notes below).  `radius` is
         ignored.  If tspan[0] >= 0 the flow is run over
         (-tspan[1], tspan[1]); otherwise over tspan.
+        'grid': one seed at every node of a rectangular grid (see
+        `corner_ul`, `corner_lr`, `step`), all with the same covector
+        (ξ0, η0), or with the covector ∇S(x, y) if a phase function `phase`
+        = S(x, y) is given (the initial Lagrangian manifold of a
+        WKB / plane wave).  'rectangle': the wavefront set of the
+        indicator of the rectangle: seeds along the four edges (spaced by
+        `step`) with the unit conormals times |(ξ0, η0)|, plus a fan of
+        `fan` directions at each corner.  For both, `seeds` is ignored,
+        and (x0, y0) is an offset that shifts the whole rectangle
+        (default 0, 0), so x_range / y_range slide it; with 'rectangle'
+        xi_range / eta_range change the covector norm, with 'grid' they
+        change the constant covector (not allowed together with `phase`).
+        With many rays use show_flow=False and a 3D view.
+        'curve': the conormal bundle of a parametrised curve
+        (x(s), y(s)), s ∈ `curve_range`: `seeds` points along the curve,
+        each with the unit conormal (y'(s), -x'(s))/|γ'(s)| times
+        |(ξ0, η0)| (the right-hand normal, outward for a curve run
+        counter-clockwise), plus the opposite conormal if `both_normals`.
+        This is the wavefront set of a distribution singular along the
+        curve (a line, circle, ellipse, parabola ...).  (x0, y0) shifts
+        the curve and xi_range / eta_range change the covector norm, as
+        for 'rectangle'.  Points where γ'(s) = 0 are skipped; corners of
+        piecewise curves are not filled in (use 'rectangle' for that).
+    corner_ul, corner_lr : tuple (x, y)
+        'grid' / 'rectangle': upper-left and lower-right corners.
+    step : float or tuple (dx, dy), default=0.5
+        'grid' / 'rectangle': spacing along the x and y axes (the spacing
+        is adjusted slightly so that the far edge is hit exactly).
+    phase : sympy expression in x, y, optional
+        'grid' only: phase function S(x, y); the covector at each node is
+        (∂S/∂x, ∂S/∂y) evaluated at the (shifted) node.
+    curve : str or tuple (x(s), y(s)), optional
+        'curve' only: the name of a ready-made curve (a key of
+        `WAVEFRONT_CURVES`, e.g. 'astroid'), or two sympy expressions in
+        one common parameter symbol (e.g. ``(2*cos(s), sin(s))``;
+        constants are allowed for one component), or two vectorised
+        callables ``f(s) -> ndarray``.
+    curve_range : tuple (s0, s1), optional
+        'curve' only: parameter interval (default: the catalogue range
+        for a named curve, else (0, 2π)).
+    covector_angle : expression in s or callable, optional
+        'curve' only: direction φ(s) of the covector (cos φ, sin φ),
+        instead of the normal to the curve.  The curve may then be a
+        single point, e.g. ``curve=(0, 0), covector_angle=s``.  This is how
+        'circle' (normal of a circle) and 'fiber' (constant position,
+        rotating covector) are special cases of 'curve'.
+    two_sided : bool, optional
+        Integrate every ray in both time directions (seed at t = 0),
+        as 'fiber' does.  Default: True for 'fiber', else False.
+    closed : bool, optional
+        'curve' only: if True the end point s1 is not repeated.  Default:
+        detected automatically (curve(s0) == curve(s1)).
+    both_normals : bool, default=True
+        'rectangle' and 'curve': also seed the opposite conormals (WF is
+        symmetric under ξ -> -ξ for a real distribution).
+    fan : int, default=9
+        'rectangle' only: number of directions in the fan at each corner
+        (from one conormal to the other, and its opposite fan if
+        `both_normals`).
     half_turn : bool, default=True
         'fiber' only: directions φ ∈ [0, π] (True) or [0, 2π] (False,
         which covers the Möbius strip twice).  Both end points are
@@ -1368,6 +1560,10 @@ def animate_wavefront_set(
     rotate : float, default=0.0
         projection='3d' only: degrees the camera turns around the z axis
         at each frame (e.g. 3.0 for a slowly turning view).
+    ortho : bool, default=False
+        projection='3d' only: use an orthographic camera instead of the
+        default perspective one, so that parallel lines stay parallel
+        (planes such as t = 0 then look flat from any angle).
     interval : int, default=80
         Delay between frames, in milliseconds.
     save_path : str, optional
@@ -1379,6 +1575,15 @@ def animate_wavefront_set(
         The animation object (``anim._fig`` is the figure).  The figure is
         closed if created here; use ``HTML(anim.to_jshtml())`` in a
         notebook.
+
+    Special cases (the older families written as curves; `radius`, x0, y0 ...
+    as above)::
+
+        # seed_family='circle'
+        curve=(radius*cos(s), radius*sin(s)), both_normals=False
+        # seed_family='fiber'  (half_turn=True)
+        curve=(0, 0), covector_angle=s, curve_range=(0, np.pi),
+        both_normals=False, two_sided=True
 
     Examples
     --------
@@ -1392,6 +1597,11 @@ def animate_wavefront_set(
         anim = animate_wavefront_set(p, tspan=(0, 4), x0=1, xi0=1, eta0=1,
                                      y_range=(-5, 5), seeds=100,
                                      projection='3d', rotate=2.0)
+
+        # wavefront set of an ellipse: conormals along the curve
+        anim = animate_wavefront_set(p, tspan=(0, 2), seed_family='curve',
+                                     curve=(2*cos(s), sin(s)), seeds=60,
+                                     xi0=1, eta0=0, x_range=(-1, 1))
 
         # Möbius strip: whole fiber over a point, both time directions
         anim = animate_wavefront_set(p, tspan=(0, 3), x0=0, xi0=1, eta0=0,
@@ -1425,11 +1635,111 @@ def animate_wavefront_set(
     if given[var] is not None:
         raise ValueError(f"'{var}' has a range, so '{var}0' must not be given.")
 
-    if seed_family not in ('circle', 'fiber'):
-        raise ValueError("seed_family must be 'circle' or 'fiber'.")
-    if seed_family == 'fiber' and dim != 2:
-        raise ValueError("seed_family='fiber' requires dim=2.")
-    two_sided = seed_family == 'fiber'
+    if seed_family not in ('circle', 'fiber', 'grid', 'rectangle', 'curve'):
+        raise ValueError("seed_family must be 'circle', 'fiber', 'grid', 'rectangle' or 'curve'.")
+    if seed_family != 'circle' and dim != 2:
+        raise ValueError(f"seed_family='{seed_family}' requires dim=2.")
+    rect_pts, grid_pts, f_grad, curve_pts = None, None, None, None
+    if seed_family == 'curve':
+        if curve is None:
+            raise ValueError("`curve=(x(s), y(s))` (or a name of WAVEFRONT_CURVES) is required for seed_family='curve'.")
+        default_range = (0.0, 2 * np.pi)
+        if isinstance(curve, str):
+            if curve not in WAVEFRONT_CURVES:
+                raise ValueError(f"Unknown curve '{curve}'. Available: {sorted(WAVEFRONT_CURVES)}.")
+            default_range = WAVEFRONT_CURVES[curve]['range']
+            curve = WAVEFRONT_CURVES[curve]['curve']
+        s0, s1 = curve_range if curve_range is not None else default_range
+        if not s1 > s0:
+            raise ValueError("curve_range must satisfy s0 < s1.")
+        cxe, cye = curve
+        ang = covector_angle
+        h = 1e-6 * (s1 - s0)
+        def _wrap(f):
+            return lambda t: np.broadcast_to(np.asarray(f(t), dtype=float), np.shape(t))
+        if callable(cxe) and callable(cye):
+            _fx, _fy = _wrap(cxe), _wrap(cye)
+            _dfx = lambda t: (_fx(t + h) - _fx(t - h)) / (2 * h)
+            _dfy = lambda t: (_fy(t + h) - _fy(t - h)) / (2 * h)
+            _fa = _wrap(ang) if callable(ang) else None
+            if ang is not None and _fa is None:
+                raise ValueError("With callable curve components, covector_angle must be callable too.")
+        else:
+            params = set(getattr(cxe, 'free_symbols', ())) | set(getattr(cye, 'free_symbols', ())) \
+                | set(getattr(ang, 'free_symbols', ()))
+            if len(params) != 1:
+                raise ValueError("The curve (and covector_angle) expressions must depend on exactly one common "
+                                 f"parameter symbol (found {sorted(str(q) for q in params)}).")
+            sp_ = next(iter(params))
+            def _mk(e):
+                f = lambdify(sp_, e, 'numpy')
+                return lambda t: np.broadcast_to(np.asarray(f(t), dtype=float), np.shape(t))
+            _fx, _fy = _mk(cxe), _mk(cye)
+            _dfx, _dfy = _mk(diff(cxe, sp_)), _mk(diff(cye, sp_))
+            _fa = _mk(ang) if ang is not None else None
+        e0, e1 = np.array(s0, dtype=float), np.array(s1, dtype=float)
+        same_pt = np.hypot(float(_fx(e1)) - float(_fx(e0)), float(_fy(e1)) - float(_fy(e0))) < 1e-9
+        same_dir = True if _fa is None else bool(
+            np.hypot(np.cos(float(_fa(e1))) - np.cos(float(_fa(e0))),
+                     np.sin(float(_fa(e1))) - np.sin(float(_fa(e0)))) < 1e-9)
+        is_closed = closed if closed is not None else bool(same_pt and same_dir)
+        tt = np.linspace(s0, s1, seeds, endpoint=not is_closed)
+        px, py = _fx(tt), _fy(tt)
+        if _fa is not None:
+            phi = _fa(tt)
+            nxs, nys, ok = np.cos(phi), np.sin(phi), np.ones(len(tt), dtype=bool)
+        else:
+            tx, ty = _dfx(tt), _dfy(tt)
+            L = np.hypot(tx, ty)
+            ok = L > 1e-9
+            if not ok.any():
+                raise ValueError("The curve has zero velocity everywhere (give `covector_angle` for a point).")
+            with np.errstate(divide='ignore', invalid='ignore'):
+                nxs, nys = ty / L, -tx / L
+        curve_pts = []
+        for i in np.where(ok)[0]:
+            curve_pts.append((float(px[i]), float(py[i]), float(nxs[i]), float(nys[i])))
+            if both_normals:
+                curve_pts.append((float(px[i]), float(py[i]), float(-nxs[i]), float(-nys[i])))
+    if seed_family in ('grid', 'rectangle'):
+        if corner_ul is None or corner_lr is None:
+            raise ValueError("corner_ul and corner_lr are required for 'grid' and 'rectangle'.")
+        (xl, yt), (xr, yb) = corner_ul, corner_lr
+        dx, dy = (step, step) if np.isscalar(step) else step
+        if not (xr > xl and yt > yb):
+            raise ValueError("Need corner_lr to be to the right of and below corner_ul.")
+        if dx <= 0 or dy <= 0:
+            raise ValueError("step must be positive.")
+        if phase is not None and seed_family != 'grid':
+            raise ValueError("`phase` is only used with seed_family='grid'.")
+        if phase is not None and (xi_range is not None or eta_range is not None):
+            raise ValueError("With `phase`, the covector comes from ∇S: use x_range or y_range (shift).")
+        xs = np.linspace(xl, xr, max(1, int(np.ceil((xr - xl) / dx - 1e-9))) + 1)
+        ys = np.linspace(yb, yt, max(1, int(np.ceil((yt - yb) / dy - 1e-9))) + 1)
+        if seed_family == 'grid':
+            GX, GY = np.meshgrid(xs, ys)
+            grid_pts = np.c_[GX.ravel(), GY.ravel()]
+            if phase is not None:
+                _x, _y = symbols('x y', real=True)
+                f_grad = (lambdify((_x, _y), diff(phase, _x), 'numpy'),
+                          lambdify((_x, _y), diff(phase, _y), 'numpy'))
+        else:
+            if fan < 2:
+                raise ValueError("fan must be >= 2.")
+            rect_pts = []          # (x, y, nx, ny) with unit covector directions
+            def _add(px, py, nx, ny):
+                rect_pts.append((px, py, nx, ny))
+                if both_normals:
+                    rect_pts.append((px, py, -nx, -ny))
+            for px in xs[1:-1]:
+                _add(px, yb, 0.0, -1.0); _add(px, yt, 0.0, 1.0)
+            for py in ys[1:-1]:
+                _add(xl, py, -1.0, 0.0); _add(xr, py, 1.0, 0.0)
+            for (cx_, cy_), (a0, a1) in (((xr, yt), (0, np.pi / 2)), ((xl, yt), (np.pi / 2, np.pi)),
+                                         ((xl, yb), (np.pi, 3 * np.pi / 2)), ((xr, yb), (3 * np.pi / 2, 2 * np.pi))):
+                for ang in np.linspace(a0, a1, fan):
+                    _add(cx_, cy_, float(np.cos(ang)), float(np.sin(ang)))
+    two_sided = (seed_family == 'fiber') if two_sided is None else bool(two_sided)
 
     defaults = {'x': 0.0, 'y': 0.0, 'xi': 1.0, 'eta': 0.0}
     base = {k: float(defaults[k] if given[k] is None else given[k]) for k in coord_names}
@@ -1444,6 +1754,17 @@ def animate_wavefront_set(
                 xi_vals = nonzero
             return [(c['x'], float(xi)) for xi in xi_vals]
         mag = float(np.hypot(c['xi'], c['eta'])) or 1.0
+        if seed_family == 'grid':
+            P = grid_pts + np.array([c['x'], c['y']])
+            if f_grad is None:
+                gx = np.full(len(P), c['xi']); gy = np.full(len(P), c['eta'])
+            else:
+                gx = np.broadcast_to(np.asarray(f_grad[0](P[:, 0], P[:, 1]), dtype=float), len(P))
+                gy = np.broadcast_to(np.asarray(f_grad[1](P[:, 0], P[:, 1]), dtype=float), len(P))
+            return [(float(P[i, 0]), float(P[i, 1]), float(gx[i]), float(gy[i])) for i in range(len(P))]
+        if seed_family in ('rectangle', 'curve'):
+            pts = rect_pts if seed_family == 'rectangle' else curve_pts
+            return [(px + c['x'], py + c['y'], mag * nx, mag * ny) for px, py, nx, ny in pts]
         if seed_family == 'fiber':
             phis = np.linspace(0, np.pi if half_turn else 2 * np.pi, seeds)   # both end points: the initial curve closes up
             return [(c['x'], c['y'], mag * np.cos(f), mag * np.sin(f)) for f in phis]
@@ -1454,6 +1775,9 @@ def animate_wavefront_set(
     # ---- flows: frames[i] = {coord name: array (n_rays_i, n_pts), 't': ...}
     families = [_seed_family(v) for v in values]
     counts = [len(fam) for fam in families]
+    if sum(counts) > 50000:
+        import warnings
+        warnings.warn(f"{sum(counts)} rays will be integrated and drawn; consider a larger `step`, fewer `n_frames` or show_flow=False.")
     if two_sided:
         T = tspan[1] if tspan[0] >= 0 else None
         t_fwd = (0.0, tspan[1]) if T is None else (0.0, T)
@@ -1496,11 +1820,23 @@ def animate_wavefront_set(
                 d['t'] = np.broadcast_to(d['t'], (len(fam), len(d['t'])))
             frames.append((d, v))
     i0 = n_steps - 1 if two_sided else None      # index of the seed (t = 0) when two-sided
+    n_bad = 0
+    for d, _ in frames:                           # diverged integrations: inf -> nan, and count them
+        bad_rows = np.zeros(d['x'].shape[0], dtype=bool)
+        for k in coord_names:
+            fin = np.isfinite(d[k])
+            bad_rows |= ~fin.all(axis=1)
+            d[k] = np.where(fin, d[k], np.nan)
+        n_bad += int(bad_rows.sum())
+    if n_bad:
+        import warnings
+        warnings.warn(f"{n_bad} ray(s) diverged (non-finite values) and are drawn only up to their last finite point. "
+                      "Use a larger n_steps, a shorter tspan or a smaller range to avoid this.")
     if projection == '3d':
         return _wavefront_3d_animation(frames, dim, {'x': 'x', 'y': 'y', 'xi': 'ξ', 'eta': 'η'}[var],
                                        coords3d, color_by, cmap, show_flow, show_endpoints, pad,
                                        xlim, ylim, zlim, fixed_limits, figsize, view, rotate,
-                                       title, ax, interval, save_path, i0=i0)
+                                       title, ax, interval, save_path, i0=i0, ortho=ortho)
     n_rays = max(counts)
     colors = plt.get_cmap(cmap)(np.linspace(0.05, 0.95, n_rays))
     lbl = {'x': 'x', 'y': 'y', 'xi': 'ξ', 'eta': 'η'}
@@ -1556,10 +1892,8 @@ def animate_wavefront_set(
 
     def _set_limits(p_idx, subset):
         ku, kv, _ = panel_specs[p_idx]
-        lo_u = min(float(np.min(d[ku])) for d, _ in subset)
-        hi_u = max(float(np.max(d[ku])) for d, _ in subset)
-        lo_v = min(float(np.min(d[kv])) for d, _ in subset)
-        hi_v = max(float(np.max(d[kv])) for d, _ in subset)
+        lo_u, hi_u = _fin_range([d[ku] for d, _ in subset])
+        lo_v, hi_v = _fin_range([d[kv] for d, _ in subset])
         ax_obj = ax_list[p_idx]
         ax_obj.set_xlim(*(_user_lim(xlim, p_idx) or _padded(lo_u, hi_u)))
         ax_obj.set_ylim(*(_user_lim(ylim, p_idx) or _padded(lo_v, hi_v)))
@@ -1610,12 +1944,14 @@ def animate_wavefront_set(
                 strips[p].set_alpha(0.65)
                 artists.append(strips[p])
             if show_endpoints:
+                rows = np.arange(U.shape[0])
+                last = _last_finite(U, W)       # diverged rays end at their last finite point
                 if i0 is None:
                     starts[p].set_data(U[:, 0], W[:, 0])
-                    heads[p].set_data(U[:, -1], W[:, -1])
+                    heads[p].set_data(U[rows, last], W[rows, last])
                 else:
                     starts[p].set_data(U[:, i0], W[:, i0])
-                    heads[p].set_data(np.r_[U[:, 0], U[:, -1]], np.r_[W[:, 0], W[:, -1]])
+                    heads[p].set_data(np.r_[U[:, 0], U[rows, last]], np.r_[W[:, 0], W[rows, last]])
                 artists += [starts[p], heads[p]]
         if not fixed_limits:
             for p_idx in range(len(ax_list)):
