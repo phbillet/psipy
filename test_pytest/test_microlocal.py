@@ -926,3 +926,87 @@ def test_plot_wavefront_set_smoke():
     p2 = xi**2 + eta**2
     fig, axes = plot_wavefront_set(p2, [(0, 0, 1, 0)], (0, 1), dim=2, projection='full')
     plt.close('all')
+
+# ======================================================================
+# ANIMATE WAVEFRONT SET TESTS
+# ======================================================================
+
+def test_animate_wavefront_set_1d():
+    """Test animation of wavefront set in 1D."""
+    x, xi = symbols('x xi', real=True)
+    p = xi**2 - 1
+    
+    anim = animate_wavefront_set(
+        p, tspan=(0, 2), xi_range=(-2, 2), 
+        seeds=10, n_frames=5, dim=1
+    )
+    assert anim is not None
+    plt.close('all')
+
+
+def test_animate_wavefront_set_2d_circle():
+    """Test 2D animation with circle seed family."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = xi**2 + eta**2 - 1
+    
+    anim = animate_wavefront_set(
+        p, tspan=(0, 1), x_range=(-1, 1), 
+        seeds=12, n_frames=4, seed_family='circle', dim=2
+    )
+    assert anim is not None
+    plt.close('all')
+
+
+def test_animate_wavefront_set_2d_fiber():
+    """Test 2D animation with fiber seed family."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = xi**2 + eta**2 - 1
+    
+    anim = animate_wavefront_set(
+        p, tspan=(0, 1), y_range=(-0.5, 0.5), 
+        seeds=10, n_frames=3, seed_family='fiber', dim=2
+    )
+    assert anim is not None
+    plt.close('all')
+
+
+def test_animate_wavefront_set_2d_grid():
+    """Test 2D animation with grid seed family."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = xi**2 + eta**2 - 1
+    
+    anim = animate_wavefront_set(
+        p, tspan=(0, 1), x_range=(-0.5, 0.5), 
+        seed_family='grid', corner_ul=(-1, 1), corner_lr=(1, -1), 
+        step=0.5, n_frames=3, dim=2
+    )
+    assert anim is not None
+    plt.close('all')
+
+
+def test_animate_wavefront_set_2d_curve():
+    """Test 2D animation with curve seed family (e.g. circle or line)."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = xi**2 + eta**2 - 1
+    
+    anim = animate_wavefront_set(
+        p, tspan=(0, 1), x_range=(-0.5, 0.5), 
+        seed_family='curve', curve='circle', 
+        seeds=10, n_frames=3, dim=2
+    )
+    assert anim is not None
+    plt.close('all')
+
+
+def test_animate_wavefront_set_3d_projection():
+    """Test animation with 3D phase space projection."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = xi**2 + eta**2 - 1
+    
+    anim = animate_wavefront_set(
+        p, tspan=(0, 1), y_range=(-0.5, 0.5), 
+        seeds=10, n_frames=3, projection='3d', 
+        coords3d=('x', 'y', 'xi'), dim=2
+    )
+    assert anim is not None
+    plt.close('all')
