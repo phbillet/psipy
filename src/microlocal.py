@@ -1163,10 +1163,13 @@ WAVEFRONT_CURVES: Dict[str, Dict[str, Any]] = _wavefront_curve_catalogue()
 
 Each entry has ``'curve'`` (a pair of sympy expressions in a parameter s),
 ``'range'`` (the default parameter interval) and ``'note'`` (why the curve
-is interesting for wavefront-set propagation).  Names: circle, ellipse,
-parabola, hyperbola, line, sine, cubic, cusp, astroid, cardioid, nephroid,
-deltoid, limacon_loop, lemniscate, lissajous_3_2, trefoil,
-archimedes_spiral, log_spiral, cycloid, rose3.
+is interesting for wavefront-set propagation).
+
+Names: circle, ellipse, parabola, hyperbola, line, sine, cubic, cusp,
+astroid, cardioid, nephroid, deltoid, limacon_loop, lemniscate,
+lissajous_3_2, trefoil, archimedes_spiral, log_spiral, cycloid, rose3.
+
+:meta hide-value:
 """
 
 
