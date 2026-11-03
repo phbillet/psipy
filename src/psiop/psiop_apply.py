@@ -1361,7 +1361,7 @@ def factorize_symbolic(
     keep = SV > (SV[0] * tol)
 
     if not np.any(keep):
-        keep = np.zeros_like(S, dtype=bool)
+        keep = np.zeros_like(SV, dtype=bool)
         keep[0] = True
 
     energy_den = float(np.sum(SV ** 2))
@@ -2523,37 +2523,54 @@ def _aaa_eval_1d(
         out[:, x_idx] = vals_at_nodes[:, k_idx]
     return out  # (Nxi, Nx)
 
-
-def aaa_plan_to_callable_1d(plan: Dict[str, Any]) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
+def aaa_plan_to_callable_1d(plan):
     """
-    Wrap a 1D AAA decomposition plan into a fast NumPy callable.
-
-    Creates a function `p(x, ξ) → ndarray` that matches the `symbol_func` 
-    signature expected by `kohn_nirenberg_fft` and `kohn_nirenberg_nonperiodic`.
-
-    Parameters
-    ----------
-    plan : dict
-        The 1D AAA plan dictionary.
-
-    Returns
-    -------
-    callable
-        A function that evaluates the rational approximation.
+    Wrap a 1D AAA plan into a fully vectorized NumPy callable.
+    Drop-in replacement: same signature p(x, ξ) → ndarray.
     """
+    fit = plan["fit"]
+    x_nodes = plan["x_nodes"]
+    M = len(x_nodes)
+    bw = _aaa_bary_weights_1st_kind(M)          # (M,)
+
     def p_approx(x, xi):
         x = np.asarray(x, dtype=float)
         xi_arr = np.asarray(xi, dtype=complex)
         orig_shape = np.broadcast(x, xi_arr).shape
-        xb, xib = np.broadcast_to(x, orig_shape), np.broadcast_to(xi_arr, orig_shape)
-        x_flat, xi_flat = xb.ravel(), xib.ravel()
-        # _aaa_eval_1d expects distinct (x_eval, xi_eval) axes; evaluate
-        # pointwise via the diagonal of the outer evaluation (small arrays
-        # in the kohn_nirenberg_fft slow path -- fine at that scale).
-        out = np.empty(x_flat.shape, dtype=complex)
-        for i in range(x_flat.size):
-            out[i] = _aaa_eval_1d(plan, x_flat[i:i+1], xi_flat[i:i+1])[0, 0]
+        xb = np.broadcast_to(x, orig_shape).ravel()       # (N,)
+        xib = np.broadcast_to(xi_arr, orig_shape).ravel() # (N,)
+        N = xb.size
+
+        # ── Step 1: AAA barycentric evaluation at ALL xi points ──
+        # fit(xib) returns (N, M): the rational fit at each Chebyshev
+        # x-node, for every xi value simultaneously.
+        vals_at_nodes = fit(xib)                           # (N, M)
+
+        # ── Step 2: Barycentric Lagrange interpolation in x ──
+        # For each of the N points, compute the barycentric weights
+        # against the M Chebyshev nodes.
+        diffs = xb[:, None] - x_nodes[None, :]            # (N, M)
+        exact = np.isclose(diffs, 0.0)                     # (N, M) bool
+        safe = np.where(exact, 1.0, diffs)
+        inv = np.where(exact, 0.0, bw[None, :] / safe)    # (N, M)
+        den = inv.sum(axis=1)                              # (N,)
+
+        # ── Step 3: Pointwise interpolation (diagonal extraction) ──
+        # Instead of the full (Nxi × Nx) matrix product, compute only
+        # the paired sum:  out[i] = Σ_m vals[i,m] * inv[i,m] / den[i]
+        num = np.sum(vals_at_nodes * inv, axis=1)          # (N,)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out = num / den
+
+        # ── Step 4: Exact-node correction ──
+        # If x[i] coincides with Chebyshev node k, use the exact value.
+        if exact.any():
+            node_idx = np.argmax(exact, axis=1)            # (N,)
+            hit = exact.any(axis=1)                        # (N,) bool
+            out[hit] = vals_at_nodes[hit, node_idx[hit]]
+
         return out.reshape(orig_shape)
+
     return p_approx
 
 
@@ -2748,42 +2765,121 @@ def _aaa_eval_2d(
     return out
 
 
-def aaa_plan_to_callable_2d(
-    plan: Dict[str, Any]
-) -> Callable[
-    [
-        Union[np.ndarray, Sequence[float], float],
-        Union[np.ndarray, Sequence[float], float],
-        Union[np.ndarray, Sequence[complex], complex],
-        Union[np.ndarray, Sequence[complex], complex],
-    ],
-    np.ndarray,
-]:
+def aaa_plan_to_callable_2d(plan):
     """
-    Wrap a 2D AAA decomposition plan into a fast NumPy callable.
-
-    Creates a function `p(x, y, ξ, η) → ndarray` that matches the `symbol_func` 
-    signature expected by the 2D Kohn-Nirenberg quantization routines.
-
-    Parameters
-    ----------
-    plan : dict
-        The 2D AAA plan dictionary.
-
-    Returns
-    -------
-    callable
-        A function that evaluates the 2D rational approximation.
+    Wrap a 2D AAA plan into a fully vectorized NumPy callable.
+    Drop-in replacement: same signature p(x, y, ξ, η) → ndarray.
     """
+    fit_xi = plan["fit_xi"]
+    xi_support = plan["xi_support"]
+    eta_fits = plan["eta_fits"]
+    x_nodes = plan["x_nodes"]
+    y_nodes = plan["y_nodes"]
+    L = len(xi_support)
+    Nx_c = len(x_nodes)
+    Ny_c = len(y_nodes)
+    bw_x = _aaa_bary_weights_1st_kind(Nx_c)    # (Nx_c,)
+    bw_y = _aaa_bary_weights_1st_kind(Ny_c)    # (Ny_c,)
+    w_xi = fit_xi.w                             # (L,)
+
+    def _bary_weights_1d(pts, nodes, bw):
+        """Vectorized 1D barycentric weights: (N, M)."""
+        diffs = pts[:, None] - nodes[None, :]
+        exact = np.isclose(diffs, 0.0)
+        safe = np.where(exact, 1.0, diffs)
+        inv = np.where(exact, 0.0, bw[None, :] / safe)
+        den = inv.sum(axis=1)
+        return inv, den, exact
+
     def p_approx(x, y, xi, eta):
-        x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
-        xi_arr = np.asarray(xi, dtype=complex); eta_arr = np.asarray(eta, dtype=complex)
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        xi_arr = np.asarray(xi, dtype=complex)
+        eta_arr = np.asarray(eta, dtype=complex)
         orig_shape = np.broadcast(x, y, xi_arr, eta_arr).shape
-        xb, yb, xib, etab = (np.broadcast_to(a, orig_shape).ravel()
-                              for a in (x, y, xi_arr, eta_arr))
-        out = np.empty(xb.shape, dtype=complex)
-        for i in range(xb.size):
-            out[i] = _aaa_eval_2d(plan, xb[i:i+1], yb[i:i+1], xib[i:i+1], etab[i:i+1])[0, 0, 0, 0]
-        return out.reshape(orig_shape)
-    return p_approx
+        xb = np.broadcast_to(x, orig_shape).ravel()
+        yb = np.broadcast_to(y, orig_shape).ravel()
+        xib = np.broadcast_to(xi_arr, orig_shape).ravel()
+        etab = np.broadcast_to(eta_arr, orig_shape).ravel()
+        N = xb.size
 
+        # ── Step 1: Barycentric weights in x and y (shared) ──
+        inv_x, den_x, exact_x = _bary_weights_1d(xb, x_nodes, bw_x)  # (N, Nx_c)
+        inv_y, den_y, exact_y = _bary_weights_1d(yb, y_nodes, bw_y)  # (N, Ny_c)
+
+        # ── Step 2: For each ξ-support pole, evaluate η-fit and
+        #            do 2D barycentric interpolation pointwise ──
+        q_all = np.empty((L, N), dtype=complex)   # (L, N)
+
+        for l in range(L):
+            # η-AAA at all points: (N, Nx_c * Ny_c) → reshape
+            vals_flat = eta_fits[l](etab)         # (N, Nx_c * Ny_c)
+            vals_grid = vals_flat.reshape(N, Nx_c, Ny_c)
+
+            # Tensor-product barycentric interpolation, pointwise:
+            #   out[i] = Σ_m Σ_n vals[i,m,n] * inv_x[i,m] * inv_y[i,n]
+            #            / (den_x[i] * den_y[i])
+            # Vectorized as two sequential contractions:
+            #   contract over m first:  tmp[i,n] = Σ_m vals[i,m,n] * inv_x[i,m]
+            tmp = np.einsum('imn,im->in', vals_grid, inv_x)  # (N, Ny_c)
+            #   then over n:            num[i] = Σ_n tmp[i,n] * inv_y[i,n]
+            num = np.einsum('in,in->i', tmp, inv_y)           # (N,)
+            den = den_x * den_y                               # (N,)
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                q_all[l] = num / den
+
+            # Exact-node corrections in x
+            if exact_x.any():
+                hit_x = exact_x.any(axis=1)
+                nx_idx = np.argmax(exact_x, axis=1)
+                # For exact x, contract only over y:
+                #   vals[i, nx_idx[i], :] dotted with inv_y[i, :]
+                rows = np.where(hit_x)[0]
+                if rows.size > 0:
+                    vals_at_xnode = vals_grid[rows, nx_idx[rows], :]  # (R, Ny_c)
+                    num_y = np.einsum('rn,rn->r', vals_at_xnode, inv_y[rows])
+                    with np.errstate(invalid="ignore", divide="ignore"):
+                        q_all[l, rows] = num_y / den_y[rows]
+
+            # Exact-node corrections in y
+            if exact_y.any():
+                hit_y = exact_y.any(axis=1)
+                ny_idx = np.argmax(exact_y, axis=1)
+                rows = np.where(hit_y)[0]
+                if rows.size > 0:
+                    vals_at_ynode = vals_grid[rows, :, ny_idx[rows]]  # (R, Nx_c)
+                    num_x = np.einsum('rn,rn->r', vals_at_ynode, inv_x[rows])
+                    with np.errstate(invalid="ignore", divide="ignore"):
+                        q_all[l, rows] = num_x / den_x[rows]
+
+            # Both exact
+            if exact_x.any() and exact_y.any():
+                hit_both = exact_x.any(axis=1) & exact_y.any(axis=1)
+                rows = np.where(hit_both)[0]
+                if rows.size > 0:
+                    nx_idx = np.argmax(exact_x[rows], axis=1)
+                    ny_idx = np.argmax(exact_y[rows], axis=1)
+                    q_all[l, rows] = vals_grid[rows, nx_idx, ny_idx]
+
+        # ── Step 3: ξ barycentric combination, pointwise ──
+        diffs_xi = xib[:, None] - xi_support[None, :]   # (N, L)
+        exact_xi = np.isclose(diffs_xi, 0.0)
+        safe_xi = np.where(exact_xi, 1.0, diffs_xi)
+        coeff = np.where(exact_xi, 0.0, w_xi[None, :] / safe_xi)  # (N, L)
+        coeff_sum = coeff.sum(axis=1)                    # (N,)
+
+        # out[i] = Σ_l coeff[i,l] * q_all[l,i] / coeff_sum[i]
+        num_xi = np.einsum('nl,ln->n', coeff, q_all)    # (N,)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out = num_xi / coeff_sum
+
+        # Exact ξ-support-point correction
+        if exact_xi.any():
+            hit_xi = exact_xi.any(axis=1)
+            l_idx = np.argmax(exact_xi, axis=1)
+            out[hit_xi] = q_all[l_idx[hit_xi], np.where(hit_xi)[0]]
+
+        return out.reshape(orig_shape)
+
+    return p_approx

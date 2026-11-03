@@ -195,7 +195,7 @@ import microlocal as _mu
 from microlocal import (
     plot_scalar_1d, plot_matrix_1d, plot_scalar_2d, animate_scalar_1d,
     plot_matrix_field_1d, plot_matrix_field_2d, plot_wave_solution_1d,
-    animate_singularity, animate_singularity_3d,
+    animate_singularity, animate_singularity_3d, bicharacteristic_flow, 
     characteristic_hamiltonians, integrate_singularity, animate_wavefront_set, 
 )
 
@@ -851,7 +851,7 @@ class PseudoDifferentialOperator:
                 joint_max_rel_error=joint_max_rel_error,
             )
             
-        is_spatial  = self._is_spatial_dependent()
+        is_spatial = self._is_spatial_dependent()
      
         # Case 1: constant symbol + periodic BC — fast FFT multiplier
         if not is_spatial and boundary_condition == 'periodic':
@@ -864,7 +864,7 @@ class PseudoDifferentialOperator:
                 dealiasing_mask,
                 freq_window=freq_window,
                 clamp=clamp,
-                space_window=space_window,
+                space_window=False,
             )
      
         # For all other cases, obtain the effective (possibly corrected) symbol
@@ -885,7 +885,7 @@ class PseudoDifferentialOperator:
                 freq_window=freq_window,
                 clamp=clamp,
                 space_window=space_window,
-                is_spatial=is_spatial,
+                is_spatial=is_spatial if not space_window else None,
             )
      
         # Case 3: Dirichlet BC (non-periodic)
@@ -1022,6 +1022,11 @@ class PseudoDifferentialOperator:
         kohn_nirenberg_fft, so that constant-coefficient suboperators used inside
         apply_peetre are consistent with the periodic variable-coefficient path.
         """
+        if space_window:
+            raise ValueError(
+                "_apply_constant_fft does not support space_window=True. "
+                "Route through kohn_nirenberg_fft instead."
+            )
         u_hat = self.fft(u)
         if self.dim == 1:
             Nx = len(x_grid)
@@ -1075,22 +1080,7 @@ class PseudoDifferentialOperator:
         u_hat *= symbol_vals
         if dealiasing_mask is not None:
             u_hat *= dealiasing_mask
-        result = self.ifft(u_hat)
-        if space_window:
-            if self.dim == 1:
-                x0 = (x_grid[0] + x_grid[-1]) / 2.0
-                L = (x_grid[-1] - x_grid[0]) / 2.0
-                sw_x = np.exp(-((x_grid - x0) / L) ** 2)
-                result *= sw_x
-            elif self.dim == 2:
-                x0 = (x_grid[0] + x_grid[-1]) / 2.0
-                y0 = (y_grid[0] + y_grid[-1]) / 2.0
-                Lx = (x_grid[-1] - x_grid[0]) / 2.0
-                Ly = (y_grid[-1] - y_grid[0]) / 2.0
-                sw_x = np.exp(-((x_grid - x0) / Lx) ** 2)
-                sw_y = np.exp(-((y_grid - y0) / Ly) ** 2)
-                result *= sw_x[:, None] * sw_y[None, :]
-        return result
+        return self.ifft(u_hat)
 
     def principal_symbol(self, order: int = 1) -> Expr:
         """
