@@ -852,9 +852,8 @@ class PseudoDifferentialOperator:
             )
             
         is_spatial = self._is_spatial_dependent()
-     
-        # Case 1: constant symbol + periodic BC — fast FFT multiplier
-        if not is_spatial and boundary_condition == 'periodic':
+        # Case 1: constant symbol + periodic BC + NO spatial window — fast FFT multiplier
+        if not is_spatial and boundary_condition == 'periodic' and not space_window:
             return self._apply_constant_fft(
                 u,
                 x_grid,
@@ -866,11 +865,9 @@ class PseudoDifferentialOperator:
                 clamp=clamp,
                 space_window=False,
             )
-     
         # For all other cases, obtain the effective (possibly corrected) symbol
         symbol_func = self._get_effective_symbol_func(weyl_order=weyl_order)
-
-        # Case 2: spatial symbol + periodic BC
+        # Case 2: spatial symbol + periodic BC (OR constant symbol with space_window=True)
         if boundary_condition == 'periodic':
             return kohn_nirenberg_fft(
                 u_vals=u,
@@ -885,6 +882,7 @@ class PseudoDifferentialOperator:
                 freq_window=freq_window,
                 clamp=clamp,
                 space_window=space_window,
+                # CRITICAL: Pass None so kohn_nirenberg_fft's heuristic sees space_window=True
                 is_spatial=is_spatial if not space_window else None,
             )
      
@@ -900,6 +898,7 @@ class PseudoDifferentialOperator:
                     clamp=clamp,
                     space_window=space_window,
                     is_spatial=is_spatial,
+                    dealiasing_mask=dealiasing_mask, 
                 )
             elif self.dim == 2:
                 return kohn_nirenberg_nonperiodic(
@@ -911,6 +910,7 @@ class PseudoDifferentialOperator:
                     clamp=clamp,
                     space_window=space_window,
                     is_spatial=is_spatial,
+                    dealiasing_mask=dealiasing_mask, 
                 )
      
         raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
@@ -2257,6 +2257,7 @@ class PseudoDifferentialOperator:
         """
     
         common_apply_kwargs = dict(common_apply_kwargs or {})
+        _dealiasing_mask = common_apply_kwargs.get('dealiasing_mask', None)
     
         def _apply_joint_direct():
             """Exact (expensive) fallback: full KN application of joint symbol."""
@@ -2432,7 +2433,9 @@ class PseudoDifferentialOperator:
                     fft_func=self.fft, ifft_func=self.ifft,
                     dim=self.dim, y_grid=y_grid, ky=ky,
                     freq_window=freq_window, clamp=clamp,
-                    space_window=space_window, is_spatial=True,
+                    space_window=space_window,
+                    dealiasing_mask=dealiasing_mask,
+                    is_spatial=is_spatial if not space_window else None,
                 )
             else:
                 xg = x_grid if self.dim == 1 else (x_grid, y_grid)
@@ -2441,6 +2444,7 @@ class PseudoDifferentialOperator:
                     u, xg, kg, symbol_func,
                     freq_window=freq_window, clamp=clamp,
                     space_window=space_window, is_spatial=True,
+                    dealiasing_mask=dealiasing_mask, 
                 )
     
         elif rep_type == "aaa_unfit":

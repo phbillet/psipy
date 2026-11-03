@@ -278,6 +278,7 @@ def kohn_nirenberg_fft(
     clamp: float = 1e6,
     space_window: bool = False,
     is_spatial: Optional[bool] = None,
+    dealiasing_mask: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
     Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator
@@ -388,6 +389,8 @@ def kohn_nirenberg_fft(
         if is_x_independent:
             U = fft_func(u_vals)
             # FIX: Enforce shape to prevent scalar/reduced-dim returns from lambdify
+            if dealiasing_mask is not None:
+                U = U * dealiasing_mask
             P_raw = symbol_func(x_grid[0], k_unshifted)
             P = np.broadcast_to(P_raw, k_unshifted.shape).astype(np.complex128).copy()
             P = _clip_complex_magnitude(P, clamp)
@@ -406,6 +409,9 @@ def kohn_nirenberg_fft(
         k = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(Nx, d=dx))
         dk = k[1] - k[0]
         f_hat = np.fft.fftshift(fft_func(np.fft.fftshift(u_vals)) * dx)
+
+        if dealiasing_mask is not None:
+            f_hat = f_hat * np.fft.fftshift(dealiasing_mask)
         
         win_k = None
         if freq_window == 'gaussian':
@@ -500,6 +506,8 @@ def kohn_nirenberg_fft(
 
         if is_independent:
             U = fft_func(u_vals)
+            if dealiasing_mask is not None:
+                U = U * dealiasing_mask
             KX, KY = np.meshgrid(kx_unshifted, ky_unshifted, indexing='ij')
             
             # FIX: Enforce target shape
@@ -527,6 +535,8 @@ def kohn_nirenberg_fft(
         Nkx, Nky = len(kx_s), len(ky_s)
 
         f_hat = np.fft.fftshift(fft_func(np.fft.fftshift(u_vals)) * dx * dy)
+        if dealiasing_mask is not None:
+            f_hat = f_hat * np.fft.fftshift(dealiasing_mask)
         exp_y = np.exp(1j * np.outer(y_grid, ky_s))
 
         win_kx, win_ky = None, None
@@ -692,6 +702,7 @@ def kohn_nirenberg_nonperiodic(
     clamp: float = 1e6,
     space_window: bool = False,
     is_spatial: Optional[bool] = None,
+    dealiasing_mask: Optional[np.ndarray] = None, 
     _cache: Dict[Tuple, Dict[str, Any]] = _KN_CACHE,
 ) -> np.ndarray:
     """
@@ -815,6 +826,9 @@ def kohn_nirenberg_nonperiodic(
         entry = _cache[key]
         u_hat = dx * (entry['phase_ft'] @ u_vals)
 
+        if dealiasing_mask is not None:
+            u_hat = u_hat * dealiasing_mask
+
         sigma_raw = symbol_func(x[:, None], xi[None, :])
         sigma = np.broadcast_to(sigma_raw, (len(x), len(xi))).astype(np.complex128).copy()
         sigma = _clip_complex_magnitude(sigma, clamp)
@@ -886,6 +900,9 @@ def kohn_nirenberg_nonperiodic(
         sw_x1_full, sw_x2 = entry2d['sw_x1_full'], entry2d['sw_x2']
 
         u_hat = dx1 * dx2 * (phase1 @ u_vals @ phase2)
+
+        if dealiasing_mask is not None:
+            u_hat = u_hat * dealiasing_mask
 
         # --- FAST/SLOW PATH SELECTION ---
         # is_spatial=True  -> force slow path (symbol IS space-dependent)
