@@ -1271,13 +1271,10 @@
 
 <span class="sd">Each entry has ``'curve'`` (a pair of sympy expressions in a parameter s),</span>
 <span class="sd">``'range'`` (the default parameter interval) and ``'note'`` (why the curve</span>
-<span class="sd">is interesting for wavefront-set propagation).</span>
-
-<span class="sd">Names: circle, ellipse, parabola, hyperbola, line, sine, cubic, cusp,</span>
-<span class="sd">astroid, cardioid, nephroid, deltoid, limacon_loop, lemniscate,</span>
-<span class="sd">lissajous_3_2, trefoil, archimedes_spiral, log_spiral, cycloid, rose3.</span>
-
-<span class="sd">:meta hide-value:</span>
+<span class="sd">is interesting for wavefront-set propagation).  Names: circle, ellipse,</span>
+<span class="sd">parabola, hyperbola, line, sine, cubic, cusp, astroid, cardioid, nephroid,</span>
+<span class="sd">deltoid, limacon_loop, lemniscate, lissajous_3_2, trefoil,</span>
+<span class="sd">archimedes_spiral, log_spiral, cycloid, rose3.</span>
 <span class="sd">"""</span>
 
 
@@ -1327,10 +1324,27 @@
     <span class="kn">from</span><span class="w"> </span><span class="nn">mpl_toolkits.mplot3d.art3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Line3DCollection</span>
 
     <span class="n">phase</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'xi'</span><span class="p">,</span> <span class="s1">'eta'</span><span class="p">]</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">[</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'xi'</span><span class="p">]</span>
-    <span class="n">allowed</span> <span class="o">=</span> <span class="n">phase</span> <span class="o">+</span> <span class="p">[</span><span class="s1">'t'</span><span class="p">]</span> <span class="o">+</span> <span class="p">([</span><span class="s1">'u'</span><span class="p">,</span> <span class="s1">'v'</span><span class="p">]</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">[])</span>
-    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>   <span class="c1"># sign-invariant (doubled-angle) frequencies</span>
-        <span class="n">frames</span> <span class="o">=</span> <span class="p">[({</span><span class="o">**</span><span class="n">d</span><span class="p">,</span> <span class="s1">'u'</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">'v'</span><span class="p">:</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">]},</span> <span class="n">v</span><span class="p">)</span>
-                  <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">frames</span><span class="p">]</span>
+    <span class="n">allowed</span> <span class="o">=</span> <span class="n">phase</span> <span class="o">+</span> <span class="p">[</span><span class="s1">'t'</span><span class="p">]</span> <span class="o">+</span> <span class="p">([</span><span class="s1">'u'</span><span class="p">,</span> <span class="s1">'v'</span><span class="p">,</span> <span class="s1">'phi'</span><span class="p">,</span> <span class="s1">'kappa'</span><span class="p">]</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">[</span><span class="s1">'kappa'</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_derived</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Add the derived coordinates: covector norm 'kappa', and in 2D the sign-invariant</span>
+<span class="sd">        frequencies 'u', 'v' and the covector angle 'phi' (unwrapped along each ray, then shifted by a</span>
+<span class="sd">        multiple of 2π so that its value at the seed lies in [-π, π))."""</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s1">'u'</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="n">out</span><span class="p">[</span><span class="s1">'v'</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">]</span>
+            <span class="n">out</span><span class="p">[</span><span class="s1">'kappa'</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">])</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">])</span>
+            <span class="n">un</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">ref</span> <span class="o">=</span> <span class="n">un</span><span class="p">[:,</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">i0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">i0</span><span class="p">]</span>
+            <span class="n">principal</span> <span class="o">=</span> <span class="p">(</span><span class="n">ref</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+            <span class="n">out</span><span class="p">[</span><span class="s1">'phi'</span><span class="p">]</span> <span class="o">=</span> <span class="n">un</span> <span class="o">-</span> <span class="p">(</span><span class="n">ref</span> <span class="o">-</span> <span class="n">principal</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s1">'kappa'</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="n">frames</span> <span class="o">=</span> <span class="p">[(</span><span class="n">_derived</span><span class="p">(</span><span class="n">d</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">frames</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">coords3d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">coords3d</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'xi'</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="s1">'x'</span><span class="p">,</span> <span class="s1">'xi'</span><span class="p">,</span> <span class="s1">'t'</span><span class="p">)</span>
     <span class="n">coords3d</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">coords3d</span><span class="p">)</span>
@@ -1338,11 +1352,15 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"coords3d must be 3 distinct names among </span><span class="si">{</span><span class="n">allowed</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">coords3d</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">color_by</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">rest</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">phase</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">coords3d</span><span class="p">]</span>
-        <span class="n">color_by</span> <span class="o">=</span> <span class="n">rest</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">rest</span> <span class="k">else</span> <span class="s1">'index'</span>
+        <span class="k">if</span> <span class="s1">'phi'</span> <span class="ow">in</span> <span class="n">coords3d</span> <span class="ow">and</span> <span class="s1">'kappa'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">coords3d</span><span class="p">:</span>
+            <span class="n">color_by</span> <span class="o">=</span> <span class="s1">'kappa'</span>            <span class="c1"># (x, y, φ) shows the angle; the norm is the missing information</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">color_by</span> <span class="o">=</span> <span class="n">rest</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">rest</span> <span class="k">else</span> <span class="s1">'index'</span>
     <span class="k">if</span> <span class="n">color_by</span> <span class="o">!=</span> <span class="s1">'index'</span> <span class="ow">and</span> <span class="n">color_by</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"color_by must be 'index' or one of </span><span class="si">{</span><span class="n">allowed</span><span class="si">}</span><span class="s2">, got '</span><span class="si">{</span><span class="n">color_by</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
 
-    <span class="n">labs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'x'</span><span class="p">:</span> <span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">:</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'xi'</span><span class="p">:</span> <span class="s1">'ξ'</span><span class="p">,</span> <span class="s1">'eta'</span><span class="p">:</span> <span class="s1">'η'</span><span class="p">,</span> <span class="s1">'t'</span><span class="p">:</span> <span class="s1">'t'</span><span class="p">,</span> <span class="s1">'u'</span><span class="p">:</span> <span class="s1">'ξ²−η²'</span><span class="p">,</span> <span class="s1">'v'</span><span class="p">:</span> <span class="s1">'2ξη'</span><span class="p">}</span>
+    <span class="n">labs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'x'</span><span class="p">:</span> <span class="s1">'x'</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">:</span> <span class="s1">'y'</span><span class="p">,</span> <span class="s1">'xi'</span><span class="p">:</span> <span class="s1">'ξ'</span><span class="p">,</span> <span class="s1">'eta'</span><span class="p">:</span> <span class="s1">'η'</span><span class="p">,</span> <span class="s1">'t'</span><span class="p">:</span> <span class="s1">'t'</span><span class="p">,</span> <span class="s1">'u'</span><span class="p">:</span> <span class="s1">'ξ²−η²'</span><span class="p">,</span> <span class="s1">'v'</span><span class="p">:</span> <span class="s1">'2ξη'</span><span class="p">,</span>
+            <span class="s1">'phi'</span><span class="p">:</span> <span class="s1">'φ (covector angle)'</span><span class="p">,</span> <span class="s1">'kappa'</span><span class="p">:</span> <span class="s1">'|κ| (covector norm)'</span><span class="p">}</span>
     <span class="n">n_pts</span> <span class="o">=</span> <span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">'x'</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     <span class="n">sel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_pts</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_pts</span> <span class="o">//</span> <span class="mi">200</span><span class="p">)),</span> <span class="p">[</span><span class="n">n_pts</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">i0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[</span><span class="n">i0</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>   <span class="c1"># light-weight rendering</span>
 
@@ -1657,14 +1675,20 @@
 <span class="sd">        ray by ray (slow reference path).</span>
 <span class="sd">    coords3d : tuple of 3 names, optional</span>
 <span class="sd">        projection='3d' only: which three coordinates are the axes, among</span>
-<span class="sd">        'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and, in</span>
-<span class="sd">        2D, the sign-invariant frequencies 'u' = ξ²-η², 'v' = 2ξη.</span>
+<span class="sd">        'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and the</span>
+<span class="sd">        derived quantities 'kappa' = |(ξ, η)| (covector norm; |ξ| in 1D)</span>
+<span class="sd">        and, in 2D only, 'phi' = arg(ξ + iη) (covector angle, unwrapped</span>
+<span class="sd">        along each ray and equal to a value in [-π, π) at the seed) and the</span>
+<span class="sd">        sign-invariant frequencies 'u' = ξ²-η², 'v' = 2ξη.  For example</span>
+<span class="sd">        ``coords3d=('x', 'y', 'phi')`` draws the total space of the</span>
+<span class="sd">        cotangent bundle as the base plane plus a circle fiber.</span>
 <span class="sd">        Default ('x', 'y', 'xi') in 2D and ('x', 'xi', 't') in 1D.</span>
 <span class="sd">    color_by : str, optional</span>
 <span class="sd">        projection='3d' only: quantity mapped to colour -- a coordinate</span>
 <span class="sd">        name, 't' or 'index' (ray index).  Default: the 4th phase-space</span>
 <span class="sd">        coordinate not used by the axes (e.g. 'eta'), so that all four</span>
-<span class="sd">        dimensions of T*ℝ² are visible; 'index' in 1D.</span>
+<span class="sd">        dimensions of T*ℝ² are visible; 'kappa' if 'phi' is one of the</span>
+<span class="sd">        axes; 'index' in 1D.</span>
 <span class="sd">    zlim : tuple (lo, hi), optional</span>
 <span class="sd">        projection='3d' only: explicit z limits (`xlim` and `ylim` give</span>
 <span class="sd">        the x and y limits, each a plain tuple).</span>
@@ -3021,46 +3045,101 @@
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Launch an interactive dashboard for symbol exploration using ipywidgets.</span>
 
-<span class="sd">    This function provides a user-friendly interface to visualize various aspects of the pseudo-differential operator's symbol.</span>
-<span class="sd">    It supports multiple visualization modes in both 1D and 2D, including group velocity fields, micro-support estimates,</span>
-<span class="sd">    symplectic vector fields, symbol amplitude/phase, cotangent fiber structure, characteristic sets and Hamiltonian flows.</span>
+<span class="sd">    The dashboard combines a drop-down menu (the visualization *mode*) with sliders that set the</span>
+<span class="sd">    base point of the exploration, (x₀[, y₀]) in position space and (ξ₀[, η₀]) in frequency space.</span>
+<span class="sd">    The selected visualization is redrawn each time a widget changes. It works for operators in</span>
+<span class="sd">    1D and 2D and covers pointwise maps of the symbol (amplitude, phase, micro-support),</span>
+<span class="sd">    characteristic-set diagnostics, vector fields (group velocity, Hamiltonian field) and the</span>
+<span class="sd">    propagation of singularities (Hamiltonian flow and wavefront set).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    pseudo_op : PseudoDifferentialOperator</span>
-<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed interactively.</span>
-<span class="sd">    xlim, ylim : tuple of float</span>
-<span class="sd">        Spatial domain limits along x and y axes respectively.</span>
-<span class="sd">    xi_range, eta_range : tuple</span>
-<span class="sd">        Frequency domain limits along ξ and η axes respectively.</span>
-<span class="sd">    density : int</span>
-<span class="sd">        Number of points per axis used to construct the evaluation grid. Controls resolution.</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed interactively. Only its</span>
+<span class="sd">        dimension (``pseudo_op.dim``, 1 or 2), its space variables and its symbol are used.</span>
+<span class="sd">    xlim, ylim : tuple of float, default=(-2, 2)</span>
+<span class="sd">        Spatial domain limits along x and y (``ylim`` is ignored in 1D). They define the</span>
+<span class="sd">        evaluation grids and the ranges of the x₀ and y₀ sliders.</span>
+<span class="sd">    xi_range : tuple of float, default=(0.1, 5)</span>
+<span class="sd">    eta_range : tuple of float, default=(-5, 5)</span>
+<span class="sd">        Frequency domain limits along ξ and η (``eta_range`` is ignored in 1D). They define the</span>
+<span class="sd">        evaluation grids and the ranges of the ξ₀ and η₀ sliders. In 1D, the width of</span>
+<span class="sd">        ``xi_range`` is also used as the half-width of the fan of frequencies in the</span>
+<span class="sd">        'Wavefront Set' mode.</span>
+<span class="sd">    density : int, default=50</span>
+<span class="sd">        Number of points per axis of the evaluation grids (resolution of the maps and vector</span>
+<span class="sd">        fields). It is also the number of seeds (rays) of the 'Wavefront Set' mode. Large values</span>
+<span class="sd">        make the dashboard slower.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">        The dashboard (mode selector, sliders and output area) is displayed in the notebook; the</span>
+<span class="sd">        figures are drawn in the output area and updated as the widgets change.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    - In 1D mode, sliders control the fixed frequency (ξ₀) and spatial position (x₀).</span>
-<span class="sd">    - In 2D mode, additional sliders control the second frequency component (η₀) and second spatial coordinate (y₀).</span>
-<span class="sd">    - Visualization updates dynamically as parameters are adjusted via sliders or dropdown menus.</span>
-<span class="sd">    - Supported visualization modes:</span>
-<span class="sd">        - 'Symbol Amplitude'           : |p(x,ξ)| or |p(x,y,ξ,η)|</span>
-<span class="sd">        - 'Symbol Phase'               : arg(p(x,ξ)) or similar in 2D</span>
-<span class="sd">        - 'Micro-Support (1/|p|)'      : Reciprocal of symbol magnitude</span>
-<span class="sd">        - 'Cotangent Fiber'            : Structure of symbol over frequency space at fixed x</span>
-<span class="sd">        - 'Characteristic Set'         : Zero set approximation {p ≈ 0}</span>
-<span class="sd">        - 'Characteristic Gradient'    : |∇p(x, ξ)| or |∇p(x₀, y₀, ξ, η)|</span>
-<span class="sd">        - 'Group Velocity Field'       : ∇_ξ p(x,ξ) or ∇_{ξ,η} p(x,y,ξ,η)</span>
-<span class="sd">        - 'Symplectic Vector Field'    : (∇_ξ p, -∇_x p) or similar in 2D</span>
-<span class="sd">        - 'Hamiltonian Flow'           : Trajectories generated by the Hamiltonian vector field</span>
-<span class="sd">        - 'Wavefront Set'              : Propagation of seed singularities along bicharacteristic flow</span>
+<span class="sd">    - Requires a Jupyter environment with ``ipywidgets``. Each update closes all the open matplotlib</span>
+<span class="sd">      figures (``plt.close('all')``) before redrawing.</span>
+<span class="sd">    - Only 1D and 2D operators are supported.</span>
+<span class="sd">    - Sliders (step 0.1): ξ₀ ranges over ``xi_range``, η₀ over ``eta_range``, x₀ over ``xlim`` and</span>
+<span class="sd">      y₀ over ``ylim``. Only the sliders needed by the selected mode are displayed; a hidden slider</span>
+<span class="sd">      keeps its current value (initially ξ₀ = η₀ = 1 and x₀ = y₀ = 0).</span>
 
-<span class="sd">    Raises</span>
-<span class="sd">    ------</span>
-<span class="sd">    NotImplementedError</span>
-<span class="sd">        If the spatial dimension is not 1D or 2D.</span>
+<span class="sd">    Visualization modes in 1D (phase space (x, ξ)); sliders shown in brackets:</span>
 
-<span class="sd">    Prints</span>
-<span class="sd">    ------</span>
-<span class="sd">    Interactive matplotlib figures with dynamic updates based on widget inputs.</span>
+<span class="sd">    - 'Symbol Amplitude'           : |p(x,ξ)| as a color map</span>
+<span class="sd">    - 'Symbol Phase'               : arg p(x,ξ) (mod 2π, cyclic color map)</span>
+<span class="sd">    - 'Micro-Support (1/|p|)'      : 1/|p(x,ξ)|, large where the symbol is small</span>
+<span class="sd">    - 'Cotangent Fiber'            : p on the cotangent fiber above x₀</span>
+<span class="sd">    - 'Characteristic Set'         : approximate zero set {p ≈ 0}</span>
+<span class="sd">    - 'Characteristic Gradient'    : |∇p(x,ξ)|</span>
+<span class="sd">    - 'Group Velocity Field'       : ∂_ξ p(x,ξ) (1D only)</span>
+<span class="sd">    - 'Symplectic Vector Field'    : Hamiltonian vector field (∂_ξ p, -∂_x p)</span>
+<span class="sd">    - 'Hamiltonian Flow'           : trajectory from (x₀, ξ₀) with the vector field [ξ₀, x₀]</span>
+<span class="sd">    - 'Wavefront Set'              : propagation of a fan of seed frequencies at x₀ [ξ₀, x₀]</span>
+
+<span class="sd">    Visualization modes in 2D (phase space (x, y, ξ, η)):</span>
+
+<span class="sd">    - 'Symbol Amplitude'           : |p| over (x, y) at fixed frequency (ξ₀, η₀) [ξ₀, η₀]</span>
+<span class="sd">    - 'Symbol Phase'               : arg p over (x, y) at fixed frequency (ξ₀, η₀) [ξ₀, η₀]</span>
+<span class="sd">    - 'Micro-Support (1/|p|)'      : 1/|p| at fixed frequency (ξ₀, η₀) [ξ₀, η₀]</span>
+<span class="sd">    - 'Cotangent Fiber'            : p over the frequency plane (ξ, η) above (x₀, y₀) [x₀, y₀]</span>
+<span class="sd">    - 'Characteristic Set'         : approximate zero set {p ≈ 0} above (x₀, y₀) [x₀, y₀]</span>
+<span class="sd">    - 'Characteristic Gradient'    : |∇p| above (x₀, y₀) [x₀, y₀]</span>
+<span class="sd">    - 'Symplectic Vector Field'    : arrows (∂_ξ p, ∂_η p) over (x, y) at fixed frequency</span>
+<span class="sd">                                     (ξ₀, η₀), colored by their norm [ξ₀, η₀]. This is the group</span>
+<span class="sd">                                     velocity field, which is why there is no separate</span>
+<span class="sd">                                     'Group Velocity Field' mode in 2D.</span>
+<span class="sd">    - 'Hamiltonian Flow'           : trajectory from (x₀, y₀, ξ₀, η₀) [all four sliders]</span>
+<span class="sd">    - 'Wavefront Set'              : propagation of a point source at (x₀, y₀) [all four sliders]</span>
+
+<span class="sd">    'Wavefront Set' mode. The seeds are generated by `visualize_wavefront_set` and propagated</span>
+<span class="sd">    along the bicharacteristics over t ∈ [0, 5] with 150 steps:</span>
+
+<span class="sd">    - 1D: ``density`` seeds at the point x₀ with frequencies in [ξ₀ - w, ξ₀ + w], where w is the</span>
+<span class="sd">      width of ``xi_range``; the figure shows the cotangent projection.</span>
+<span class="sd">    - 2D: ``density`` seeds on a circle of radius 0.15 around (x₀, y₀), with outward covectors of</span>
+<span class="sd">      norm |(ξ₀, η₀)| (a point source); the figure shows the four 2D slices of phase space</span>
+<span class="sd">      (position, frequency and the two cotangent slices).</span>
+
+<span class="sd">    For other settings (seed families, flow time, number of steps) or for animations, call</span>
+<span class="sd">    `visualize_wavefront_set`, `plot_wavefront_set` or `animate_wavefront_set` directly.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    visualize_wavefront_set : Static wavefront-set plot with default seeds.</span>
+<span class="sd">    plot_wavefront_set : Wavefront-set plot for user-supplied seeds.</span>
+<span class="sd">    animate_wavefront_set : Animation of the wavefront set while an initial coordinate sweeps a range.</span>
+<span class="sd">    plot_hamiltonian_flow : Hamiltonian trajectories in phase space.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y, xi, eta = sp.symbols('x y xi eta', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; symbol = (xi**2 + eta**2) / 2 - 1 / sp.sqrt(x**2 + y**2 + 0.01)</span>
+<span class="sd">    &gt;&gt;&gt; op = PseudoDifferentialOperator(expr=symbol, vars_x=[x, y], mode='symbol')</span>
+<span class="sd">    &gt;&gt;&gt; interactive_symbol_analysis(op, xlim=(-3, 3), ylim=(-3, 3),</span>
+<span class="sd">    ...                             xi_range=(-3, 3), eta_range=(-3, 3), density=40)</span>
 <span class="sd">    """</span>
     <span class="n">dim</span> <span class="o">=</span> <span class="n">pseudo_op</span><span class="o">.</span><span class="n">dim</span>
     <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">xlim</span><span class="p">,</span> <span class="n">density</span><span class="p">)</span>

@@ -1163,13 +1163,10 @@ WAVEFRONT_CURVES: Dict[str, Dict[str, Any]] = _wavefront_curve_catalogue()
 
 Each entry has ``'curve'`` (a pair of sympy expressions in a parameter s),
 ``'range'`` (the default parameter interval) and ``'note'`` (why the curve
-is interesting for wavefront-set propagation).
-
-Names: circle, ellipse, parabola, hyperbola, line, sine, cubic, cusp,
-astroid, cardioid, nephroid, deltoid, limacon_loop, lemniscate,
-lissajous_3_2, trefoil, archimedes_spiral, log_spiral, cycloid, rose3.
-
-:meta hide-value:
+is interesting for wavefront-set propagation).  Names: circle, ellipse,
+parabola, hyperbola, line, sine, cubic, cusp, astroid, cardioid, nephroid,
+deltoid, limacon_loop, lemniscate, lissajous_3_2, trefoil,
+archimedes_spiral, log_spiral, cycloid, rose3.
 """
 
 
@@ -1219,10 +1216,27 @@ def _wavefront_3d_animation(
     from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
     phase = ['x', 'y', 'xi', 'eta'] if dim == 2 else ['x', 'xi']
-    allowed = phase + ['t'] + (['u', 'v'] if dim == 2 else [])
-    if dim == 2:   # sign-invariant (doubled-angle) frequencies
-        frames = [({**d, 'u': d['xi'] ** 2 - d['eta'] ** 2, 'v': 2 * d['xi'] * d['eta']}, v)
-                  for d, v in frames]
+    allowed = phase + ['t'] + (['u', 'v', 'phi', 'kappa'] if dim == 2 else ['kappa'])
+
+    def _derived(d):
+        """Add the derived coordinates: covector norm 'kappa', and in 2D the sign-invariant
+        frequencies 'u', 'v' and the covector angle 'phi' (unwrapped along each ray, then shifted by a
+        multiple of 2π so that its value at the seed lies in [-π, π))."""
+        out = dict(d)
+        if dim == 2:
+            out['u'] = d['xi'] ** 2 - d['eta'] ** 2
+            out['v'] = 2 * d['xi'] * d['eta']
+            out['kappa'] = np.hypot(d['xi'], d['eta'])
+            raw = np.arctan2(d['eta'], d['xi'])
+            un = np.unwrap(raw, axis=1)
+            ref = un[:, 0 if i0 is None else i0]
+            principal = (ref + np.pi) % (2 * np.pi) - np.pi
+            out['phi'] = un - (ref - principal)[:, None]
+        else:
+            out['kappa'] = np.abs(d['xi'])
+        return out
+
+    frames = [(_derived(d), v) for d, v in frames]
     if coords3d is None:
         coords3d = ('x', 'y', 'xi') if dim == 2 else ('x', 'xi', 't')
     coords3d = tuple(coords3d)
@@ -1230,11 +1244,15 @@ def _wavefront_3d_animation(
         raise ValueError(f"coords3d must be 3 distinct names among {allowed}, got {coords3d}.")
     if color_by is None:
         rest = [c for c in phase if c not in coords3d]
-        color_by = rest[0] if rest else 'index'
+        if 'phi' in coords3d and 'kappa' not in coords3d:
+            color_by = 'kappa'            # (x, y, φ) shows the angle; the norm is the missing information
+        else:
+            color_by = rest[0] if rest else 'index'
     if color_by != 'index' and color_by not in allowed:
         raise ValueError(f"color_by must be 'index' or one of {allowed}, got '{color_by}'.")
 
-    labs = {'x': 'x', 'y': 'y', 'xi': 'ξ', 'eta': 'η', 't': 't', 'u': 'ξ²−η²', 'v': '2ξη'}
+    labs = {'x': 'x', 'y': 'y', 'xi': 'ξ', 'eta': 'η', 't': 't', 'u': 'ξ²−η²', 'v': '2ξη',
+            'phi': 'φ (covector angle)', 'kappa': '|κ| (covector norm)'}
     n_pts = frames[0][0]['x'].shape[1]
     sel = np.unique(np.concatenate([np.arange(0, n_pts, max(1, n_pts // 200)), [n_pts - 1], [] if i0 is None else [i0]]).astype(int))   # light-weight rendering
 
@@ -1547,14 +1565,20 @@ def animate_wavefront_set(
         ray by ray (slow reference path).
     coords3d : tuple of 3 names, optional
         projection='3d' only: which three coordinates are the axes, among
-        'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and, in
-        2D, the sign-invariant frequencies 'u' = ξ²-η², 'v' = 2ξη.
+        'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and the
+        derived quantities 'kappa' = |(ξ, η)| (covector norm; |ξ| in 1D)
+        and, in 2D only, 'phi' = arg(ξ + iη) (covector angle, unwrapped
+        along each ray and equal to a value in [-π, π) at the seed) and the
+        sign-invariant frequencies 'u' = ξ²-η², 'v' = 2ξη.  For example
+        ``coords3d=('x', 'y', 'phi')`` draws the total space of the
+        cotangent bundle as the base plane plus a circle fiber.
         Default ('x', 'y', 'xi') in 2D and ('x', 'xi', 't') in 1D.
     color_by : str, optional
         projection='3d' only: quantity mapped to colour -- a coordinate
         name, 't' or 'index' (ray index).  Default: the 4th phase-space
         coordinate not used by the axes (e.g. 'eta'), so that all four
-        dimensions of T*ℝ² are visible; 'index' in 1D.
+        dimensions of T*ℝ² are visible; 'kappa' if 'phi' is one of the
+        axes; 'index' in 1D.
     zlim : tuple (lo, hi), optional
         projection='3d' only: explicit z limits (`xlim` and `ylim` give
         the x and y limits, each a plain tuple).
@@ -2869,46 +2893,101 @@ def interactive_symbol_analysis(
     """
     Launch an interactive dashboard for symbol exploration using ipywidgets.
 
-    This function provides a user-friendly interface to visualize various aspects of the pseudo-differential operator's symbol.
-    It supports multiple visualization modes in both 1D and 2D, including group velocity fields, micro-support estimates,
-    symplectic vector fields, symbol amplitude/phase, cotangent fiber structure, characteristic sets and Hamiltonian flows.
+    The dashboard combines a drop-down menu (the visualization *mode*) with sliders that set the
+    base point of the exploration, (x₀[, y₀]) in position space and (ξ₀[, η₀]) in frequency space.
+    The selected visualization is redrawn each time a widget changes. It works for operators in
+    1D and 2D and covers pointwise maps of the symbol (amplitude, phase, micro-support),
+    characteristic-set diagnostics, vector fields (group velocity, Hamiltonian field) and the
+    propagation of singularities (Hamiltonian flow and wavefront set).
 
     Parameters
     ----------
     pseudo_op : PseudoDifferentialOperator
-        The pseudo-differential operator whose symbol is to be analyzed interactively.
-    xlim, ylim : tuple of float
-        Spatial domain limits along x and y axes respectively.
-    xi_range, eta_range : tuple
-        Frequency domain limits along ξ and η axes respectively.
-    density : int
-        Number of points per axis used to construct the evaluation grid. Controls resolution.
+        The pseudo-differential operator whose symbol is to be analyzed interactively. Only its
+        dimension (``pseudo_op.dim``, 1 or 2), its space variables and its symbol are used.
+    xlim, ylim : tuple of float, default=(-2, 2)
+        Spatial domain limits along x and y (``ylim`` is ignored in 1D). They define the
+        evaluation grids and the ranges of the x₀ and y₀ sliders.
+    xi_range : tuple of float, default=(0.1, 5)
+    eta_range : tuple of float, default=(-5, 5)
+        Frequency domain limits along ξ and η (``eta_range`` is ignored in 1D). They define the
+        evaluation grids and the ranges of the ξ₀ and η₀ sliders. In 1D, the width of
+        ``xi_range`` is also used as the half-width of the fan of frequencies in the
+        'Wavefront Set' mode.
+    density : int, default=50
+        Number of points per axis of the evaluation grids (resolution of the maps and vector
+        fields). It is also the number of seeds (rays) of the 'Wavefront Set' mode. Large values
+        make the dashboard slower.
+
+    Returns
+    -------
+    None
+        The dashboard (mode selector, sliders and output area) is displayed in the notebook; the
+        figures are drawn in the output area and updated as the widgets change.
 
     Notes
     -----
-    - In 1D mode, sliders control the fixed frequency (ξ₀) and spatial position (x₀).
-    - In 2D mode, additional sliders control the second frequency component (η₀) and second spatial coordinate (y₀).
-    - Visualization updates dynamically as parameters are adjusted via sliders or dropdown menus.
-    - Supported visualization modes:
-        - 'Symbol Amplitude'           : |p(x,ξ)| or |p(x,y,ξ,η)|
-        - 'Symbol Phase'               : arg(p(x,ξ)) or similar in 2D
-        - 'Micro-Support (1/|p|)'      : Reciprocal of symbol magnitude
-        - 'Cotangent Fiber'            : Structure of symbol over frequency space at fixed x
-        - 'Characteristic Set'         : Zero set approximation {p ≈ 0}
-        - 'Characteristic Gradient'    : |∇p(x, ξ)| or |∇p(x₀, y₀, ξ, η)|
-        - 'Group Velocity Field'       : ∇_ξ p(x,ξ) or ∇_{ξ,η} p(x,y,ξ,η)
-        - 'Symplectic Vector Field'    : (∇_ξ p, -∇_x p) or similar in 2D
-        - 'Hamiltonian Flow'           : Trajectories generated by the Hamiltonian vector field
-        - 'Wavefront Set'              : Propagation of seed singularities along bicharacteristic flow
+    - Requires a Jupyter environment with ``ipywidgets``. Each update closes all the open matplotlib
+      figures (``plt.close('all')``) before redrawing.
+    - Only 1D and 2D operators are supported.
+    - Sliders (step 0.1): ξ₀ ranges over ``xi_range``, η₀ over ``eta_range``, x₀ over ``xlim`` and
+      y₀ over ``ylim``. Only the sliders needed by the selected mode are displayed; a hidden slider
+      keeps its current value (initially ξ₀ = η₀ = 1 and x₀ = y₀ = 0).
 
-    Raises
-    ------
-    NotImplementedError
-        If the spatial dimension is not 1D or 2D.
+    Visualization modes in 1D (phase space (x, ξ)); sliders shown in brackets:
 
-    Prints
-    ------
-    Interactive matplotlib figures with dynamic updates based on widget inputs.
+    - 'Symbol Amplitude'           : |p(x,ξ)| as a color map
+    - 'Symbol Phase'               : arg p(x,ξ) (mod 2π, cyclic color map)
+    - 'Micro-Support (1/|p|)'      : 1/|p(x,ξ)|, large where the symbol is small
+    - 'Cotangent Fiber'            : p on the cotangent fiber above x₀
+    - 'Characteristic Set'         : approximate zero set {p ≈ 0}
+    - 'Characteristic Gradient'    : |∇p(x,ξ)|
+    - 'Group Velocity Field'       : ∂_ξ p(x,ξ) (1D only)
+    - 'Symplectic Vector Field'    : Hamiltonian vector field (∂_ξ p, -∂_x p)
+    - 'Hamiltonian Flow'           : trajectory from (x₀, ξ₀) with the vector field [ξ₀, x₀]
+    - 'Wavefront Set'              : propagation of a fan of seed frequencies at x₀ [ξ₀, x₀]
+
+    Visualization modes in 2D (phase space (x, y, ξ, η)):
+
+    - 'Symbol Amplitude'           : |p| over (x, y) at fixed frequency (ξ₀, η₀) [ξ₀, η₀]
+    - 'Symbol Phase'               : arg p over (x, y) at fixed frequency (ξ₀, η₀) [ξ₀, η₀]
+    - 'Micro-Support (1/|p|)'      : 1/|p| at fixed frequency (ξ₀, η₀) [ξ₀, η₀]
+    - 'Cotangent Fiber'            : p over the frequency plane (ξ, η) above (x₀, y₀) [x₀, y₀]
+    - 'Characteristic Set'         : approximate zero set {p ≈ 0} above (x₀, y₀) [x₀, y₀]
+    - 'Characteristic Gradient'    : |∇p| above (x₀, y₀) [x₀, y₀]
+    - 'Symplectic Vector Field'    : arrows (∂_ξ p, ∂_η p) over (x, y) at fixed frequency
+                                     (ξ₀, η₀), colored by their norm [ξ₀, η₀]. This is the group
+                                     velocity field, which is why there is no separate
+                                     'Group Velocity Field' mode in 2D.
+    - 'Hamiltonian Flow'           : trajectory from (x₀, y₀, ξ₀, η₀) [all four sliders]
+    - 'Wavefront Set'              : propagation of a point source at (x₀, y₀) [all four sliders]
+
+    'Wavefront Set' mode. The seeds are generated by `visualize_wavefront_set` and propagated
+    along the bicharacteristics over t ∈ [0, 5] with 150 steps:
+
+    - 1D: ``density`` seeds at the point x₀ with frequencies in [ξ₀ - w, ξ₀ + w], where w is the
+      width of ``xi_range``; the figure shows the cotangent projection.
+    - 2D: ``density`` seeds on a circle of radius 0.15 around (x₀, y₀), with outward covectors of
+      norm |(ξ₀, η₀)| (a point source); the figure shows the four 2D slices of phase space
+      (position, frequency and the two cotangent slices).
+
+    For other settings (seed families, flow time, number of steps) or for animations, call
+    `visualize_wavefront_set`, `plot_wavefront_set` or `animate_wavefront_set` directly.
+
+    See Also
+    --------
+    visualize_wavefront_set : Static wavefront-set plot with default seeds.
+    plot_wavefront_set : Wavefront-set plot for user-supplied seeds.
+    animate_wavefront_set : Animation of the wavefront set while an initial coordinate sweeps a range.
+    plot_hamiltonian_flow : Hamiltonian trajectories in phase space.
+
+    Examples
+    --------
+    >>> x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+    >>> symbol = (xi**2 + eta**2) / 2 - 1 / sp.sqrt(x**2 + y**2 + 0.01)
+    >>> op = PseudoDifferentialOperator(expr=symbol, vars_x=[x, y], mode='symbol')
+    >>> interactive_symbol_analysis(op, xlim=(-3, 3), ylim=(-3, 3),
+    ...                             xi_range=(-3, 3), eta_range=(-3, 3), density=40)
     """
     dim = pseudo_op.dim
     x_vals = np.linspace(*xlim, density)
