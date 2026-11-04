@@ -1328,15 +1328,18 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_derived</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Add the derived coordinates: covector norm 'kappa', and in 2D the sign-invariant</span>
-<span class="sd">        frequencies 'u', 'v' and the covector angle 'phi' (unwrapped along each ray, then shifted by a</span>
-<span class="sd">        multiple of 2π so that its value at the seed lies in [-π, π))."""</span>
+<span class="sd">        frequencies 'u', 'v' and the covector angle 'phi' (continuous along each ray, then shifted by a</span>
+<span class="sd">        multiple of 2π so that its value at the seed lies in [-π, π); the reversals by π at the points</span>
+<span class="sd">        where kappa = 0 are not unwrapped)."""</span>
         <span class="n">out</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">out</span><span class="p">[</span><span class="s1">'u'</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span>
             <span class="n">out</span><span class="p">[</span><span class="s1">'v'</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">]</span>
             <span class="n">out</span><span class="p">[</span><span class="s1">'kappa'</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">])</span>
             <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">'eta'</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s1">'xi'</span><span class="p">])</span>
-            <span class="n">un</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># unwrap only the 2π wraps of arctan2 (steps of about 2π); the reversals by π that happen where</span>
+            <span class="c1"># kappa = 0 (turning points of radial rays) are left as they are, instead of being accumulated</span>
+            <span class="n">un</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">discont</span><span class="o">=</span><span class="mf">1.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
             <span class="n">ref</span> <span class="o">=</span> <span class="n">un</span><span class="p">[:,</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">i0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">i0</span><span class="p">]</span>
             <span class="n">principal</span> <span class="o">=</span> <span class="p">(</span><span class="n">ref</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
             <span class="n">out</span><span class="p">[</span><span class="s1">'phi'</span><span class="p">]</span> <span class="o">=</span> <span class="n">un</span> <span class="o">-</span> <span class="p">(</span><span class="n">ref</span> <span class="o">-</span> <span class="n">principal</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
@@ -1677,9 +1680,12 @@
 <span class="sd">        projection='3d' only: which three coordinates are the axes, among</span>
 <span class="sd">        'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and the</span>
 <span class="sd">        derived quantities 'kappa' = |(ξ, η)| (covector norm; |ξ| in 1D)</span>
-<span class="sd">        and, in 2D only, 'phi' = arg(ξ + iη) (covector angle, unwrapped</span>
-<span class="sd">        along each ray and equal to a value in [-π, π) at the seed) and the</span>
-<span class="sd">        sign-invariant frequencies 'u' = ξ²-η², 'v' = 2ξη.  For example</span>
+<span class="sd">        and, in 2D only, 'phi' = arg(ξ + iη) (covector angle, made</span>
+<span class="sd">        continuous along each ray and equal to a value in [-π, π) at the</span>
+<span class="sd">        seed; where the covector vanishes, e.g. at the turning points of</span>
+<span class="sd">        bound radial rays, the covector reverses and 'phi' jumps by π,</span>
+<span class="sd">        which is left as it is) and the sign-invariant frequencies</span>
+<span class="sd">        'u' = ξ²-η², 'v' = 2ξη.  For example</span>
 <span class="sd">        ``coords3d=('x', 'y', 'phi')`` draws the total space of the</span>
 <span class="sd">        cotangent bundle as the base plane plus a circle fiber.</span>
 <span class="sd">        Default ('x', 'y', 'xi') in 2D and ('x', 'xi', 't') in 1D.</span>
