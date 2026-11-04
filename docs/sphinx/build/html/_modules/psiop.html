@@ -279,7 +279,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">microlocal</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">plot_scalar_1d</span><span class="p">,</span> <span class="n">plot_matrix_1d</span><span class="p">,</span> <span class="n">plot_scalar_2d</span><span class="p">,</span> <span class="n">animate_scalar_1d</span><span class="p">,</span>
     <span class="n">plot_matrix_field_1d</span><span class="p">,</span> <span class="n">plot_matrix_field_2d</span><span class="p">,</span> <span class="n">plot_wave_solution_1d</span><span class="p">,</span>
-    <span class="n">animate_singularity</span><span class="p">,</span> <span class="n">animate_singularity_3d</span><span class="p">,</span>
+    <span class="n">animate_singularity</span><span class="p">,</span> <span class="n">animate_singularity_3d</span><span class="p">,</span> <span class="n">bicharacteristic_flow</span><span class="p">,</span> 
     <span class="n">characteristic_hamiltonians</span><span class="p">,</span> <span class="n">integrate_singularity</span><span class="p">,</span> <span class="n">animate_wavefront_set</span><span class="p">,</span> 
 <span class="p">)</span>
 
@@ -945,10 +945,9 @@
                 <span class="n">joint_max_rel_error</span><span class="o">=</span><span class="n">joint_max_rel_error</span><span class="p">,</span>
             <span class="p">)</span>
             
-        <span class="n">is_spatial</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_spatial_dependent</span><span class="p">()</span>
-     
-        <span class="c1"># Case 1: constant symbol + periodic BC — fast FFT multiplier</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_spatial</span> <span class="ow">and</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'periodic'</span><span class="p">:</span>
+        <span class="n">is_spatial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_spatial_dependent</span><span class="p">()</span>
+        <span class="c1"># Case 1: constant symbol + periodic BC + NO spatial window — fast FFT multiplier</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_spatial</span> <span class="ow">and</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'periodic'</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">space_window</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_constant_fft</span><span class="p">(</span>
                 <span class="n">u</span><span class="p">,</span>
                 <span class="n">x_grid</span><span class="p">,</span>
@@ -958,13 +957,11 @@
                 <span class="n">dealiasing_mask</span><span class="p">,</span>
                 <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
                 <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+                <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="p">)</span>
-     
         <span class="c1"># For all other cases, obtain the effective (possibly corrected) symbol</span>
         <span class="n">symbol_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_effective_symbol_func</span><span class="p">(</span><span class="n">weyl_order</span><span class="o">=</span><span class="n">weyl_order</span><span class="p">)</span>
-
-        <span class="c1"># Case 2: spatial symbol + periodic BC</span>
+        <span class="c1"># Case 2: spatial symbol + periodic BC (OR constant symbol with space_window=True)</span>
         <span class="k">if</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'periodic'</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">kohn_nirenberg_fft</span><span class="p">(</span>
                 <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
@@ -979,7 +976,8 @@
                 <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
                 <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
                 <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
-                <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span><span class="p">,</span>
+                <span class="c1"># CRITICAL: Pass None so kohn_nirenberg_fft's heuristic sees space_window=True</span>
+                <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="p">)</span>
      
         <span class="c1"># Case 3: Dirichlet BC (non-periodic)</span>
@@ -994,6 +992,7 @@
                     <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
                     <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
                     <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span><span class="p">,</span>
+                    <span class="n">dealiasing_mask</span><span class="o">=</span><span class="n">dealiasing_mask</span><span class="p">,</span> 
                 <span class="p">)</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
@@ -1005,6 +1004,7 @@
                     <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
                     <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
                     <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span><span class="p">,</span>
+                    <span class="n">dealiasing_mask</span><span class="o">=</span><span class="n">dealiasing_mask</span><span class="p">,</span> 
                 <span class="p">)</span>
      
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid boundary condition '</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span></div>
@@ -1117,6 +1117,11 @@
 <span class="sd">        kohn_nirenberg_fft, so that constant-coefficient suboperators used inside</span>
 <span class="sd">        apply_peetre are consistent with the periodic variable-coefficient path.</span>
 <span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">space_window</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"_apply_constant_fft does not support space_window=True. "</span>
+                <span class="s2">"Route through kohn_nirenberg_fft instead."</span>
+            <span class="p">)</span>
         <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">Nx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
@@ -1170,22 +1175,7 @@
         <span class="n">u_hat</span> <span class="o">*=</span> <span class="n">symbol_vals</span>
         <span class="k">if</span> <span class="n">dealiasing_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">u_hat</span> <span class="o">*=</span> <span class="n">dealiasing_mask</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">space_window</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">x0</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">L</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">sw_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x_grid</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">/</span> <span class="n">L</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-                <span class="n">result</span> <span class="o">*=</span> <span class="n">sw_x</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">x0</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">y0</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">y_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">Lx</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">Ly</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">sw_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x_grid</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">/</span> <span class="n">Lx</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-                <span class="n">sw_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">y_grid</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span> <span class="o">/</span> <span class="n">Ly</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-                <span class="n">result</span> <span class="o">*=</span> <span class="n">sw_x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">sw_y</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
-        <span class="k">return</span> <span class="n">result</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.principal_symbol">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.principal_symbol">[docs]</a>
@@ -2377,6 +2367,7 @@
 <span class="sd">        """</span>
     
         <span class="n">common_apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">common_apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">_dealiasing_mask</span> <span class="o">=</span> <span class="n">common_apply_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'dealiasing_mask'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     
         <span class="k">def</span><span class="w"> </span><span class="nf">_apply_joint_direct</span><span class="p">():</span>
 <span class="w">            </span><span class="sd">"""Exact (expensive) fallback: full KN application of joint symbol."""</span>
@@ -2552,7 +2543,9 @@
                     <span class="n">fft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">,</span> <span class="n">ifft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">,</span>
                     <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
                     <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span> <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+                    <span class="n">dealiasing_mask</span><span class="o">=</span><span class="n">dealiasing_mask</span><span class="p">,</span>
+                    <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">xg</span> <span class="o">=</span> <span class="n">x_grid</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">)</span>
@@ -2561,6 +2554,7 @@
                     <span class="n">u</span><span class="p">,</span> <span class="n">xg</span><span class="p">,</span> <span class="n">kg</span><span class="p">,</span> <span class="n">symbol_func</span><span class="p">,</span>
                     <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
                     <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span> <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">dealiasing_mask</span><span class="o">=</span><span class="n">dealiasing_mask</span><span class="p">,</span> 
                 <span class="p">)</span>
     
         <span class="k">elif</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"aaa_unfit"</span><span class="p">:</span>

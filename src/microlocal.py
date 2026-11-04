@@ -1220,15 +1220,18 @@ def _wavefront_3d_animation(
 
     def _derived(d):
         """Add the derived coordinates: covector norm 'kappa', and in 2D the sign-invariant
-        frequencies 'u', 'v' and the covector angle 'phi' (unwrapped along each ray, then shifted by a
-        multiple of 2π so that its value at the seed lies in [-π, π))."""
+        frequencies 'u', 'v' and the covector angle 'phi' (continuous along each ray, then shifted by a
+        multiple of 2π so that its value at the seed lies in [-π, π); the reversals by π at the points
+        where kappa = 0 are not unwrapped)."""
         out = dict(d)
         if dim == 2:
             out['u'] = d['xi'] ** 2 - d['eta'] ** 2
             out['v'] = 2 * d['xi'] * d['eta']
             out['kappa'] = np.hypot(d['xi'], d['eta'])
             raw = np.arctan2(d['eta'], d['xi'])
-            un = np.unwrap(raw, axis=1)
+            # unwrap only the 2π wraps of arctan2 (steps of about 2π); the reversals by π that happen where
+            # kappa = 0 (turning points of radial rays) are left as they are, instead of being accumulated
+            un = np.unwrap(raw, axis=1, discont=1.5 * np.pi)
             ref = un[:, 0 if i0 is None else i0]
             principal = (ref + np.pi) % (2 * np.pi) - np.pi
             out['phi'] = un - (ref - principal)[:, None]
@@ -1567,9 +1570,12 @@ def animate_wavefront_set(
         projection='3d' only: which three coordinates are the axes, among
         'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and the
         derived quantities 'kappa' = |(ξ, η)| (covector norm; |ξ| in 1D)
-        and, in 2D only, 'phi' = arg(ξ + iη) (covector angle, unwrapped
-        along each ray and equal to a value in [-π, π) at the seed) and the
-        sign-invariant frequencies 'u' = ξ²-η², 'v' = 2ξη.  For example
+        and, in 2D only, 'phi' = arg(ξ + iη) (covector angle, made
+        continuous along each ray and equal to a value in [-π, π) at the
+        seed; where the covector vanishes, e.g. at the turning points of
+        bound radial rays, the covector reverses and 'phi' jumps by π,
+        which is left as it is) and the sign-invariant frequencies
+        'u' = ξ²-η², 'v' = 2ξη.  For example
         ``coords3d=('x', 'y', 'phi')`` draws the total space of the
         cotangent bundle as the base plane plus a circle fiber.
         Default ('x', 'y', 'xi') in 2D and ('x', 'xi', 't') in 1D.

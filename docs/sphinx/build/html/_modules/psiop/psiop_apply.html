@@ -368,6 +368,7 @@
     <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">,</span>
     <span class="n">space_window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">is_spatial</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dealiasing_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator</span>
@@ -478,6 +479,8 @@
         <span class="k">if</span> <span class="n">is_x_independent</span><span class="p">:</span>
             <span class="n">U</span> <span class="o">=</span> <span class="n">fft_func</span><span class="p">(</span><span class="n">u_vals</span><span class="p">)</span>
             <span class="c1"># FIX: Enforce shape to prevent scalar/reduced-dim returns from lambdify</span>
+            <span class="k">if</span> <span class="n">dealiasing_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">U</span> <span class="o">=</span> <span class="n">U</span> <span class="o">*</span> <span class="n">dealiasing_mask</span>
             <span class="n">P_raw</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">k_unshifted</span><span class="p">)</span>
             <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">P_raw</span><span class="p">,</span> <span class="n">k_unshifted</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="n">P</span> <span class="o">=</span> <span class="n">_clip_complex_magnitude</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">clamp</span><span class="p">)</span>
@@ -496,6 +499,9 @@
         <span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">Nx</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">))</span>
         <span class="n">dk</span> <span class="o">=</span> <span class="n">k</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">f_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">fft_func</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">u_vals</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dealiasing_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">f_hat</span> <span class="o">=</span> <span class="n">f_hat</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">dealiasing_mask</span><span class="p">)</span>
         
         <span class="n">win_k</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">freq_window</span> <span class="o">==</span> <span class="s1">'gaussian'</span><span class="p">:</span>
@@ -590,6 +596,8 @@
 
         <span class="k">if</span> <span class="n">is_independent</span><span class="p">:</span>
             <span class="n">U</span> <span class="o">=</span> <span class="n">fft_func</span><span class="p">(</span><span class="n">u_vals</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dealiasing_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">U</span> <span class="o">=</span> <span class="n">U</span> <span class="o">*</span> <span class="n">dealiasing_mask</span>
             <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">kx_unshifted</span><span class="p">,</span> <span class="n">ky_unshifted</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">'ij'</span><span class="p">)</span>
             
             <span class="c1"># FIX: Enforce target shape</span>
@@ -617,6 +625,8 @@
         <span class="n">Nkx</span><span class="p">,</span> <span class="n">Nky</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">kx_s</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ky_s</span><span class="p">)</span>
 
         <span class="n">f_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">fft_func</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">u_vals</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dealiasing_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">f_hat</span> <span class="o">=</span> <span class="n">f_hat</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">dealiasing_mask</span><span class="p">)</span>
         <span class="n">exp_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky_s</span><span class="p">))</span>
 
         <span class="n">win_kx</span><span class="p">,</span> <span class="n">win_ky</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
@@ -785,6 +795,7 @@
     <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">,</span>
     <span class="n">space_window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">is_spatial</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dealiasing_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
     <span class="n">_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="n">_KN_CACHE</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
@@ -908,6 +919,9 @@
         <span class="n">entry</span> <span class="o">=</span> <span class="n">_cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
         <span class="n">u_hat</span> <span class="o">=</span> <span class="n">dx</span> <span class="o">*</span> <span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s1">'phase_ft'</span><span class="p">]</span> <span class="o">@</span> <span class="n">u_vals</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">dealiasing_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">u_hat</span> <span class="o">=</span> <span class="n">u_hat</span> <span class="o">*</span> <span class="n">dealiasing_mask</span>
+
         <span class="n">sigma_raw</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">xi</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
         <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">sigma_raw</span><span class="p">,</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">sigma</span> <span class="o">=</span> <span class="n">_clip_complex_magnitude</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">clamp</span><span class="p">)</span>
@@ -979,6 +993,9 @@
         <span class="n">sw_x1_full</span><span class="p">,</span> <span class="n">sw_x2</span> <span class="o">=</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">'sw_x1_full'</span><span class="p">],</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">'sw_x2'</span><span class="p">]</span>
 
         <span class="n">u_hat</span> <span class="o">=</span> <span class="n">dx1</span> <span class="o">*</span> <span class="n">dx2</span> <span class="o">*</span> <span class="p">(</span><span class="n">phase1</span> <span class="o">@</span> <span class="n">u_vals</span> <span class="o">@</span> <span class="n">phase2</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dealiasing_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">u_hat</span> <span class="o">=</span> <span class="n">u_hat</span> <span class="o">*</span> <span class="n">dealiasing_mask</span>
 
         <span class="c1"># --- FAST/SLOW PATH SELECTION ---</span>
         <span class="c1"># is_spatial=True  -&gt; force slow path (symbol IS space-dependent)</span>
@@ -1460,7 +1477,7 @@
     <span class="n">keep</span> <span class="o">=</span> <span class="n">SV</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">SV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">tol</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">keep</span><span class="p">):</span>
-        <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">SV</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
         <span class="n">keep</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="n">energy_den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">SV</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
@@ -2638,39 +2655,56 @@
         <span class="n">out</span><span class="p">[:,</span> <span class="n">x_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals_at_nodes</span><span class="p">[:,</span> <span class="n">k_idx</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">out</span>  <span class="c1"># (Nxi, Nx)</span>
 
-
 <div class="viewcode-block" id="aaa_plan_to_callable_1d">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.aaa_plan_to_callable_1d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_1d</span><span class="p">(</span><span class="n">plan</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_1d</span><span class="p">(</span><span class="n">plan</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Wrap a 1D AAA decomposition plan into a fast NumPy callable.</span>
-
-<span class="sd">    Creates a function `p(x, ξ) → ndarray` that matches the `symbol_func` </span>
-<span class="sd">    signature expected by `kohn_nirenberg_fft` and `kohn_nirenberg_nonperiodic`.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    plan : dict</span>
-<span class="sd">        The 1D AAA plan dictionary.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    callable</span>
-<span class="sd">        A function that evaluates the rational approximation.</span>
+<span class="sd">    Wrap a 1D AAA plan into a fully vectorized NumPy callable.</span>
+<span class="sd">    Drop-in replacement: same signature p(x, ξ) → ndarray.</span>
 <span class="sd">    """</span>
+    <span class="n">fit</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"fit"</span><span class="p">]</span>
+    <span class="n">x_nodes</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"x_nodes"</span><span class="p">]</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_nodes</span><span class="p">)</span>
+    <span class="n">bw</span> <span class="o">=</span> <span class="n">_aaa_bary_weights_1st_kind</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>          <span class="c1"># (M,)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">p_approx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
         <span class="n">orig_shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xi_arr</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
-        <span class="n">xb</span><span class="p">,</span> <span class="n">xib</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span>
-        <span class="n">x_flat</span><span class="p">,</span> <span class="n">xi_flat</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">xib</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
-        <span class="c1"># _aaa_eval_1d expects distinct (x_eval, xi_eval) axes; evaluate</span>
-        <span class="c1"># pointwise via the diagonal of the outer evaluation (small arrays</span>
-        <span class="c1"># in the kohn_nirenberg_fft slow path -- fine at that scale).</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">x_flat</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x_flat</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
-            <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_aaa_eval_1d</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">x_flat</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">xi_flat</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">xb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>       <span class="c1"># (N,)</span>
+        <span class="n">xib</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="c1"># (N,)</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="c1"># ── Step 1: AAA barycentric evaluation at ALL xi points ──</span>
+        <span class="c1"># fit(xib) returns (N, M): the rational fit at each Chebyshev</span>
+        <span class="c1"># x-node, for every xi value simultaneously.</span>
+        <span class="n">vals_at_nodes</span> <span class="o">=</span> <span class="n">fit</span><span class="p">(</span><span class="n">xib</span><span class="p">)</span>                           <span class="c1"># (N, M)</span>
+
+        <span class="c1"># ── Step 2: Barycentric Lagrange interpolation in x ──</span>
+        <span class="c1"># For each of the N points, compute the barycentric weights</span>
+        <span class="c1"># against the M Chebyshev nodes.</span>
+        <span class="n">diffs</span> <span class="o">=</span> <span class="n">xb</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>            <span class="c1"># (N, M)</span>
+        <span class="n">exact</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                     <span class="c1"># (N, M) bool</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">exact</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">diffs</span><span class="p">)</span>
+        <span class="n">inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">exact</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bw</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">/</span> <span class="n">safe</span><span class="p">)</span>    <span class="c1"># (N, M)</span>
+        <span class="n">den</span> <span class="o">=</span> <span class="n">inv</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>                              <span class="c1"># (N,)</span>
+
+        <span class="c1"># ── Step 3: Pointwise interpolation (diagonal extraction) ──</span>
+        <span class="c1"># Instead of the full (Nxi × Nx) matrix product, compute only</span>
+        <span class="c1"># the paired sum:  out[i] = Σ_m vals[i,m] * inv[i,m] / den[i]</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">vals_at_nodes</span> <span class="o">*</span> <span class="n">inv</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>          <span class="c1"># (N,)</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+
+        <span class="c1"># ── Step 4: Exact-node correction ──</span>
+        <span class="c1"># If x[i] coincides with Chebyshev node k, use the exact value.</span>
+        <span class="k">if</span> <span class="n">exact</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">node_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">exact</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>            <span class="c1"># (N,)</span>
+            <span class="n">hit</span> <span class="o">=</span> <span class="n">exact</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>                        <span class="c1"># (N,) bool</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">hit</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals_at_nodes</span><span class="p">[</span><span class="n">hit</span><span class="p">,</span> <span class="n">node_idx</span><span class="p">[</span><span class="n">hit</span><span class="p">]]</span>
+
         <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">p_approx</span></div>
 
 
@@ -2871,45 +2905,124 @@
 
 <div class="viewcode-block" id="aaa_plan_to_callable_2d">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.aaa_plan_to_callable_2d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_2d</span><span class="p">(</span>
-    <span class="n">plan</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span>
-    <span class="p">[</span>
-        <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
-        <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
-        <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">complex</span><span class="p">],</span> <span class="nb">complex</span><span class="p">],</span>
-        <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">complex</span><span class="p">],</span> <span class="nb">complex</span><span class="p">],</span>
-    <span class="p">],</span>
-    <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-<span class="p">]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_2d</span><span class="p">(</span><span class="n">plan</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Wrap a 2D AAA decomposition plan into a fast NumPy callable.</span>
-
-<span class="sd">    Creates a function `p(x, y, ξ, η) → ndarray` that matches the `symbol_func` </span>
-<span class="sd">    signature expected by the 2D Kohn-Nirenberg quantization routines.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    plan : dict</span>
-<span class="sd">        The 2D AAA plan dictionary.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    callable</span>
-<span class="sd">        A function that evaluates the 2D rational approximation.</span>
+<span class="sd">    Wrap a 2D AAA plan into a fully vectorized NumPy callable.</span>
+<span class="sd">    Drop-in replacement: same signature p(x, y, ξ, η) → ndarray.</span>
 <span class="sd">    """</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">p_approx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">);</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">);</span> <span class="n">eta_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-        <span class="n">orig_shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi_arr</span><span class="p">,</span> <span class="n">eta_arr</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
-        <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span><span class="p">,</span> <span class="n">xib</span><span class="p">,</span> <span class="n">etab</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
-                              <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi_arr</span><span class="p">,</span> <span class="n">eta_arr</span><span class="p">))</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">xb</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">xb</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
-            <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_aaa_eval_2d</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">xb</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">yb</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">xib</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">etab</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">p_approx</span></div>
+    <span class="n">fit_xi</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"fit_xi"</span><span class="p">]</span>
+    <span class="n">xi_support</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"xi_support"</span><span class="p">]</span>
+    <span class="n">eta_fits</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"eta_fits"</span><span class="p">]</span>
+    <span class="n">x_nodes</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"x_nodes"</span><span class="p">]</span>
+    <span class="n">y_nodes</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"y_nodes"</span><span class="p">]</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi_support</span><span class="p">)</span>
+    <span class="n">Nx_c</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_nodes</span><span class="p">)</span>
+    <span class="n">Ny_c</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_nodes</span><span class="p">)</span>
+    <span class="n">bw_x</span> <span class="o">=</span> <span class="n">_aaa_bary_weights_1st_kind</span><span class="p">(</span><span class="n">Nx_c</span><span class="p">)</span>    <span class="c1"># (Nx_c,)</span>
+    <span class="n">bw_y</span> <span class="o">=</span> <span class="n">_aaa_bary_weights_1st_kind</span><span class="p">(</span><span class="n">Ny_c</span><span class="p">)</span>    <span class="c1"># (Ny_c,)</span>
+    <span class="n">w_xi</span> <span class="o">=</span> <span class="n">fit_xi</span><span class="o">.</span><span class="n">w</span>                             <span class="c1"># (L,)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bary_weights_1d</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">bw</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Vectorized 1D barycentric weights: (N, M)."""</span>
+        <span class="n">diffs</span> <span class="o">=</span> <span class="n">pts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">exact</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">exact</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">diffs</span><span class="p">)</span>
+        <span class="n">inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">exact</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bw</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">/</span> <span class="n">safe</span><span class="p">)</span>
+        <span class="n">den</span> <span class="o">=</span> <span class="n">inv</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">inv</span><span class="p">,</span> <span class="n">den</span><span class="p">,</span> <span class="n">exact</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">p_approx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="n">eta_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="n">orig_shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi_arr</span><span class="p">,</span> <span class="n">eta_arr</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">xb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">yb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">xib</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">etab</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">eta_arr</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="c1"># ── Step 1: Barycentric weights in x and y (shared) ──</span>
+        <span class="n">inv_x</span><span class="p">,</span> <span class="n">den_x</span><span class="p">,</span> <span class="n">exact_x</span> <span class="o">=</span> <span class="n">_bary_weights_1d</span><span class="p">(</span><span class="n">xb</span><span class="p">,</span> <span class="n">x_nodes</span><span class="p">,</span> <span class="n">bw_x</span><span class="p">)</span>  <span class="c1"># (N, Nx_c)</span>
+        <span class="n">inv_y</span><span class="p">,</span> <span class="n">den_y</span><span class="p">,</span> <span class="n">exact_y</span> <span class="o">=</span> <span class="n">_bary_weights_1d</span><span class="p">(</span><span class="n">yb</span><span class="p">,</span> <span class="n">y_nodes</span><span class="p">,</span> <span class="n">bw_y</span><span class="p">)</span>  <span class="c1"># (N, Ny_c)</span>
+
+        <span class="c1"># ── Step 2: For each ξ-support pole, evaluate η-fit and</span>
+        <span class="c1">#            do 2D barycentric interpolation pointwise ──</span>
+        <span class="n">q_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>   <span class="c1"># (L, N)</span>
+
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+            <span class="c1"># η-AAA at all points: (N, Nx_c * Ny_c) → reshape</span>
+            <span class="n">vals_flat</span> <span class="o">=</span> <span class="n">eta_fits</span><span class="p">[</span><span class="n">l</span><span class="p">](</span><span class="n">etab</span><span class="p">)</span>         <span class="c1"># (N, Nx_c * Ny_c)</span>
+            <span class="n">vals_grid</span> <span class="o">=</span> <span class="n">vals_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">Nx_c</span><span class="p">,</span> <span class="n">Ny_c</span><span class="p">)</span>
+
+            <span class="c1"># Tensor-product barycentric interpolation, pointwise:</span>
+            <span class="c1">#   out[i] = Σ_m Σ_n vals[i,m,n] * inv_x[i,m] * inv_y[i,n]</span>
+            <span class="c1">#            / (den_x[i] * den_y[i])</span>
+            <span class="c1"># Vectorized as two sequential contractions:</span>
+            <span class="c1">#   contract over m first:  tmp[i,n] = Σ_m vals[i,m,n] * inv_x[i,m]</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'imn,im-&gt;in'</span><span class="p">,</span> <span class="n">vals_grid</span><span class="p">,</span> <span class="n">inv_x</span><span class="p">)</span>  <span class="c1"># (N, Ny_c)</span>
+            <span class="c1">#   then over n:            num[i] = Σ_n tmp[i,n] * inv_y[i,n]</span>
+            <span class="n">num</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'in,in-&gt;i'</span><span class="p">,</span> <span class="n">tmp</span><span class="p">,</span> <span class="n">inv_y</span><span class="p">)</span>           <span class="c1"># (N,)</span>
+            <span class="n">den</span> <span class="o">=</span> <span class="n">den_x</span> <span class="o">*</span> <span class="n">den_y</span>                               <span class="c1"># (N,)</span>
+
+            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+                <span class="n">q_all</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+
+            <span class="c1"># Exact-node corrections in x</span>
+            <span class="k">if</span> <span class="n">exact_x</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="n">hit_x</span> <span class="o">=</span> <span class="n">exact_x</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">nx_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">exact_x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="c1"># For exact x, contract only over y:</span>
+                <span class="c1">#   vals[i, nx_idx[i], :] dotted with inv_y[i, :]</span>
+                <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">hit_x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">rows</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">vals_at_xnode</span> <span class="o">=</span> <span class="n">vals_grid</span><span class="p">[</span><span class="n">rows</span><span class="p">,</span> <span class="n">nx_idx</span><span class="p">[</span><span class="n">rows</span><span class="p">],</span> <span class="p">:]</span>  <span class="c1"># (R, Ny_c)</span>
+                    <span class="n">num_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'rn,rn-&gt;r'</span><span class="p">,</span> <span class="n">vals_at_xnode</span><span class="p">,</span> <span class="n">inv_y</span><span class="p">[</span><span class="n">rows</span><span class="p">])</span>
+                    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+                        <span class="n">q_all</span><span class="p">[</span><span class="n">l</span><span class="p">,</span> <span class="n">rows</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_y</span> <span class="o">/</span> <span class="n">den_y</span><span class="p">[</span><span class="n">rows</span><span class="p">]</span>
+
+            <span class="c1"># Exact-node corrections in y</span>
+            <span class="k">if</span> <span class="n">exact_y</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="n">hit_y</span> <span class="o">=</span> <span class="n">exact_y</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">ny_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">exact_y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">hit_y</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">rows</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">vals_at_ynode</span> <span class="o">=</span> <span class="n">vals_grid</span><span class="p">[</span><span class="n">rows</span><span class="p">,</span> <span class="p">:,</span> <span class="n">ny_idx</span><span class="p">[</span><span class="n">rows</span><span class="p">]]</span>  <span class="c1"># (R, Nx_c)</span>
+                    <span class="n">num_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'rn,rn-&gt;r'</span><span class="p">,</span> <span class="n">vals_at_ynode</span><span class="p">,</span> <span class="n">inv_x</span><span class="p">[</span><span class="n">rows</span><span class="p">])</span>
+                    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+                        <span class="n">q_all</span><span class="p">[</span><span class="n">l</span><span class="p">,</span> <span class="n">rows</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_x</span> <span class="o">/</span> <span class="n">den_x</span><span class="p">[</span><span class="n">rows</span><span class="p">]</span>
+
+            <span class="c1"># Both exact</span>
+            <span class="k">if</span> <span class="n">exact_x</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">and</span> <span class="n">exact_y</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="n">hit_both</span> <span class="o">=</span> <span class="n">exact_x</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">exact_y</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">hit_both</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">rows</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">nx_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">exact_x</span><span class="p">[</span><span class="n">rows</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">ny_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">exact_y</span><span class="p">[</span><span class="n">rows</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">q_all</span><span class="p">[</span><span class="n">l</span><span class="p">,</span> <span class="n">rows</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals_grid</span><span class="p">[</span><span class="n">rows</span><span class="p">,</span> <span class="n">nx_idx</span><span class="p">,</span> <span class="n">ny_idx</span><span class="p">]</span>
+
+        <span class="c1"># ── Step 3: ξ barycentric combination, pointwise ──</span>
+        <span class="n">diffs_xi</span> <span class="o">=</span> <span class="n">xib</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">xi_support</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>   <span class="c1"># (N, L)</span>
+        <span class="n">exact_xi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">diffs_xi</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">safe_xi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">exact_xi</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">diffs_xi</span><span class="p">)</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">exact_xi</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">w_xi</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">/</span> <span class="n">safe_xi</span><span class="p">)</span>  <span class="c1"># (N, L)</span>
+        <span class="n">coeff_sum</span> <span class="o">=</span> <span class="n">coeff</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>                    <span class="c1"># (N,)</span>
+
+        <span class="c1"># out[i] = Σ_l coeff[i,l] * q_all[l,i] / coeff_sum[i]</span>
+        <span class="n">num_xi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'nl,ln-&gt;n'</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">q_all</span><span class="p">)</span>    <span class="c1"># (N,)</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">num_xi</span> <span class="o">/</span> <span class="n">coeff_sum</span>
+
+        <span class="c1"># Exact ξ-support-point correction</span>
+        <span class="k">if</span> <span class="n">exact_xi</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">hit_xi</span> <span class="o">=</span> <span class="n">exact_xi</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">l_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">exact_xi</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">hit_xi</span><span class="p">]</span> <span class="o">=</span> <span class="n">q_all</span><span class="p">[</span><span class="n">l_idx</span><span class="p">[</span><span class="n">hit_xi</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">hit_xi</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">p_approx</span></div>
 
 </pre></div>
 
