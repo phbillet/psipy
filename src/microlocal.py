@@ -4225,4 +4225,4 @@ def animate_singularity_3d(
     _, anim = _trail_animation(coords, colors, px, py, pz=pz, interval=interval)
     if save_path:
         anim.save(save_path)
-    return anims
+    return anim
