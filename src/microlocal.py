@@ -1053,55 +1053,103 @@ def _wavefront_flow_batch(
     z0: np.ndarray,
     tspan: Tuple[float, float],
     dim: int,
-    n_steps: int
+    n_steps: int,
+    max_points: Optional[int] = None,
+    scheme: str = 'auto'
 ) -> Dict[str, np.ndarray]:
     """Integrate many bicharacteristics at once (vectorised over rays).
 
-    Same fixed-step symplectic-Euler scheme and time grid as
-    `bicharacteristic_flow(..., method='symplectic')`, but the symbolic
-    differentiation / lambdify is done once and each step updates every
-    ray simultaneously with NumPy arrays.  The stability matrix, which
-    plotting does not need, is not computed.
+    The symbolic differentiation / lambdify is done once and each step updates every
+    ray simultaneously with NumPy arrays.  The stability matrix, which plotting does
+    not need, is not computed.
 
     Parameters
     ----------
     z0 : ndarray, shape (N, 2*dim)
         Initial points (x, xi) in 1D or (x, y, xi, eta) in 2D.
+    max_points : int, optional
+        Store at most about this many points per ray (every k-th step, always
+        including the first and the last one).  The integration itself still uses
+        all `n_steps` steps; only the memory used by the result is reduced.
+    scheme : {'auto', 'euler', 'verlet'}
+        'euler': fixed-step symplectic Euler (first order), the scheme of
+        `bicharacteristic_flow(..., method='symplectic')` with the same time grid.
+        'verlet': velocity Verlet / Stormer scheme (second order, symplectic,
+        time-reversible), only valid for separable symbols p = T(xi) + V(x); its time
+        grid is exactly linspace(t0, t1, n_steps).  'auto' (default) uses 'verlet'
+        for separable symbols and 'euler' otherwise.
 
     Returns
     -------
     dict
-        't' of shape (n_steps,) and, for each coordinate name, an array
-        of shape (N, n_steps).
+        't' of shape (m,) and, for each coordinate name, an array of shape (N, m),
+        where m = n_steps unless `max_points` decimates the output.
     """
     if dim == 1:
         x, xi = symbols('x xi', real=True)
         args, names = (x, xi), ['x', 'xi']
-        dpos, dmom = [diff(symbol, xi)], [-diff(symbol, x)]
+        qs, ps = [x], [xi]
     else:
         x, y, xi, eta = symbols('x y xi eta', real=True)
         args, names = (x, y, xi, eta), ['x', 'y', 'xi', 'eta']
-        dpos = [diff(symbol, xi), diff(symbol, eta)]
-        dmom = [-diff(symbol, x), -diff(symbol, y)]
+        qs, ps = [x, y], [xi, eta]
+    dpos = [diff(symbol, p_) for p_ in ps]
+    dmom = [-diff(symbol, q_) for q_ in qs]
+    if scheme not in ('auto', 'euler', 'verlet'):
+        raise ValueError("scheme must be 'auto', 'euler' or 'verlet'.")
+    separable = all(expand(diff(symbol, q_, p_)) == 0 for q_ in qs for p_ in ps)
+    if scheme == 'auto':
+        scheme = 'verlet' if separable else 'euler'
+    if scheme == 'verlet' and not separable:
+        raise ValueError("scheme='verlet' requires a separable symbol p = T(xi) + V(x).")
     f_pos = [lambdify(args, e, 'numpy') for e in dpos]
     f_mom = [lambdify(args, e, 'numpy') for e in dmom]
 
     z0 = np.asarray(z0, dtype=float)
     N = z0.shape[0]
     t = np.linspace(tspan[0], tspan[1], n_steps)
-    dt = (tspan[1] - tspan[0]) / n_steps
-    out = np.empty((2 * dim, N, n_steps))
-    out[:, :, 0] = z0.T
+    if scheme == 'verlet':
+        dt = (tspan[1] - tspan[0]) / max(n_steps - 1, 1)
+    else:
+        dt = (tspan[1] - tspan[0]) / n_steps
+    keep = np.zeros(n_steps, dtype=bool)
+    if max_points is None or n_steps <= max_points:
+        keep[:] = True
+    else:
+        keep[::int(np.ceil(n_steps / max_points))] = True
+        keep[-1] = True
+    slot = np.cumsum(keep) - 1
+    out = np.empty((2 * dim, N, int(keep.sum())))
     ones = np.ones(N)
-    for i in range(n_steps - 1):
-        q = [out[k, :, i] for k in range(dim)]
-        p = [out[dim + k, :, i] for k in range(dim)]
-        p_new = [p[k] + dt * (np.asarray(f_mom[k](*q, *p), dtype=float) * ones) for k in range(dim)]
-        q_new = [q[k] + dt * (np.asarray(f_pos[k](*q, *p_new), dtype=float) * ones) for k in range(dim)]
-        for k in range(dim):
-            out[k, :, i + 1] = q_new[k]
-            out[dim + k, :, i + 1] = p_new[k]
-    res = {'t': t}
+    q = [z0[:, k].copy() for k in range(dim)]
+    p = [z0[:, dim + k].copy() for k in range(dim)]
+
+    def _ev(fs, *a):
+        return [np.asarray(f(*a), dtype=float) * ones for f in fs]
+
+    out[:dim, :, 0] = np.array(q)
+    out[dim:, :, 0] = np.array(p)
+    if scheme == 'verlet':
+        kick = _ev(f_mom, *q, *p)
+        for i in range(n_steps - 1):
+            p = [p[k] + 0.5 * dt * kick[k] for k in range(dim)]
+            drift = _ev(f_pos, *q, *p)
+            q = [q[k] + dt * drift[k] for k in range(dim)]
+            kick = _ev(f_mom, *q, *p)
+            p = [p[k] + 0.5 * dt * kick[k] for k in range(dim)]
+            if keep[i + 1]:
+                out[:dim, :, slot[i + 1]] = np.array(q)
+                out[dim:, :, slot[i + 1]] = np.array(p)
+    else:
+        for i in range(n_steps - 1):
+            kick = _ev(f_mom, *q, *p)
+            p = [p[k] + dt * kick[k] for k in range(dim)]
+            drift = _ev(f_pos, *q, *p)
+            q = [q[k] + dt * drift[k] for k in range(dim)]
+            if keep[i + 1]:
+                out[:dim, :, slot[i + 1]] = np.array(q)
+                out[dim:, :, slot[i + 1]] = np.array(p)
+    res = {'t': t[keep]}
     for k, name in enumerate(names):
         res[name] = out[k]
     return res
@@ -1400,6 +1448,9 @@ def animate_wavefront_set(
     equal_aspect: Optional[bool] = None,
     fixed_limits: bool = True,
     fast: bool = True,
+    scheme: str = 'auto',
+    max_points: int = 1000,
+    energy: Optional[float] = None,
     coords3d: Optional[Sequence[str]] = None,
     color_by: Optional[str] = None,
     zlim: Optional[Tuple[float, float]] = None,
@@ -1561,11 +1612,36 @@ def animate_wavefront_set(
         True: the axis limits cover all frames and never change.
         False: the limits are re-fitted to the current frame (ignored
         for the axes with explicit `xlim`/`ylim`).
+    energy : float, optional
+        2D only.  Put every seed on the energy shell p(x, y, ξ, η) = `energy`:
+        the direction of its covector is kept (circle: outward, curve:
+        conormal, grid: constant covector or ∇S, ...) and its norm is
+        solved for.  This replaces the choice of |(ξ0, η0)|, which is then
+        ignored, and gives the picture of the singularities of a solution
+        of (P - E)u = 0.  The norm is the smallest positive root of
+        p(x, y, κu) = E along each direction u, which assumes that p
+        increases with κ (as for kinetic + potential energy).  Seeds in the
+        classically forbidden region (no root) are dropped with a warning,
+        and an error is raised if a frame has no seed left.  With `energy`,
+        xi_range / eta_range cannot be the animation variable, except for
+        seed_family='grid' (where they change the direction of the covector).
     fast : bool, default=True
         True: integrate all the rays of all the frames at once with
-        NumPy (same symplectic scheme as `bicharacteristic_flow`, but
-        orders of magnitude faster).  False: call `bicharacteristic_flow`
-        ray by ray (slow reference path).
+        NumPy (orders of magnitude faster than ray by ray).  False: call
+        `bicharacteristic_flow` ray by ray (slow reference path, always
+        symplectic Euler).
+    scheme : {'auto', 'euler', 'verlet'}, default='auto'
+        Integration scheme of the fast path.  'euler': fixed-step symplectic
+        Euler (first order, as `bicharacteristic_flow`).  'verlet': velocity
+        Verlet (second order, symplectic, time-reversible), valid for
+        separable symbols p = T(ξ, η) + V(x, y) such as kinetic + potential
+        energy.  'auto' uses 'verlet' when the symbol is separable and
+        'euler' otherwise.  Use scheme='euler' to compare with
+        ``fast=False``.
+    max_points : int, default=1000
+        Maximum number of points stored (and drawn) per ray; the
+        integration still uses all `n_steps` steps, so a large `n_steps`
+        improves the accuracy without increasing the memory.
     coords3d : tuple of 3 names, optional
         projection='3d' only: which three coordinates are the axes, among
         'x', 'y', 'xi', 'eta' (2D) or 'x', 'xi' (1D), 't' (time) and the
@@ -1774,6 +1850,13 @@ def animate_wavefront_set(
                     _add(cx_, cy_, float(np.cos(ang)), float(np.sin(ang)))
     two_sided = (seed_family == 'fiber') if two_sided is None else bool(two_sided)
 
+    if energy is not None:
+        if dim != 2:
+            raise ValueError("`energy` requires dim=2.")
+        if (xi_range is not None or eta_range is not None) and seed_family != 'grid':
+            raise ValueError("With `energy` the covector norm is solved for, so xi_range / eta_range cannot be the "
+                             "animation variable (use x_range or y_range).")
+
     defaults = {'x': 0.0, 'y': 0.0, 'xi': 1.0, 'eta': 0.0}
     base = {k: float(defaults[k] if given[k] is None else given[k]) for k in coord_names}
     values = np.linspace(ranges[var][0], ranges[var][1], max(2, n_frames))
@@ -1806,7 +1889,48 @@ def animate_wavefront_set(
                  mag * np.cos(a), mag * np.sin(a)) for a in angles]
 
     # ---- flows: frames[i] = {coord name: array (n_rays_i, n_pts), 't': ...}
-    families = [_seed_family(v) for v in values]
+    n_dropped = [0]
+    if energy is not None:
+        _sx, _sy, _sxi, _seta = symbols('x y xi eta', real=True)
+        _fp = lambdify((_sx, _sy, _sxi, _seta), symbol, 'numpy')
+
+        def _on_shell(fam):
+            """Rescale every covector (keeping its direction) so that p = energy."""
+            Zf = np.array(fam, dtype=float).reshape(-1, 4)
+            X, Y, XI, ETA = Zf.T
+            nrm = np.hypot(XI, ETA)
+            good = nrm > 1e-12
+            ux = np.where(good, XI / np.where(good, nrm, 1.0), 1.0)
+            uy = np.where(good, ETA / np.where(good, nrm, 1.0), 0.0)
+            g = lambda kap: np.broadcast_to(np.asarray(_fp(X, Y, kap * ux, kap * uy), dtype=float) - energy, X.shape)
+            lo, hi = np.zeros_like(X), np.ones_like(X)
+            f0 = g(lo)
+            ok = good & (f0 < 0)                       # p(x, 0) < E: a positive root can exist
+            for _ in range(80):                        # bracket the root
+                grow = ok & (g(hi) < 0)
+                if not grow.any():
+                    break
+                hi = np.where(grow, 2 * hi, hi)
+            ok &= g(hi) >= 0
+            for _ in range(70):                        # bisection
+                mid = 0.5 * (lo + hi)
+                neg = g(mid) < 0
+                lo, hi = np.where(neg, mid, lo), np.where(neg, hi, mid)
+            kap = 0.5 * (lo + hi)
+            n_dropped[0] += int((~ok).sum())
+            return [(float(X[i]), float(Y[i]), float(kap[i] * ux[i]), float(kap[i] * uy[i])) for i in np.where(ok)[0]]
+
+        families = [_on_shell(_seed_family(v)) for v in values]
+        for v, fam in zip(values, families):
+            if len(fam) == 0:
+                raise ValueError(f"No seed can reach the energy shell p = {energy} at {var} = {v:.3g} "
+                                 "(classically forbidden region): restrict the range.")
+        if n_dropped[0]:
+            import warnings
+            warnings.warn(f"{n_dropped[0]} seed(s) were dropped: classically forbidden region (p(x, 0) >= energy) "
+                          "or zero covector direction.")
+    else:
+        families = [_seed_family(v) for v in values]
     counts = [len(fam) for fam in families]
     if sum(counts) > 50000:
         import warnings
@@ -1826,9 +1950,10 @@ def animate_wavefront_set(
 
     if fast:
         Z = np.array([z for fam in families for z in fam])
-        flat = _wavefront_flow_batch(symbol, Z, t_fwd, dim, n_steps)
+        flat = _wavefront_flow_batch(symbol, Z, t_fwd, dim, n_steps, max_points=max_points, scheme=scheme)
         if two_sided:
-            flat = _two_sided(flat, _wavefront_flow_batch(symbol, Z, t_bwd, dim, n_steps))
+            flat = _two_sided(flat, _wavefront_flow_batch(symbol, Z, t_bwd, dim, n_steps,
+                                                          max_points=max_points, scheme=scheme))
         bounds = np.cumsum([0] + counts)
         frames = []
         for i, v in enumerate(values):
@@ -1852,7 +1977,7 @@ def animate_wavefront_set(
                 d = _two_sided(d_f, d_b)
                 d['t'] = np.broadcast_to(d['t'], (len(fam), len(d['t'])))
             frames.append((d, v))
-    i0 = n_steps - 1 if two_sided else None      # index of the seed (t = 0) when two-sided
+    i0 = (frames[0][0]['x'].shape[1] - 1) // 2 if two_sided else None      # index of the seed (t = 0) when two-sided
     n_bad = 0
     for d, _ in frames:                           # diverged integrations: inf -> nan, and count them
         bad_rows = np.zeros(d['x'].shape[0], dtype=bool)
@@ -4100,4 +4225,4 @@ def animate_singularity_3d(
     _, anim = _trail_animation(coords, colors, px, py, pz=pz, interval=interval)
     if save_path:
         anim.save(save_path)
-    return anim
+    return anims
