@@ -842,7 +842,7 @@
 <span class="sd">            Weyl quantization.  The Weyl symbol is first converted to its</span>
 <span class="sd">            KN equivalent via the asymptotic series</span>
 <span class="sd">     </span>
-<span class="sd">                a_KN = exp(+i/2 * d_x d_xi) a_Weyl</span>
+<span class="sd">                a_KN = exp(-i/2 * d_x d_xi) a_Weyl</span>
 <span class="sd">     </span>
 <span class="sd">            truncated at ``weyl_order``.  The corrected KN symbol is then</span>
 <span class="sd">            passed to the existing KN numerical backend — no new numerical</span>
@@ -863,8 +863,21 @@
 <span class="sd">            Spatial grid in x direction.</span>
 <span class="sd">        kx : ndarray</span>
 <span class="sd">            Frequency grid in x direction.</span>
-<span class="sd">        boundary_condition : {'periodic', 'dirichlet'}, default='periodic'</span>
+<span class="sd">        boundary_condition : {'periodic', 'dirichlet', 'neumann'}, default='periodic'</span>
 <span class="sd">            Boundary condition type.</span>
+<span class="sd">    </span>
+<span class="sd">            - 'periodic': uses FFT-based Kohn–Nirenberg quantization.</span>
+<span class="sd">            - 'dirichlet' / 'neumann': both route to the same non-periodic</span>
+<span class="sd">              direct quadrature kernel (``kohn_nirenberg_nonperiodic``).</span>
+<span class="sd">              The quadrature itself does NOT enforce a specific boundary</span>
+<span class="sd">              condition — it simply evaluates the KN integral on the given</span>
+<span class="sd">              grid without assuming periodicity.</span>
+<span class="sd">    </span>
+<span class="sd">              **Design contract**: actual boundary enforcement (setting</span>
+<span class="sd">              boundary values to zero for Dirichlet, or copying neighbours</span>
+<span class="sd">              for Neumann) is the caller's responsibility, typically done</span>
+<span class="sd">              in a time-stepping loop via ``_apply_boundary()`` in the</span>
+<span class="sd">              solver package.</span>
 <span class="sd">        y_grid : ndarray, optional</span>
 <span class="sd">            Spatial grid in y direction (2D only).</span>
 <span class="sd">        ky : ndarray, optional</span>
@@ -917,6 +930,13 @@
 <span class="sd">        ValueError</span>
 <span class="sd">            If boundary_condition is not 'periodic' or 'dirichlet'.</span>
 <span class="sd">        """</span>
+
+        <span class="c1"># ── INPUT VALIDATION ────────────────────────────────────────────</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_apply_inputs</span><span class="p">(</span>
+            <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">boundary_condition</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># ── END VALIDATION ──────────────────────────────────────────────</span>
 
         <span class="k">if</span> <span class="n">backend</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">backend</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span>
@@ -1009,6 +1029,117 @@
      
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid boundary condition '</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_apply_inputs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">kx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">boundary_condition</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Validate all inputs to apply() before any numerical dispatch.</span>
+<span class="sd">    </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            If u, x_grid, or kx are not array-like.</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If shapes, lengths, uniformity, or boundary_condition are invalid.</span>
+<span class="sd">        """</span>
+        <span class="c1"># ── 1. Type checks ──────────────────────────────────────────────</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+        <span class="n">kx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">kx</span><span class="p">)</span>
+    
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"u must be at least 1-dimensional, got scalar."</span>
+            <span class="p">)</span>
+    
+        <span class="c1"># ── 2. Boundary condition membership ────────────────────────────</span>
+        <span class="n">valid_bcs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'periodic'</span><span class="p">,</span> <span class="s1">'dirichlet'</span><span class="p">,</span> <span class="s1">'neumann'</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">boundary_condition</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_bcs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"boundary_condition must be one of </span><span class="si">{</span><span class="n">valid_bcs</span><span class="si">}</span><span class="s2">, "</span>
+                <span class="sa">f</span><span class="s2">"got '</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">'."</span>
+            <span class="p">)</span>
+    
+        <span class="c1"># ── 3. Grid length ≥ 2 (needed for dx computation) ─────────────</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"x_grid must have at least 2 points, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kx</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"kx must have at least 2 points, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">kx</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+    
+        <span class="c1"># ── 4. Grid / frequency length consistency ──────────────────────</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">kx</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"x_grid and kx must have the same length: "</span>
+                <span class="sa">f</span><span class="s2">"len(x_grid)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span><span class="si">}</span><span class="s2">, len(kx)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">kx</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+    
+        <span class="c1"># ── 5. 2D requirements ──────────────────────────────────────────</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">y_grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ky</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"y_grid and ky are required for 2D operators."</span>
+                <span class="p">)</span>
+            <span class="n">y_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_grid</span><span class="p">)</span>
+            <span class="n">ky</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ky</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_grid</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"y_grid must have at least 2 points, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">y_grid</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_grid</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ky</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"y_grid and ky must have the same length: "</span>
+                    <span class="sa">f</span><span class="s2">"len(y_grid)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">y_grid</span><span class="p">)</span><span class="si">}</span><span class="s2">, len(ky)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ky</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+    
+        <span class="c1"># ── 6. Shape of u vs grids ──────────────────────────────────────</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">x_grid</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"u.shape </span><span class="si">{</span><span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> does not match x_grid.shape "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">x_grid</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> for a 1D operator."</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">expected_shape</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_grid</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">expected_shape</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"u.shape </span><span class="si">{</span><span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> does not match the expected 2D shape "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">expected_shape</span><span class="si">}</span><span class="s2"> = (len(x_grid), len(y_grid))."</span>
+                <span class="p">)</span>
+    
+        <span class="c1"># ── 7. Grid uniformity ──────────────────────────────────────────</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">dx</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"x_grid is not uniformly spaced. "</span>
+                <span class="sa">f</span><span class="s2">"min spacing=</span><span class="si">{</span><span class="n">dx</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">, max spacing=</span><span class="si">{</span><span class="n">dx</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="sa">f</span><span class="s2">"The numerical kernels require a uniform grid."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">dy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">y_grid</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dy</span><span class="p">,</span> <span class="n">dy</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"y_grid is not uniformly spaced. "</span>
+                    <span class="sa">f</span><span class="s2">"min spacing=</span><span class="si">{</span><span class="n">dy</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">, max spacing=</span><span class="si">{</span><span class="n">dy</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">. "</span>
+                    <span class="sa">f</span><span class="s2">"The numerical kernels require a uniform grid."</span>
+                <span class="p">)</span>
+    
+        <span class="c1"># ── 8. Finite values ────────────────────────────────────────────</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">u</span><span class="p">)):</span>
+            <span class="n">n_bad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">u</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"u contains </span><span class="si">{</span><span class="n">n_bad</span><span class="si">}</span><span class="s2"> non-finite value(s) (NaN or Inf)."</span>
+            <span class="p">)</span>
         
     <span class="k">def</span><span class="w"> </span><span class="nf">_is_spatial_dependent</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>

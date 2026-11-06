@@ -515,7 +515,7 @@ or extracted automatically from symbolic equations (auto mode).</p>
 <dt>‘weyl’</dt><dd><p>Weyl quantization.  The Weyl symbol is first converted to its
 KN equivalent via the asymptotic series</p>
 <blockquote>
-<div><p>a_KN = exp(+i/2 * d_x d_xi) a_Weyl</p>
+<div><p>a_KN = exp(-i/2 * d_x d_xi) a_Weyl</p>
 </div></blockquote>
 <p>truncated at <code class="docutils literal notranslate"><span class="pre">weyl_order</span></code>.  The corrected KN symbol is then
 passed to the existing KN numerical backend — no new numerical
@@ -529,7 +529,7 @@ kernel is needed.</p>
 <p>if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]</p>
 <p>elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)</p>
 <p>elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)</p>
-<dl class="field-list simple">
+<dl class="field-list">
 <dt class="field-odd">param u<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Function to which the operator is applied.</p>
 </dd>
@@ -550,9 +550,23 @@ kernel is needed.</p>
 </dd>
 <dt class="field-odd">param boundary_condition<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Boundary condition type.</p>
+<ul>
+<li><p>‘periodic’: uses FFT-based Kohn–Nirenberg quantization.</p></li>
+<li><p>‘dirichlet’ / ‘neumann’: both route to the same non-periodic
+direct quadrature kernel (<code class="docutils literal notranslate"><span class="pre">kohn_nirenberg_nonperiodic</span></code>).
+The quadrature itself does NOT enforce a specific boundary
+condition — it simply evaluates the KN integral on the given
+grid without assuming periodicity.</p>
+<p><strong>Design contract</strong>: actual boundary enforcement (setting
+boundary values to zero for Dirichlet, or copying neighbours
+for Neumann) is the caller’s responsibility, typically done
+in a time-stepping loop via <code class="docutils literal notranslate"><span class="pre">_apply_boundary()</span></code> in the
+solver package.</p>
+</li>
+</ul>
 </dd>
 <dt class="field-even">type boundary_condition<span class="colon">:</span></dt>
-<dd class="field-even"><p>{‘periodic’, ‘dirichlet’}, default=’periodic’</p>
+<dd class="field-even"><p>{‘periodic’, ‘dirichlet’, ‘neumann’}, default=’periodic’</p>
 </dd>
 <dt class="field-odd">param y_grid<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Spatial grid in y direction (2D only).</p>
@@ -3009,8 +3023,17 @@ applying the pseudo-differential operator.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.kohn_nirenberg_nonperiodic">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">kohn_nirenberg_nonperiodic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u_vals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbol_func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'gaussian'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space_window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_spatial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dealiasing_mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/psiop/psiop_apply.html#kohn_nirenberg_nonperiodic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.kohn_nirenberg_nonperiodic" title="Link to this definition"></a></dt>
-<dd><p>Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator
-on a non-periodic domain using direct matrix/quadrature-based transforms.</p>
+<dd><p>Numerically stable Kohn–Nirenberg quantization on a non-periodic
+domain using direct matrix/quadrature-based transforms.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This kernel treats ‘dirichlet’ and ‘neumann’ identically: both
+simply mean “do not assume periodicity.” The quadrature evaluates
+the KN integral on the given grid without imposing any specific
+boundary condition. Physical BC enforcement (e.g., zero-gradient
+for Neumann, zero-value for Dirichlet) must be handled by the
+caller outside this function.</p>
+</div>
 <p>Applies the pseudo-differential operator Op(p) to the input function u via the
 non-periodic Kohn–Nirenberg integral formula:</p>
 <blockquote>
