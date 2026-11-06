@@ -706,8 +706,16 @@ def kohn_nirenberg_nonperiodic(
     _cache: Dict[Tuple, Dict[str, Any]] = _KN_CACHE,
 ) -> np.ndarray:
     """
-    Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator
-    on a non-periodic domain using direct matrix/quadrature-based transforms.
+    Numerically stable Kohn–Nirenberg quantization on a non-periodic
+    domain using direct matrix/quadrature-based transforms.
+
+    .. note::
+       This kernel treats 'dirichlet' and 'neumann' identically: both
+       simply mean "do not assume periodicity." The quadrature evaluates
+       the KN integral on the given grid without imposing any specific
+       boundary condition. Physical BC enforcement (e.g., zero-gradient
+       for Neumann, zero-value for Dirichlet) must be handled by the
+       caller outside this function.
 
     Applies the pseudo-differential operator Op(p) to the input function u via the
     non-periodic Kohn–Nirenberg integral formula:

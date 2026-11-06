@@ -1346,7 +1346,13 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
+
+        <span class="c1"># FIX: Do NOT clip boundaries for periodic BCs.</span>
+        <span class="c1"># The FFT handles periodicity natively; the clipping</span>
+        <span class="c1"># u[0]=u[-2], u[-1]=u[1] is mathematically incorrect</span>
+        <span class="c1"># for endpoint=False grids and corrupts the initial data.            </span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s1">'periodic'</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
 
         <span class="c1"># Initial velocity (second order)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
@@ -1983,7 +1989,8 @@
 
                 <span class="c1"># Assembling the solution in Fourier space</span>
                 <span class="n">u_hat_new</span> <span class="o">=</span> <span class="n">exp_L</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">phi1_L</span> <span class="o">*</span> <span class="p">(</span><span class="n">u_nl_hat</span> <span class="o">+</span> <span class="n">source_hat</span><span class="p">)</span>
-                <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat_new</span><span class="p">)</span>
+                <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat_new</span><span class="p">)</span>            
+                
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">Lu_prev</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                 <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
@@ -2007,8 +2014,11 @@
                 <span class="c1">#                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
                 <span class="c1">#                 correction: full L·u minus the diagonal approximation</span>
                 <span class="n">u_new</span> <span class="o">=</span> <span class="n">_spectral_filter</span><span class="p">(</span><span class="n">u_new</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dealiasing_ratio</span><span class="p">)</span>
+
         <span class="c1"># Applying boundary conditions</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s1">'periodic'</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
+            
         <span class="k">return</span> <span class="n">u_new</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_order2_with_psi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_contribution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
@@ -2034,7 +2044,8 @@
         <span class="n">Lu_prev</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
         <span class="n">rhs_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">u_new</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">Lu_prev</span> <span class="o">+</span> <span class="n">rhs_nl</span> <span class="o">+</span> <span class="n">source_contribution</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s1">'periodic'</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">u_new</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">u_new</span>

@@ -1257,7 +1257,13 @@ class PDESolver:
             self.u_prev = initial_condition(self.X)
         else:
             self.u_prev = initial_condition(self.X, self.Y)
-        self._apply_boundary(self.u_prev)
+
+        # FIX: Do NOT clip boundaries for periodic BCs.
+        # The FFT handles periodicity natively; the clipping
+        # u[0]=u[-2], u[-1]=u[1] is mathematically incorrect
+        # for endpoint=False grids and corrupts the initial data.            
+        if self.boundary_condition != 'periodic':
+            self._apply_boundary(self.u_prev)
 
         # Initial velocity (second order)
         if self.temporal_order == 2:
@@ -1894,7 +1900,8 @@ class PDESolver:
 
                 # Assembling the solution in Fourier space
                 u_hat_new = exp_L * u_hat + self.dt * phi1_L * (u_nl_hat + source_hat)
-                u_new = self.ifft(u_hat_new)
+                u_new = self.ifft(u_hat_new)            
+                
             else:
                 Lu_prev = -self._apply_psiOp(self.u_prev)
                 u_nl = self._apply_nonlinear(self.u_prev)
@@ -1918,8 +1925,11 @@ class PDESolver:
                 #                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                 #                 correction: full L·u minus the diagonal approximation
                 u_new = _spectral_filter(u_new, cutoff=self.dealiasing_ratio)
+
         # Applying boundary conditions
-        self._apply_boundary(u_new)
+        if self.boundary_condition != 'periodic':
+            self._apply_boundary(u_new)
+            
         return u_new
 
     def _step_order2_with_psi(self, source_contribution: np.ndarray) -> np.ndarray:
@@ -1945,7 +1955,8 @@ class PDESolver:
         Lu_prev = -self._apply_psiOp(self.u_prev)
         rhs_nl = self._apply_nonlinear(self.u_prev, is_v=False)
         u_new = 2 * self.u_prev - self.u_prev2 + self.dt ** 2 * (Lu_prev + rhs_nl + source_contribution)
-        self._apply_boundary(u_new)
+        if self.boundary_condition != 'periodic':
+            self._apply_boundary(u_new)
         self.u_prev2 = self.u_prev
         self.u_prev = u_new
         self.u = u_new

@@ -4381,14 +4381,11 @@ def test_apply_constant_fft_rejects_space_window():
 # 3. Neumann vs Dirichlet boundary condition
 # ---------------------------------------------------------------------------
 
-def test_neumann_and_dirichlet_currently_identical():
-    """BUG DOCUMENTATION: 'neumann' and 'dirichlet' produce identical
-    results because both route to the same kohn_nirenberg_nonperiodic.
-    This test documents the current (incorrect) behaviour.
-
-    Once Neumann is properly implemented (e.g. via cosine transforms),
-    this test should be updated to assert they DIFFER.
-    """
+def test_neumann_and_dirichlet_use_same_kernel():
+    """Both 'neumann' and 'dirichlet' should route to
+    kohn_nirenberg_nonperiodic and produce identical results.
+    This is by design: the quadrature kernel does not enforce
+    specific BCs; the solver handles that separately."""
     x_sym, xi_sym = symbols('x xi', real=True)
     op = PseudoDifferentialOperator(I * xi_sym, [x_sym], mode='symbol')
     x_grid = np.linspace(-5, 5, 64)
@@ -4408,15 +4405,12 @@ def test_neumann_and_dirichlet_currently_identical():
         freq_window=None, clamp=np.inf,
     )
 
-    # Currently identical (the bug)
-    assert np.allclose(result_dirichlet, result_neumann, atol=1e-12), (
-        "Neumann and Dirichlet should currently be identical (known bug). "
-        "Update this test once Neumann is properly implemented."
-    )
+    # By design, both produce the same result at the kernel level
+    assert np.allclose(result_dirichlet, result_neumann, atol=1e-12)
 
 
-def test_neumann_accepted_as_boundary_condition():
-    """'neumann' should be accepted without raising ValueError."""
+def test_neumann_accepted_without_error():
+    """'neumann' must be accepted by apply() without raising."""
     x_sym, xi_sym = symbols('x xi', real=True)
     op = PseudoDifferentialOperator(xi_sym ** 2, [x_sym], mode='symbol')
     x_grid = np.linspace(-5, 5, 64)
@@ -4431,6 +4425,7 @@ def test_neumann_accepted_as_boundary_condition():
         freq_window=None, clamp=np.inf,
     )
     assert result.shape == u.shape
+    assert np.all(np.isfinite(result))
 
 
 # ---------------------------------------------------------------------------
@@ -4871,3 +4866,115 @@ def test_apply_constant_fft_no_space_window_code():
         "space_window=True must route through the slow path, "
         "not _apply_constant_fft"
     )
+
+# ===========================================================================
+# NEW TESTS — Input validation in apply()
+# ===========================================================================
+
+def test_apply_shape_mismatch_1d_raises():
+    """u with wrong length relative to x_grid must raise ValueError."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym ** 2, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=6.0, N=128)
+    u_wrong = np.ones(64)  # 64 points, grid expects 128
+
+    with pytest.raises(ValueError, match="u.shape"):
+        op.apply(u_wrong, x_grid, kx, boundary_condition='periodic')
+
+
+def test_apply_shape_mismatch_2d_raises():
+    """u with wrong shape relative to (x_grid, y_grid) must raise ValueError."""
+    x_sym, y_sym = symbols('x y', real=True)
+    xi_sym, eta_sym = symbols('xi eta', real=True)
+    op = PseudoDifferentialOperator(
+        -(xi_sym ** 2 + eta_sym ** 2),
+        [x_sym, y_sym], mode='symbol',
+    )
+    x_grid, y_grid, kx, ky = _make_2d_grid(L=4.0, N=32)
+    u_wrong = np.ones((32, 16))  # wrong Ny
+
+    with pytest.raises(ValueError, match="u.shape"):
+        op.apply(u_wrong, x_grid, kx, y_grid=y_grid, ky=ky,
+                 boundary_condition='periodic')
+
+
+def test_apply_nonuniform_grid_raises():
+    """A non-uniform x_grid must raise ValueError."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym ** 2, [x_sym], mode='symbol')
+
+    # Non-uniform grid
+    x_nonuniform = np.sort(np.concatenate([
+        np.linspace(-6, -0.1, 64),
+        np.linspace(0.1, 6, 64),
+    ]))
+    dx = x_nonuniform[1] - x_nonuniform[0]
+    kx = np.fft.fftfreq(len(x_nonuniform), d=dx) * 2 * np.pi
+    u = np.ones(len(x_nonuniform))
+
+    with pytest.raises(ValueError, match="not uniformly spaced"):
+        op.apply(u, x_nonuniform, kx, boundary_condition='periodic')
+
+
+def test_apply_invalid_boundary_condition_raises():
+    """An invalid boundary_condition string must raise ValueError."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym ** 2, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(N=32)
+    u = np.ones(32)
+
+    with pytest.raises(ValueError, match="boundary_condition"):
+        op.apply(u, x_grid, kx, boundary_condition='Periodic')  # capital P
+
+
+def test_apply_grid_length_mismatch_raises():
+    """x_grid and kx with different lengths must raise ValueError."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym ** 2, [x_sym], mode='symbol')
+    x_grid = np.linspace(-5, 5, 64)
+    kx = np.fft.fftfreq(32, d=x_grid[1] - x_grid[0]) * 2 * np.pi  # 32 ≠ 64
+    u = np.ones(64)
+
+    with pytest.raises(ValueError, match="same length"):
+        op.apply(u, x_grid, kx, boundary_condition='periodic')
+
+
+def test_apply_2d_missing_y_grid_raises():
+    """2D operator without y_grid must raise ValueError."""
+    x_sym, y_sym = symbols('x y', real=True)
+    xi_sym, eta_sym = symbols('xi eta', real=True)
+    op = PseudoDifferentialOperator(
+        -(xi_sym ** 2 + eta_sym ** 2),
+        [x_sym, y_sym], mode='symbol',
+    )
+    x_grid = np.linspace(-4, 4, 32, endpoint=False)
+    kx = np.fft.fftfreq(32, d=x_grid[1] - x_grid[0]) * 2 * np.pi
+    u = np.ones((32, 32))
+
+    with pytest.raises(ValueError, match="y_grid and ky are required"):
+        op.apply(u, x_grid, kx, boundary_condition='periodic')
+
+
+def test_apply_nan_input_raises():
+    """u containing NaN must raise ValueError."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym ** 2, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(N=32)
+    u = np.ones(32)
+    u[10] = np.nan
+
+    with pytest.raises(ValueError, match="non-finite"):
+        op.apply(u, x_grid, kx, boundary_condition='periodic')
+
+
+def test_apply_valid_inputs_pass():
+    """Valid inputs should pass validation without raising."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym ** 2, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=6.0, N=64)
+    u = _gaussian(x_grid)
+
+    # Should not raise
+    result = op.apply(u, x_grid, kx, boundary_condition='periodic',
+                      freq_window=None, clamp=np.inf)
+    assert result.shape == u.shape

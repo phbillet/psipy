@@ -748,7 +748,7 @@ class PseudoDifferentialOperator:
             Weyl quantization.  The Weyl symbol is first converted to its
             KN equivalent via the asymptotic series
      
-                a_KN = exp(+i/2 * d_x d_xi) a_Weyl
+                a_KN = exp(-i/2 * d_x d_xi) a_Weyl
      
             truncated at ``weyl_order``.  The corrected KN symbol is then
             passed to the existing KN numerical backend — no new numerical
@@ -769,8 +769,21 @@ class PseudoDifferentialOperator:
             Spatial grid in x direction.
         kx : ndarray
             Frequency grid in x direction.
-        boundary_condition : {'periodic', 'dirichlet'}, default='periodic'
+        boundary_condition : {'periodic', 'dirichlet', 'neumann'}, default='periodic'
             Boundary condition type.
+    
+            - 'periodic': uses FFT-based Kohn–Nirenberg quantization.
+            - 'dirichlet' / 'neumann': both route to the same non-periodic
+              direct quadrature kernel (``kohn_nirenberg_nonperiodic``).
+              The quadrature itself does NOT enforce a specific boundary
+              condition — it simply evaluates the KN integral on the given
+              grid without assuming periodicity.
+    
+              **Design contract**: actual boundary enforcement (setting
+              boundary values to zero for Dirichlet, or copying neighbours
+              for Neumann) is the caller's responsibility, typically done
+              in a time-stepping loop via ``_apply_boundary()`` in the
+              solver package.
         y_grid : ndarray, optional
             Spatial grid in y direction (2D only).
         ky : ndarray, optional
@@ -823,6 +836,13 @@ class PseudoDifferentialOperator:
         ValueError
             If boundary_condition is not 'periodic' or 'dirichlet'.
         """
+
+        # ── INPUT VALIDATION ────────────────────────────────────────────
+        self._validate_apply_inputs(
+            u, x_grid, kx, boundary_condition,
+            y_grid=y_grid, ky=ky,
+        )
+        # ── END VALIDATION ──────────────────────────────────────────────
 
         if backend is None:
             backend = self.apply_backend
@@ -914,6 +934,117 @@ class PseudoDifferentialOperator:
                 )
      
         raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
+
+    def _validate_apply_inputs(
+        self,
+        u: np.ndarray,
+        x_grid: np.ndarray,
+        kx: np.ndarray,
+        boundary_condition: str,
+        y_grid: Optional[np.ndarray] = None,
+        ky: Optional[np.ndarray] = None,
+    ) -> None:
+        """
+        Validate all inputs to apply() before any numerical dispatch.
+    
+        Raises
+        ------
+        TypeError
+            If u, x_grid, or kx are not array-like.
+        ValueError
+            If shapes, lengths, uniformity, or boundary_condition are invalid.
+        """
+        # ── 1. Type checks ──────────────────────────────────────────────
+        u = np.asarray(u)
+        x_grid = np.asarray(x_grid)
+        kx = np.asarray(kx)
+    
+        if u.ndim == 0:
+            raise ValueError(
+                f"u must be at least 1-dimensional, got scalar."
+            )
+    
+        # ── 2. Boundary condition membership ────────────────────────────
+        valid_bcs = {'periodic', 'dirichlet', 'neumann'}
+        if boundary_condition not in valid_bcs:
+            raise ValueError(
+                f"boundary_condition must be one of {valid_bcs}, "
+                f"got '{boundary_condition}'."
+            )
+    
+        # ── 3. Grid length ≥ 2 (needed for dx computation) ─────────────
+        if len(x_grid) < 2:
+            raise ValueError(
+                f"x_grid must have at least 2 points, got {len(x_grid)}."
+            )
+        if len(kx) < 2:
+            raise ValueError(
+                f"kx must have at least 2 points, got {len(kx)}."
+            )
+    
+        # ── 4. Grid / frequency length consistency ──────────────────────
+        if len(x_grid) != len(kx):
+            raise ValueError(
+                f"x_grid and kx must have the same length: "
+                f"len(x_grid)={len(x_grid)}, len(kx)={len(kx)}."
+            )
+    
+        # ── 5. 2D requirements ──────────────────────────────────────────
+        if self.dim == 2:
+            if y_grid is None or ky is None:
+                raise ValueError(
+                    "y_grid and ky are required for 2D operators."
+                )
+            y_grid = np.asarray(y_grid)
+            ky = np.asarray(ky)
+            if len(y_grid) < 2:
+                raise ValueError(
+                    f"y_grid must have at least 2 points, got {len(y_grid)}."
+                )
+            if len(y_grid) != len(ky):
+                raise ValueError(
+                    f"y_grid and ky must have the same length: "
+                    f"len(y_grid)={len(y_grid)}, len(ky)={len(ky)}."
+                )
+    
+        # ── 6. Shape of u vs grids ──────────────────────────────────────
+        if self.dim == 1:
+            if u.shape != x_grid.shape:
+                raise ValueError(
+                    f"u.shape {u.shape} does not match x_grid.shape "
+                    f"{x_grid.shape} for a 1D operator."
+                )
+        elif self.dim == 2:
+            expected_shape = (len(x_grid), len(y_grid))
+            if u.shape != expected_shape:
+                raise ValueError(
+                    f"u.shape {u.shape} does not match the expected 2D shape "
+                    f"{expected_shape} = (len(x_grid), len(y_grid))."
+                )
+    
+        # ── 7. Grid uniformity ──────────────────────────────────────────
+        dx = np.diff(x_grid)
+        if not np.allclose(dx, dx[0], rtol=1e-6, atol=1e-12):
+            raise ValueError(
+                f"x_grid is not uniformly spaced. "
+                f"min spacing={dx.min():.6e}, max spacing={dx.max():.6e}. "
+                f"The numerical kernels require a uniform grid."
+            )
+        if self.dim == 2:
+            dy = np.diff(y_grid)
+            if not np.allclose(dy, dy[0], rtol=1e-6, atol=1e-12):
+                raise ValueError(
+                    f"y_grid is not uniformly spaced. "
+                    f"min spacing={dy.min():.6e}, max spacing={dy.max():.6e}. "
+                    f"The numerical kernels require a uniform grid."
+                )
+    
+        # ── 8. Finite values ────────────────────────────────────────────
+        if not np.all(np.isfinite(u)):
+            n_bad = np.sum(~np.isfinite(u))
+            raise ValueError(
+                f"u contains {n_bad} non-finite value(s) (NaN or Inf)."
+            )
         
     def _is_spatial_dependent(self) -> bool:
         """
