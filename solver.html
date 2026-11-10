@@ -126,6 +126,7 @@
 <li><p>Built‑in energy monitoring, CFL checks, and spectral symbol analysis.</p></li>
 <li><p>Rich visualisation: animated solutions, error plots, energy evolution, and 3D surface/2D image displays.</p></li>
 <li><p>Testing framework for comparison with exact solutions.</p></li>
+<li><p>Optional absorbing <strong>sponge layer</strong> at the domain edges, which damps outgoing waves and reduces the artificial re‑entry caused by periodic wrap‑around.</p></li>
 </ul>
 </section>
 <section id="mathematical-background">
@@ -151,6 +152,17 @@
 <p>the system is reduced to first order in time, and a leap‑frog style integrator or a second‑order ETD scheme is used.</p>
 <p><strong>Pseudo‑differential operators.</strong>  When the equation contains <cite>psiOp(p(x,ξ), u)</cite>, the solver builds a <cite>PseudoDifferentialOperator</cite> object (from the companion <cite>psiop</cite> module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.</p>
 <p><strong>Stability.</strong>  The solver checks the CFL condition based on the maximum group velocity derived from the dispersion relation.  It also verifies that the symbol satisfies the necessary conditions for well‑posedness (Re <cite>L(k)</cite> ≤ 0, sufficient high‑frequency dissipation, moderate growth).</p>
+<p><strong>Sponge layer (absorbing boundary).</strong>  Fourier spectral methods are intrinsically periodic: a wave leaving the domain through one edge re-enters through the opposite one.  To emulate an open (non‑reflecting) domain, the solver can add a damping term γ(x) ≥ 0 that is zero in the interior and grows smoothly to γ_max inside a layer near the edges of the (centred) domain [-Lx/2, Lx/2] (and [-Ly/2, Ly/2] in 2D):</p>
+<blockquote>
+<div><p>first order :   ∂ₜ u       = L u + N(u) + f − γ(x) u
+second order:   ∂ₜ² u + γ(x) ∂ₜ u = L u + N(u) + f</p>
+</div></blockquote>
+<p>The profile is a polynomial ramp</p>
+<blockquote>
+<div><p>γ(x) = γ_max · ((<a href="#id6"><span class="problematic" id="id7">|x|</span></a> − x₀) / (Lx/2 − x₀))^p   for <a href="#id8"><span class="problematic" id="id9">|x|</span></a> &gt; x₀,   γ(x) = 0 otherwise,</p>
+</div></blockquote>
+<p>with x₀ = (Lx/2)(1 − w), where <cite>w</cite> is the relative width (<cite>sponge_width</cite>), γ_max the strength (<cite>sponge_strength</cite>) and p the order of the ramp (<cite>sponge_order</cite>).  In 2D, γ(x,y) = max(γ_x(x), γ_y(y)), so the corners receive the strongest damping.</p>
+<p>The damping is treated by operator splitting: after each (spectral) time step the fields are multiplied by e^{−γ Δt}, except for the second‑order pseudo‑differential scheme, where the friction term γ∂ₜu is included implicitly in the leap‑frog update.  The sponge is a numerical device, not a physical boundary condition: it only attenuates the solution, it does not impose any value on it, and the physics inside the layer is modified.  Place all features of interest in the undamped interior.</p>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
 <aside class="footnote brackets" id="id1" role="doc-footnote">
@@ -208,6 +220,8 @@ It is designed for both <strong>linear and nonlinear time-dependent PDEs</strong
 </dd>
 </dl>
 </li>
+<li><p>Optional sponge layer (absorbing region) at the domain edges to limit
+periodic wrap-around of outgoing waves (see <cite>setup</cite>)</p></li>
 </ul>
 </section>
 <section id="supported-operators">
@@ -261,7 +275,7 @@ often clearer for large grids.</p></li>
 <dt>Which component of the complex field to visualize:</dt><dd><ul>
 <li><p>’real’  : Re(u)</p></li>
 <li><p>’imag’  : Im(u)</p></li>
-<li><p>’abs’   : <a href="#id6"><span class="problematic" id="id7">|u|</span></a></p></li>
+<li><p>’abs’   : <a href="#id10"><span class="problematic" id="id11">|u|</span></a></p></li>
 <li><p>’angle’ : arg(u)</p></li>
 </ul>
 </dd>
@@ -314,7 +328,7 @@ before drawing the next frame to avoid memory/visual accumulation.</p></li>
 3. Total Conserved Energy: Eₜₒₜₐₗ(t) = Eₘₑ꜀ₕ(t) - W(t)</p>
 <p>Prints the initial total energy E₀ and the maximum relative drift:</p>
 <blockquote>
-<div><p>Relative Drift = max <a href="#id8"><span class="problematic" id="id9">|Eₜₒₜₐₗ(t) - E₀|</span></a> / <a href="#id10"><span class="problematic" id="id11">|E₀|</span></a></p>
+<div><p>Relative Drift = max <a href="#id12"><span class="problematic" id="id13">|Eₜₒₜₐₗ(t) - E₀|</span></a> / <a href="#id14"><span class="problematic" id="id15">|E₀|</span></a></p>
 </div></blockquote>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -326,7 +340,7 @@ y-axis (semilogy). Default is False.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="solver.PDESolver.setup">
-<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Lx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ly</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ny</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_condition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'periodic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_condition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_velocity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/solver.html#PDESolver.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.setup" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Lx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ly</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ny</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_condition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'periodic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_condition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_velocity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sponge</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sponge_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sponge_strength</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sponge_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/solver.html#PDESolver.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.setup" title="Link to this definition"></a></dt>
 <dd><p>Configure the spatial/temporal grid and initialize the solution field.</p>
 <p>This method sets up the computational domain, initializes spatial and temporal grids,
 applies boundary conditions, and prepares symbolic and numerical operators.
@@ -353,6 +367,38 @@ in favor of interactive exploration via <cite>interactive_symbol_analysis</cite>
 <li><p><strong>initial_velocity</strong> (<em>callable</em><em>, </em><em>optional</em>) – Function returning the initial time derivative ∂ₜu(x, 0) or ∂ₜu(x, y, 0),
 required for second-order equations.</p></li>
 <li><p><strong>n_frames</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of time frames to store during simulation for visualization or output.</p></li>
+<li><p><strong>boundary_condition</strong> (<em>str</em><em>, </em><em>default='periodic'</em>) – Boundary treatment. ‘periodic’ is the native spectral setting.
+‘dirichlet’ and ‘neumann’ are only available for equations
+defined through a pseudo-differential operator (<cite>psiOp</cite>).</p></li>
+<li><p><strong>plot</strong> (<em>bool</em><em>, </em><em>default=True</em>) – If True, diagnostic plots are displayed during setup (symbol
+analysis and, when the sponge is active, the damping profile).</p></li>
+<li><p><strong>sponge</strong> (<em>bool</em><em>, </em><em>default=False</em>) – Activate an absorbing sponge layer near the edges of the domain.
+Because the Fourier discretisation is periodic, waves leaving
+the domain on one side re-enter on the opposite side; the sponge
+damps them before they wrap around. The damping profile γ(x)
+(γ(x, y) in 2D) is zero in the interior and increases
+smoothly to <cite>sponge_strength</cite> at the boundary. It is applied at
+every time step in <cite>solve()</cite>. The domain is assumed to be
+centred at the origin, i.e. [-Lx/2, Lx/2] (and [-Ly/2, Ly/2]).</p></li>
+<li><p><strong>sponge_width</strong> (<em>float</em><em>, </em><em>default=0.15</em>) – Width of the sponge on each side, as a fraction of the
+half-domain length (not of the full length). For example, 0.15
+means that the outer 15 % of [0, Lx/2] on each side is damped,
+i.e. a physical thickness of 0.15·Lx/2 per edge. Must lie in
+(0, 1]. Wider layers absorb more gently and reflect less, but
+reduce the usable interior. Ignored if <cite>sponge=False</cite>.</p></li>
+<li><p><strong>sponge_strength</strong> (<em>float</em><em>, </em><em>default=10.0</em>) – Maximum damping rate γ_max (in units of 1/time) reached at the
+edge of the domain. It should be large enough to absorb the
+wave during its crossing of the layer (rough guide: the amplitude
+attenuation of a wave with speed c crossing the layer once is
+exp(−γ_max · d / ((p+1)·c)), where d is the layer thickness and
+p = <cite>sponge_order</cite>), but not so large that the profile becomes
+abrupt, which causes spurious reflections and, for explicit
+schemes, stiffness. Ignored if <cite>sponge=False</cite>.</p></li>
+<li><p><strong>sponge_order</strong> (<em>int</em><em>, </em><em>default=4</em>) – Exponent p of the polynomial ramp γ ∝ (distance into the layer)^p.
+Higher orders give a smoother onset (fewer reflections at the
+interface between interior and sponge) but concentrate the
+damping near the edge. Values 2–4 are typical. Ignored if
+<cite>sponge=False</cite>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
@@ -360,7 +406,7 @@ required for second-order equations.</p></li>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
-<ul class="simple">
+<ul>
 <li><p>The spatial discretization assumes periodic boundary conditions by default.</p></li>
 <li><p>Fourier transforms are computed using real-to-complex FFTs (<cite>scipy.fft.fft</cite>, <cite>fft2</cite>).</p></li>
 <li><p>Frequency arrays (<cite>KX</cite>, <cite>KY</cite>) are defined following standard spectral conventions.</p></li>
@@ -368,6 +414,32 @@ required for second-order equations.</p></li>
 <li><p>For second-order equations, initial acceleration is derived from the governing operator.</p></li>
 <li><p>Symbolic analysis includes plotting of the symbol’s real/imaginary/absolute values
 and dispersion relation.</p></li>
+<li><p>The sponge profile is stored in <cite>self.sponge_profile</cite> (ndarray of
+shape (Nx,) in 1D or (Nx, Ny) in 2D, <cite>None</cite> if disabled).</p></li>
+<li><dl class="simple">
+<dt>How the damping is applied depends on the time stepper:</dt><dd><ul class="simple">
+<li><p>first-order equations and the default / ETD-RK4 second-order
+schemes: after each step, u (and the velocity v for
+second-order equations) is multiplied by exp(−γ Δt);</p></li>
+<li><p>second-order equations with <cite>psiOp</cite>: the friction term γ ∂ₜu
+is included in the leap-frog update, which is then divided by
+(1 + γ Δt).</p></li>
+</ul>
+</dd>
+</dl>
+<p>The two forms are equivalent to first order in Δt, but they do
+not damp the amplitude at exactly the same rate (for a wave,
+the multiplicative form gives e^{−γt}, the friction form
+e^{−γt/2}).</p>
+</li>
+<li><p>The sponge is not a boundary condition. It reduces wrap-around
+artefacts but does not remove them entirely; check the sensitivity
+of the results to <cite>sponge_width</cite> and <cite>sponge_strength</cite>.</p></li>
+<li><p>The sponge acts on the solution itself, so it is not compatible
+with conservation checks: the energy diagnostics are no longer
+conserved when the sponge is active.</p></li>
+<li><p>With <cite>plot=True</cite>, the damping profile is displayed so that its
+extent can be verified.</p></li>
 </ul>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
@@ -385,6 +457,12 @@ and dispersion relation.</p></li>
 <dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_wave_propagation</span></code></dt><dd><p>Analyzes group velocity.</p>
 </dd>
 <dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">interactive_symbol_analysis</span></code></dt><dd><p>Interactive tools for ψOp-based equations.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">_build_sponge_1d</span></code></dt><dd><p>Builds the 1D sponge damping profile γ(x).</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">_build_sponge_2d</span></code></dt><dd><p>Builds the 2D sponge damping profile γ(x, y).</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">_plot_sponge_profile</span></code></dt><dd><p>Displays the sponge profile for verification.</p>
 </dd>
 </dl>
 </div>

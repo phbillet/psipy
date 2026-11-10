@@ -121,6 +121,7 @@
 <span class="sd">* Built‑in energy monitoring, CFL checks, and spectral symbol analysis.</span>
 <span class="sd">* Rich visualisation: animated solutions, error plots, energy evolution, and 3D surface/2D image displays.</span>
 <span class="sd">* Testing framework for comparison with exact solutions.</span>
+<span class="sd">* Optional absorbing **sponge layer** at the domain edges, which damps outgoing waves and reduces the artificial re‑entry caused by periodic wrap‑around.</span>
 
 <span class="sd">Mathematical background</span>
 <span class="sd">-----------------------</span>
@@ -149,6 +150,18 @@
 
 <span class="sd">**Stability.**  The solver checks the CFL condition based on the maximum group velocity derived from the dispersion relation.  It also verifies that the symbol satisfies the necessary conditions for well‑posedness (Re `L(k)` ≤ 0, sufficient high‑frequency dissipation, moderate growth).</span>
 
+<span class="sd">**Sponge layer (absorbing boundary).**  Fourier spectral methods are intrinsically periodic: a wave leaving the domain through one edge re-enters through the opposite one.  To emulate an open (non‑reflecting) domain, the solver can add a damping term γ(x) ≥ 0 that is zero in the interior and grows smoothly to γ_max inside a layer near the edges of the (centred) domain [-Lx/2, Lx/2] (and [-Ly/2, Ly/2] in 2D):</span>
+
+<span class="sd">    first order :   ∂ₜ u       = L u + N(u) + f − γ(x) u</span>
+<span class="sd">    second order:   ∂ₜ² u + γ(x) ∂ₜ u = L u + N(u) + f</span>
+
+<span class="sd">The profile is a polynomial ramp</span>
+
+<span class="sd">    γ(x) = γ_max · ((|x| − x₀) / (Lx/2 − x₀))^p   for |x| &gt; x₀,   γ(x) = 0 otherwise,</span>
+
+<span class="sd">with x₀ = (Lx/2)(1 − w), where `w` is the relative width (`sponge_width`), γ_max the strength (`sponge_strength`) and p the order of the ramp (`sponge_order`).  In 2D, γ(x,y) = max(γ_x(x), γ_y(y)), so the corners receive the strongest damping.</span>
+
+<span class="sd">The damping is treated by operator splitting: after each (spectral) time step the fields are multiplied by e^{−γ Δt}, except for the second‑order pseudo‑differential scheme, where the friction term γ∂ₜu is included implicitly in the leap‑frog update.  The sponge is a numerical device, not a physical boundary condition: it only attenuates the solution, it does not impose any value on it, and the physics inside the layer is modified.  Place all features of interest in the undamped interior.</span>
 
 <span class="sd">References</span>
 <span class="sd">----------</span>
@@ -185,6 +198,8 @@
 <span class="sd">        - Symbol analysis of linear and pseudo-differential operators</span>
 <span class="sd">        - Microlocal analysis (e.g., Hamiltonian flows)</span>
 <span class="sd">        - CFL condition checking and numerical stability diagnostics</span>
+<span class="sd">    - Optional sponge layer (absorbing region) at the domain edges to limit</span>
+<span class="sd">      periodic wrap-around of outgoing waves (see `setup`)</span>
 
 <span class="sd">    Supported Operators:</span>
 <span class="sd">    --------------------</span>
@@ -898,7 +913,11 @@
         <span class="n">initial_condition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">initial_velocity</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
-        <span class="n">plot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">plot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">sponge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">sponge_width</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.15</span><span class="p">,</span>
+        <span class="n">sponge_strength</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">sponge_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Configure the spatial/temporal grid and initialize the solution field.</span>
@@ -935,6 +954,44 @@
 <span class="sd">            required for second-order equations.</span>
 <span class="sd">        n_frames : int, default=100</span>
 <span class="sd">            Number of time frames to store during simulation for visualization or output.</span>
+<span class="sd">        boundary_condition : str, default='periodic'</span>
+<span class="sd">            Boundary treatment. 'periodic' is the native spectral setting.</span>
+<span class="sd">            'dirichlet' and 'neumann' are only available for equations</span>
+<span class="sd">            defined through a pseudo-differential operator (`psiOp`).</span>
+<span class="sd">        plot : bool, default=True</span>
+<span class="sd">            If True, diagnostic plots are displayed during setup (symbol</span>
+<span class="sd">            analysis and, when the sponge is active, the damping profile).</span>
+<span class="sd">        sponge : bool, default=False</span>
+<span class="sd">            Activate an absorbing sponge layer near the edges of the domain.</span>
+<span class="sd">            Because the Fourier discretisation is periodic, waves leaving</span>
+<span class="sd">            the domain on one side re-enter on the opposite side; the sponge</span>
+<span class="sd">            damps them before they wrap around. The damping profile γ(x)</span>
+<span class="sd">            (γ(x, y) in 2D) is zero in the interior and increases</span>
+<span class="sd">            smoothly to `sponge_strength` at the boundary. It is applied at</span>
+<span class="sd">            every time step in `solve()`. The domain is assumed to be</span>
+<span class="sd">            centred at the origin, i.e. [-Lx/2, Lx/2] (and [-Ly/2, Ly/2]).</span>
+<span class="sd">        sponge_width : float, default=0.15</span>
+<span class="sd">            Width of the sponge on each side, as a fraction of the</span>
+<span class="sd">            half-domain length (not of the full length). For example, 0.15</span>
+<span class="sd">            means that the outer 15 % of [0, Lx/2] on each side is damped,</span>
+<span class="sd">            i.e. a physical thickness of 0.15·Lx/2 per edge. Must lie in</span>
+<span class="sd">            (0, 1]. Wider layers absorb more gently and reflect less, but</span>
+<span class="sd">            reduce the usable interior. Ignored if `sponge=False`.</span>
+<span class="sd">        sponge_strength : float, default=10.0</span>
+<span class="sd">            Maximum damping rate γ_max (in units of 1/time) reached at the</span>
+<span class="sd">            edge of the domain. It should be large enough to absorb the</span>
+<span class="sd">            wave during its crossing of the layer (rough guide: the amplitude</span>
+<span class="sd">            attenuation of a wave with speed c crossing the layer once is</span>
+<span class="sd">            exp(−γ_max · d / ((p+1)·c)), where d is the layer thickness and</span>
+<span class="sd">            p = `sponge_order`), but not so large that the profile becomes</span>
+<span class="sd">            abrupt, which causes spurious reflections and, for explicit</span>
+<span class="sd">            schemes, stiffness. Ignored if `sponge=False`.</span>
+<span class="sd">        sponge_order : int, default=4</span>
+<span class="sd">            Exponent p of the polynomial ramp γ ∝ (distance into the layer)^p.</span>
+<span class="sd">            Higher orders give a smoother onset (fewer reflections at the</span>
+<span class="sd">            interface between interior and sponge) but concentrate the</span>
+<span class="sd">            damping near the edge. Values 2–4 are typical. Ignored if</span>
+<span class="sd">            `sponge=False`.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
@@ -950,6 +1007,27 @@
 <span class="sd">        - For second-order equations, initial acceleration is derived from the governing operator.</span>
 <span class="sd">        - Symbolic analysis includes plotting of the symbol's real/imaginary/absolute values</span>
 <span class="sd">          and dispersion relation.</span>
+<span class="sd">        - The sponge profile is stored in `self.sponge_profile` (ndarray of</span>
+<span class="sd">          shape (Nx,) in 1D or (Nx, Ny) in 2D, `None` if disabled).</span>
+<span class="sd">        - How the damping is applied depends on the time stepper:</span>
+<span class="sd">            * first-order equations and the default / ETD-RK4 second-order</span>
+<span class="sd">              schemes: after each step, u (and the velocity v for</span>
+<span class="sd">              second-order equations) is multiplied by exp(−γ Δt);</span>
+<span class="sd">            * second-order equations with `psiOp`: the friction term γ ∂ₜu</span>
+<span class="sd">              is included in the leap-frog update, which is then divided by</span>
+<span class="sd">              (1 + γ Δt).</span>
+<span class="sd">          The two forms are equivalent to first order in Δt, but they do</span>
+<span class="sd">          not damp the amplitude at exactly the same rate (for a wave,</span>
+<span class="sd">          the multiplicative form gives e^{−γt}, the friction form</span>
+<span class="sd">          e^{−γt/2}).</span>
+<span class="sd">        - The sponge is not a boundary condition. It reduces wrap-around</span>
+<span class="sd">          artefacts but does not remove them entirely; check the sensitivity</span>
+<span class="sd">          of the results to `sponge_width` and `sponge_strength`.</span>
+<span class="sd">        - The sponge acts on the solution itself, so it is not compatible</span>
+<span class="sd">          with conservation checks: the energy diagnostics are no longer</span>
+<span class="sd">          conserved when the sponge is active.</span>
+<span class="sd">        - With `plot=True`, the damping profile is displayed so that its</span>
+<span class="sd">          extent can be verified.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -960,6 +1038,9 @@
 <span class="sd">        plot_symbol : Visualizes the linear operator’s symbol in frequency space.</span>
 <span class="sd">        analyze_wave_propagation : Analyzes group velocity.</span>
 <span class="sd">        interactive_symbol_analysis : Interactive tools for ψOp-based equations.</span>
+<span class="sd">        _build_sponge_1d : Builds the 1D sponge damping profile γ(x).</span>
+<span class="sd">        _build_sponge_2d : Builds the 2D sponge damping profile γ(x, y).</span>
+<span class="sd">        _plot_sponge_profile : Displays the sponge profile for verification.</span>
 <span class="sd">        """</span>
 
         <span class="c1"># Temporal parameters</span>
@@ -970,6 +1051,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">initial_condition</span> <span class="o">=</span> <span class="n">initial_condition</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">=</span> <span class="n">boundary_condition</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">plot</span> <span class="o">=</span> <span class="n">plot</span>
+
+
 
         <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'dirichlet'</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'neumann'</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -993,6 +1076,22 @@
 
         <span class="c1"># Pre-compile lambdified source functions once (avoids re-creating them at every time step)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_precompile_source_funcs</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">sponge</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sponge_width</span> <span class="o">=</span> <span class="n">sponge_width</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sponge_strength</span> <span class="o">=</span> <span class="n">sponge_strength</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sponge_order</span> <span class="o">=</span> <span class="n">sponge_order</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_sponge_1d</span><span class="p">(</span>
+                    <span class="n">sponge_width</span><span class="p">,</span> <span class="n">sponge_strength</span><span class="p">,</span> <span class="n">sponge_order</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_sponge_2d</span><span class="p">(</span>
+                    <span class="n">sponge_width</span><span class="p">,</span> <span class="n">sponge_strength</span><span class="p">,</span> <span class="n">sponge_order</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">plot</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_plot_sponge_profile</span><span class="p">()</span>
 
         <span class="c1"># Symbol analysis if present</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
@@ -1166,6 +1265,92 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">omega_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_setup_omega_terms</span><span class="p">(</span><span class="n">omega_val</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_sponge_1d</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">width</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.15</span><span class="p">,</span>
+        <span class="n">strength</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Build a 1D sponge damping profile γ(x).</span>
+
+<span class="sd">        The profile vanishes in the interior |x| ≤ x₀ and grows polynomially</span>
+<span class="sd">        up to `strength` at the domain edges:</span>
+
+<span class="sd">            γ(x) = strength · ((|x| − x₀) / (L/2 − x₀))^order   for |x| &gt; x₀,</span>
+
+<span class="sd">        with x₀ = (L/2)(1 − width). The domain is assumed centred at 0.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        width : float</span>
+<span class="sd">            Fraction of the half-domain used for the sponge on each side.</span>
+<span class="sd">            E.g. width=0.15 means 15 % of [0, L/2] on each side.</span>
+<span class="sd">        strength : float</span>
+<span class="sd">            Maximum damping rate γ_max (1/time) at the boundary.</span>
+<span class="sd">        order : int</span>
+<span class="sd">            Polynomial order of the ramp (2–4 typical). Higher values give a</span>
+<span class="sd">            smoother transition and fewer reflections.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray of shape (Nx,)</span>
+<span class="sd">            The damping profile γ(x) ≥ 0.</span>
+<span class="sd">        """</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span>
+        <span class="n">L_half</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="mf">2.0</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">L_half</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">width</span><span class="p">)</span>
+    
+        <span class="n">gamma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Nx</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">x0</span>
+        <span class="n">gamma</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">strength</span> <span class="o">*</span> <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">L_half</span> <span class="o">-</span> <span class="n">x0</span><span class="p">))</span> <span class="o">**</span> <span class="n">order</span>
+        <span class="k">return</span> <span class="n">gamma</span>
+    
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_sponge_2d</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">width</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.15</span><span class="p">,</span>
+        <span class="n">strength</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Build a 2D sponge damping profile γ(x, y).</span>
+
+<span class="sd">        Separable 1D profiles γ_x(x) and γ_y(y) are built with the same</span>
+<span class="sd">        formula as in `_build_sponge_1d` (using Lx and Ly respectively), and</span>
+<span class="sd">        combined as γ(x, y) = max(γ_x(x), γ_y(y)). The maximum (rather than</span>
+<span class="sd">        the sum) keeps γ ≤ strength everywhere, while the corners are</span>
+<span class="sd">        damped as strongly as the edges. The same `width` fraction is used</span>
+<span class="sd">        along both axes.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        width, strength, order :</span>
+<span class="sd">            See `_build_sponge_1d`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray of shape (Nx, Ny)</span>
+<span class="sd">            The damping profile γ(x, y) ≥ 0.</span>
+<span class="sd">        """</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span>
+        <span class="n">Lx_half</span><span class="p">,</span> <span class="n">Ly_half</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="mf">2.0</span>
+    
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">Lx_half</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">width</span><span class="p">)</span>
+        <span class="n">y0</span> <span class="o">=</span> <span class="n">Ly_half</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">width</span><span class="p">)</span>
+    
+        <span class="n">gamma_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Nx</span><span class="p">)</span>
+        <span class="n">mask_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">x0</span>
+        <span class="n">gamma_x</span><span class="p">[</span><span class="n">mask_x</span><span class="p">]</span> <span class="o">=</span> <span class="n">strength</span> <span class="o">*</span> <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">mask_x</span><span class="p">])</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">Lx_half</span> <span class="o">-</span> <span class="n">x0</span><span class="p">))</span> <span class="o">**</span> <span class="n">order</span>
+    
+        <span class="n">gamma_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ny</span><span class="p">)</span>
+        <span class="n">mask_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">y0</span>
+        <span class="n">gamma_y</span><span class="p">[</span><span class="n">mask_y</span><span class="p">]</span> <span class="o">=</span> <span class="n">strength</span> <span class="o">*</span> <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">mask_y</span><span class="p">])</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">Ly_half</span> <span class="o">-</span> <span class="n">y0</span><span class="p">))</span> <span class="o">**</span> <span class="n">order</span>
+    
+        <span class="c1"># Take the max so corners get full damping from both axes</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">gamma_x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">gamma_y</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_setup_omega_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -2014,10 +2199,6 @@
                 <span class="c1">#                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
                 <span class="c1">#                 correction: full L·u minus the diagonal approximation</span>
                 <span class="n">u_new</span> <span class="o">=</span> <span class="n">_spectral_filter</span><span class="p">(</span><span class="n">u_new</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dealiasing_ratio</span><span class="p">)</span>
-
-        <span class="c1"># Applying boundary conditions</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s1">'periodic'</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
             
         <span class="k">return</span> <span class="n">u_new</span>
 
@@ -2043,9 +2224,16 @@
 <span class="sd">        """</span>
         <span class="n">Lu_prev</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
         <span class="n">rhs_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">u_new</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">Lu_prev</span> <span class="o">+</span> <span class="n">rhs_nl</span> <span class="o">+</span> <span class="n">source_contribution</span><span class="p">)</span>
+        <span class="n">rhs</span> <span class="o">=</span> <span class="n">Lu_prev</span> <span class="o">+</span> <span class="n">rhs_nl</span> <span class="o">+</span> <span class="n">source_contribution</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>          <span class="c1"># γ·Δt, array</span>
+            <span class="n">u_new</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">g</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">g</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">u_new</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">rhs</span>
+                
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s1">'periodic'</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">u_new</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">u_new</span>
@@ -2112,7 +2300,13 @@
                     <span class="n">u_lin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
                     <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_lin</span><span class="p">)</span>
                     <span class="n">u_new</span> <span class="o">=</span> <span class="n">u_lin</span> <span class="o">+</span> <span class="n">u_nl</span> <span class="o">+</span> <span class="n">source_contribution</span>
+
+                <span class="c1"># ── SPONGE DAMPING ──</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">u_new</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span><span class="p">)</span>
+                    
                 <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
+                
                 <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">u_new</span>
 
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
@@ -2132,8 +2326,15 @@
                         <span class="n">v_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                         <span class="n">u_new</span> <span class="o">+=</span> <span class="p">(</span><span class="n">u_nl</span> <span class="o">+</span> <span class="n">source_contribution</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span>
                         <span class="n">v_new</span> <span class="o">+=</span> <span class="p">(</span><span class="n">u_nl</span> <span class="o">+</span> <span class="n">source_contribution</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">damping</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span><span class="p">)</span>
+                        <span class="n">u_new</span> <span class="o">*=</span> <span class="n">damping</span>
+                        <span class="n">v_new</span> <span class="o">*=</span> <span class="n">damping</span>
+                        
                     <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">v_new</span><span class="p">)</span>
+
                     <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">u_new</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="o">=</span> <span class="n">v_new</span>
 
@@ -2995,7 +3196,34 @@
             <span class="n">E_total</span> <span class="o">=</span> <span class="n">E_mech</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span>
 
             <span class="k">return</span> <span class="n">E_total</span>
-
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">_plot_sponge_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Plot the sponge damping profile for verification."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+    
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span><span class="p">,</span> <span class="s1">'r-'</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'x'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'γ(x)'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">'Sponge damping profile'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">axvspan</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">sponge_width</span><span class="p">),</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'red'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">axvspan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">sponge_width</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'red'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">'lower'</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">'hot'</span><span class="p">,</span>
+                       <span class="n">extent</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">Ly</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span><span class="o">/</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s1">'γ(x, y)'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'x'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'y'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">'2D Sponge damping profile'</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            
 <div class="viewcode-block" id="PDESolver.plot_energy">
 <a class="viewcode-back" href="../solver.html#solver.PDESolver.plot_energy">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
