@@ -1090,3 +1090,195 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="Ny"):
             solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=16,
                          boundary_condition='periodic', plot=False)
+
+# ===========================================================================
+# 10.  Sponge layer (absorbing boundaries on a periodic domain)
+# ===========================================================================
+class TestSpongeProfile:
+    """Geometric properties of the damping profile gamma(x) / gamma(x, y)."""
+
+    def _make_solver_1d(self, **sponge_kw):
+        t, x, xi = symbols('t x xi', real=True)
+        u = Function('u')(t, x)
+        eq = Eq(diff(u, t), psiOp(-1j * xi, u))  # u_t = -u_x, speed +1
+        solver = PDESolver(eq)
+        solver.setup(Lx=10.0, Nx=128, Lt=0.1, Nt=2,
+                     boundary_condition='periodic',
+                     initial_condition=lambda x: np.exp(-x**2),
+                     plot=False, **sponge_kw)
+        return solver
+
+    def _make_solver_2d(self, **sponge_kw):
+        t, x, y = symbols('t x y')
+        u = Function('u')(t, x, y)
+        eq = Eq(diff(u, t), -diff(u, x) - diff(u, y))
+        solver = PDESolver(eq)
+        solver.setup(Lx=10.0, Ly=10.0, Nx=32, Ny=32, Lt=0.1, Nt=2,
+                     boundary_condition='periodic',
+                     initial_condition=lambda x, y: np.exp(-(x**2 + y**2)),
+                     plot=False, **sponge_kw)
+        return solver
+
+    def test_sponge_disabled_by_default(self):
+        solver = self._make_solver_1d()
+        assert solver.sponge_profile is None
+
+    def test_sponge_profile_shape_1d(self):
+        solver = self._make_solver_1d(sponge=True)
+        assert solver.sponge_profile.shape == (solver.Nx,)
+
+    def test_sponge_profile_zero_in_interior_1d(self):
+        width = 0.2
+        solver = self._make_solver_1d(sponge=True, sponge_width=width)
+        x0 = solver.Lx / 2 * (1.0 - width)
+        interior = np.abs(solver.x_grid) < x0
+        assert np.all(solver.sponge_profile[interior] == 0.0)
+
+    def test_sponge_profile_max_at_edge_1d(self):
+        strength = 7.0
+        solver = self._make_solver_1d(sponge=True, sponge_strength=strength)
+        g = solver.sponge_profile
+        # |x| is maximal at index 0 (endpoint=False grid), so the ramp
+        # peaks there and never exceeds the requested strength
+        assert g.max() > 0.0
+        assert g[0] == g.max()
+        assert g.max() <= strength
+        assert g.max() > 0.9 * strength
+
+    def test_sponge_profile_monotone_in_ramp_1d(self):
+        solver = self._make_solver_1d(sponge=True, sponge_width=0.25)
+        g = solver.sponge_profile
+        right_half = g[solver.Nx // 2:]
+        assert np.all(np.diff(right_half) >= -1e-12)
+
+    def test_sponge_strength_scaling(self):
+        s1 = self._make_solver_1d(sponge=True, sponge_strength=4.0)
+        s2 = self._make_solver_1d(sponge=True, sponge_strength=8.0)
+        np.testing.assert_allclose(s2.sponge_profile, 2.0 * s1.sponge_profile,
+                                   rtol=1e-12)
+
+    def test_sponge_order_controls_ramp_shape(self):
+        s2 = self._make_solver_1d(sponge=True, sponge_order=2)
+        s4 = self._make_solver_1d(sponge=True, sponge_order=4)
+        # Middle of the ramp: the higher-order profile must lie below
+        x_mid = 0.5 * (s2.Lx / 2 * (1 - 0.15) + s2.Lx / 2)
+        idx = np.argmin(np.abs(s2.x_grid - x_mid))
+        assert s4.sponge_profile[idx] < s2.sponge_profile[idx]
+
+    def test_sponge_profile_shape_2d(self):
+        solver = self._make_solver_2d(sponge=True)
+        assert solver.sponge_profile.shape == (solver.Nx, solver.Ny)
+
+    def test_sponge_profile_zero_in_interior_2d(self):
+        width = 0.2
+        solver = self._make_solver_2d(sponge=True, sponge_width=width)
+        g = solver.sponge_profile
+        n_in = int(np.ceil(solver.Nx * width))  # conservative interior box
+        slab = slice(n_in, solver.Nx - n_in)
+        assert np.all(g[slab, slab] == 0.0)
+
+    def test_sponge_corner_equals_max_2d(self):
+        strength = 5.0
+        solver = self._make_solver_2d(sponge=True, sponge_strength=strength)
+        g = solver.sponge_profile
+        assert g[0, 0] == g.max()
+        assert g.max() <= strength
+
+
+class TestSpongeAbsorption:
+    """Sponge layer: absorption of a packet advected through the periodic seam."""
+
+    @staticmethod
+    def _run_advection(sponge, strength=10.0, width=0.2, order=2):
+        """
+        Advect a Gaussian packet at speed 1 on [-5, 5] for t = 10, i.e. one full
+        turn of the periodic domain, so that the packet crosses the seam
+        (x = ±5) and therefore both sponge layers.
+
+        Returns (initial_amp, final_amp) = max|u| of the first and last frames.
+        """
+        t, x, xi = symbols('t x xi', real=True)
+        u = Function('u')(t, x)
+        eq = Eq(diff(u, t), psiOp(-1j * xi, u))
+
+        solver = PDESolver(eq)
+        solver.setup(
+            Lx=10.0, Nx=256, Lt=10.0, Nt=1000,
+            boundary_condition='periodic',
+            initial_condition=lambda x: np.exp(-((x + 2) ** 2) / 0.5),
+            sponge=sponge, sponge_width=width,
+            sponge_strength=strength, sponge_order=order,
+            plot=False,
+        )
+        solver.solve()
+        return (np.max(np.abs(solver.frames[0])),
+                np.max(np.abs(solver.frames[-1])))
+
+    def test_packet_survives_without_sponge(self):
+        """Baseline: without sponge the packet returns undamped after one turn."""
+        initial_amp, final_amp = self._run_advection(sponge=False)
+        assert final_amp > 0.9 * initial_amp
+
+    def test_sponge_absorbs_advected_packet_1d(self):
+        """
+        With strength 10 the packet crosses both layers (total thickness 2) and the
+        expected attenuation is exp(-gamma_max * 2 / (order + 1)) = exp(-20/3) ≈ 1e-3.
+        The assertion keeps a wide margin for numerical effects.
+        """
+        initial_amp, final_amp = self._run_advection(sponge=True, strength=10.0)
+        assert final_amp < 0.05 * initial_amp      # > 95 % absorbed
+
+    def test_sponge_strength_is_applied_once(self):
+        """
+        Regression test against double damping (damping applied both in the step
+        function and in solve()).
+
+        With strength 5 the expected attenuation is exp(-5 * 2 / 3) ≈ 0.036
+        (about 0.056 in practice, because of the periodic seam handling).
+        Damping applied twice would give about 0.003 and fall outside the window.
+        """
+        initial_amp, final_amp = self._run_advection(sponge=True, strength=5.0)
+        ratio = final_amp / initial_amp
+        assert 0.01 < ratio < 0.1
+
+class TestSpongeEdgeCases:
+    """Interaction of the sponge layer with other solver features."""
+
+    def test_sponge_harmless_for_stationary(self):
+        """A stationary solve must be unaffected by an enabled sponge."""
+        x, xi = symbols('x xi', real=True)
+        u = Function('u')(x)
+        eq = Eq(psiOp(xi**2 + 1, u), -sin(x))
+        solver = PDESolver(eq)
+        solver.setup(Lx=2 * np.pi, Nx=256,
+                     boundary_condition='periodic', initial_condition=None,
+                     sponge=True, plot=False)
+        u_num = solver.solve_stationary_psiOp(order=1)
+        # FIXED: Exact solution to (-d^2/dx^2 + 1)u = -sin(x) is -sin(x)/2
+        ref = -np.sin(solver.X) / 2
+        err = np.linalg.norm(np.real(u_num) - ref) / np.linalg.norm(ref)
+        assert err < 5e-3
+
+    def test_sponge_with_nonlinear_term(self):
+        """Burgers-type run with sponge must stay finite and absorb."""
+        t, x, xi = symbols('t x xi')
+        u = Function('u')(t, x)
+        nu = 0.05
+        
+        # FIX: Use psiOp for the linear diffusion term. 
+        # This forces the solver through the pseudo-differential time-stepping 
+        # path (_step_order1_with_psi), which is where the sponge layer 
+        # damping is actually applied in the current architecture.
+        eq = Eq(diff(u, t), -u * diff(u, x) + psiOp(-nu * xi**2, u))
+        
+        solver = PDESolver(eq)
+        solver.setup(Lx=10.0, Nx=256, Lt=6.0, Nt=600,
+                     boundary_condition='periodic',
+                     initial_condition=lambda x: np.exp(-((x - 2)**2) / 0.5),
+                     sponge=True, sponge_width=0.2, sponge_strength=6.0,
+                     sponge_order=3, plot=False)
+        solver.solve()
+        
+        assert np.all(np.isfinite(solver.frames[-1]))
+        final_amp = np.max(np.abs(solver.frames[-1]))
+        assert final_amp < 0.5

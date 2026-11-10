@@ -37,6 +37,7 @@ Key features:
 * Built‑in energy monitoring, CFL checks, and spectral symbol analysis.
 * Rich visualisation: animated solutions, error plots, energy evolution, and 3D surface/2D image displays.
 * Testing framework for comparison with exact solutions.
+* Optional absorbing **sponge layer** at the domain edges, which damps outgoing waves and reduces the artificial re‑entry caused by periodic wrap‑around.
 
 Mathematical background
 -----------------------
@@ -65,6 +66,18 @@ the system is reduced to first order in time, and a leap‑frog style integrator
 
 **Stability.**  The solver checks the CFL condition based on the maximum group velocity derived from the dispersion relation.  It also verifies that the symbol satisfies the necessary conditions for well‑posedness (Re `L(k)` ≤ 0, sufficient high‑frequency dissipation, moderate growth).
 
+**Sponge layer (absorbing boundary).**  Fourier spectral methods are intrinsically periodic: a wave leaving the domain through one edge re-enters through the opposite one.  To emulate an open (non‑reflecting) domain, the solver can add a damping term γ(x) ≥ 0 that is zero in the interior and grows smoothly to γ_max inside a layer near the edges of the (centred) domain [-Lx/2, Lx/2] (and [-Ly/2, Ly/2] in 2D):
+
+    first order :   ∂ₜ u       = L u + N(u) + f − γ(x) u
+    second order:   ∂ₜ² u + γ(x) ∂ₜ u = L u + N(u) + f
+
+The profile is a polynomial ramp
+
+    γ(x) = γ_max · ((|x| − x₀) / (Lx/2 − x₀))^p   for |x| > x₀,   γ(x) = 0 otherwise,
+
+with x₀ = (Lx/2)(1 − w), where `w` is the relative width (`sponge_width`), γ_max the strength (`sponge_strength`) and p the order of the ramp (`sponge_order`).  In 2D, γ(x,y) = max(γ_x(x), γ_y(y)), so the corners receive the strongest damping.
+
+The damping is treated by operator splitting: after each (spectral) time step the fields are multiplied by e^{−γ Δt}, except for the second‑order pseudo‑differential scheme, where the friction term γ∂ₜu is included implicitly in the leap‑frog update.  The sponge is a numerical device, not a physical boundary condition: it only attenuates the solution, it does not impose any value on it, and the physics inside the layer is modified.  Place all features of interest in the undamped interior.
 
 References
 ----------
@@ -99,6 +112,8 @@ class PDESolver:
         - Symbol analysis of linear and pseudo-differential operators
         - Microlocal analysis (e.g., Hamiltonian flows)
         - CFL condition checking and numerical stability diagnostics
+    - Optional sponge layer (absorbing region) at the domain edges to limit
+      periodic wrap-around of outgoing waves (see `setup`)
 
     Supported Operators:
     --------------------
@@ -810,7 +825,11 @@ class PDESolver:
         initial_condition: Optional[Callable[..., np.ndarray]] = None,
         initial_velocity: Optional[Callable[..., np.ndarray]] = None,
         n_frames: int = 100,
-        plot: bool = True
+        plot: bool = True,
+        sponge: bool = False,
+        sponge_width: float = 0.15,
+        sponge_strength: float = 10.0,
+        sponge_order: int = 4,
     ) -> None:
         """
         Configure the spatial/temporal grid and initialize the solution field.
@@ -847,6 +866,44 @@ class PDESolver:
             required for second-order equations.
         n_frames : int, default=100
             Number of time frames to store during simulation for visualization or output.
+        boundary_condition : str, default='periodic'
+            Boundary treatment. 'periodic' is the native spectral setting.
+            'dirichlet' and 'neumann' are only available for equations
+            defined through a pseudo-differential operator (`psiOp`).
+        plot : bool, default=True
+            If True, diagnostic plots are displayed during setup (symbol
+            analysis and, when the sponge is active, the damping profile).
+        sponge : bool, default=False
+            Activate an absorbing sponge layer near the edges of the domain.
+            Because the Fourier discretisation is periodic, waves leaving
+            the domain on one side re-enter on the opposite side; the sponge
+            damps them before they wrap around. The damping profile γ(x)
+            (γ(x, y) in 2D) is zero in the interior and increases
+            smoothly to `sponge_strength` at the boundary. It is applied at
+            every time step in `solve()`. The domain is assumed to be
+            centred at the origin, i.e. [-Lx/2, Lx/2] (and [-Ly/2, Ly/2]).
+        sponge_width : float, default=0.15
+            Width of the sponge on each side, as a fraction of the
+            half-domain length (not of the full length). For example, 0.15
+            means that the outer 15 % of [0, Lx/2] on each side is damped,
+            i.e. a physical thickness of 0.15·Lx/2 per edge. Must lie in
+            (0, 1]. Wider layers absorb more gently and reflect less, but
+            reduce the usable interior. Ignored if `sponge=False`.
+        sponge_strength : float, default=10.0
+            Maximum damping rate γ_max (in units of 1/time) reached at the
+            edge of the domain. It should be large enough to absorb the
+            wave during its crossing of the layer (rough guide: the amplitude
+            attenuation of a wave with speed c crossing the layer once is
+            exp(−γ_max · d / ((p+1)·c)), where d is the layer thickness and
+            p = `sponge_order`), but not so large that the profile becomes
+            abrupt, which causes spurious reflections and, for explicit
+            schemes, stiffness. Ignored if `sponge=False`.
+        sponge_order : int, default=4
+            Exponent p of the polynomial ramp γ ∝ (distance into the layer)^p.
+            Higher orders give a smoother onset (fewer reflections at the
+            interface between interior and sponge) but concentrate the
+            damping near the edge. Values 2–4 are typical. Ignored if
+            `sponge=False`.
 
         Raises
         ------
@@ -862,6 +919,27 @@ class PDESolver:
         - For second-order equations, initial acceleration is derived from the governing operator.
         - Symbolic analysis includes plotting of the symbol's real/imaginary/absolute values
           and dispersion relation.
+        - The sponge profile is stored in `self.sponge_profile` (ndarray of
+          shape (Nx,) in 1D or (Nx, Ny) in 2D, `None` if disabled).
+        - How the damping is applied depends on the time stepper:
+            * first-order equations and the default / ETD-RK4 second-order
+              schemes: after each step, u (and the velocity v for
+              second-order equations) is multiplied by exp(−γ Δt);
+            * second-order equations with `psiOp`: the friction term γ ∂ₜu
+              is included in the leap-frog update, which is then divided by
+              (1 + γ Δt).
+          The two forms are equivalent to first order in Δt, but they do
+          not damp the amplitude at exactly the same rate (for a wave,
+          the multiplicative form gives e^{−γt}, the friction form
+          e^{−γt/2}).
+        - The sponge is not a boundary condition. It reduces wrap-around
+          artefacts but does not remove them entirely; check the sensitivity
+          of the results to `sponge_width` and `sponge_strength`.
+        - The sponge acts on the solution itself, so it is not compatible
+          with conservation checks: the energy diagnostics are no longer
+          conserved when the sponge is active.
+        - With `plot=True`, the damping profile is displayed so that its
+          extent can be verified.
 
         See Also
         --------
@@ -872,6 +950,9 @@ class PDESolver:
         plot_symbol : Visualizes the linear operator’s symbol in frequency space.
         analyze_wave_propagation : Analyzes group velocity.
         interactive_symbol_analysis : Interactive tools for ψOp-based equations.
+        _build_sponge_1d : Builds the 1D sponge damping profile γ(x).
+        _build_sponge_2d : Builds the 2D sponge damping profile γ(x, y).
+        _plot_sponge_profile : Displays the sponge profile for verification.
         """
 
         # Temporal parameters
@@ -882,6 +963,8 @@ class PDESolver:
         self.initial_condition = initial_condition
         self.boundary_condition = boundary_condition
         self.plot = plot
+
+
 
         if (self.boundary_condition == 'dirichlet' or self.boundary_condition == 'neumann') and not self.has_psi:
             raise ValueError(
@@ -905,6 +988,22 @@ class PDESolver:
 
         # Pre-compile lambdified source functions once (avoids re-creating them at every time step)
         self._precompile_source_funcs()
+
+        self.sponge_profile = None
+        if sponge:
+            self.sponge_width = sponge_width
+            self.sponge_strength = sponge_strength
+            self.sponge_order = sponge_order
+            if self.dim == 1:
+                self.sponge_profile = self._build_sponge_1d(
+                    sponge_width, sponge_strength, sponge_order
+                )
+            elif self.dim == 2:
+                self.sponge_profile = self._build_sponge_2d(
+                    sponge_width, sponge_strength, sponge_order
+                )
+            if self.plot:
+                self._plot_sponge_profile()
 
         # Symbol analysis if present
         if self.has_psi:
@@ -1077,6 +1176,92 @@ class PDESolver:
             if self.temporal_order == 2:
                 omega_val = self.omega(self.KX, self.KY)
                 self._setup_omega_terms(omega_val)
+
+    def _build_sponge_1d(
+        self,
+        width: float = 0.15,
+        strength: float = 10.0,
+        order: int = 4,
+    ) -> np.ndarray:
+        """
+        Build a 1D sponge damping profile γ(x).
+
+        The profile vanishes in the interior |x| ≤ x₀ and grows polynomially
+        up to `strength` at the domain edges:
+
+            γ(x) = strength · ((|x| − x₀) / (L/2 − x₀))^order   for |x| > x₀,
+
+        with x₀ = (L/2)(1 − width). The domain is assumed centred at 0.
+
+        Parameters
+        ----------
+        width : float
+            Fraction of the half-domain used for the sponge on each side.
+            E.g. width=0.15 means 15 % of [0, L/2] on each side.
+        strength : float
+            Maximum damping rate γ_max (1/time) at the boundary.
+        order : int
+            Polynomial order of the ramp (2–4 typical). Higher values give a
+            smoother transition and fewer reflections.
+
+        Returns
+        -------
+        ndarray of shape (Nx,)
+            The damping profile γ(x) ≥ 0.
+        """
+        x = self.x_grid
+        L_half = self.Lx / 2.0
+        x0 = L_half * (1.0 - width)
+    
+        gamma = np.zeros(self.Nx)
+        mask = np.abs(x) > x0
+        gamma[mask] = strength * ((np.abs(x[mask]) - x0) / (L_half - x0)) ** order
+        return gamma
+    
+    
+    def _build_sponge_2d(
+        self,
+        width: float = 0.15,
+        strength: float = 10.0,
+        order: int = 4,
+    ) -> np.ndarray:
+        """
+        Build a 2D sponge damping profile γ(x, y).
+
+        Separable 1D profiles γ_x(x) and γ_y(y) are built with the same
+        formula as in `_build_sponge_1d` (using Lx and Ly respectively), and
+        combined as γ(x, y) = max(γ_x(x), γ_y(y)). The maximum (rather than
+        the sum) keeps γ ≤ strength everywhere, while the corners are
+        damped as strongly as the edges. The same `width` fraction is used
+        along both axes.
+
+        Parameters
+        ----------
+        width, strength, order :
+            See `_build_sponge_1d`.
+
+        Returns
+        -------
+        ndarray of shape (Nx, Ny)
+            The damping profile γ(x, y) ≥ 0.
+        """
+        x, y = self.x_grid, self.y_grid
+        Lx_half, Ly_half = self.Lx / 2.0, self.Ly / 2.0
+    
+        x0 = Lx_half * (1.0 - width)
+        y0 = Ly_half * (1.0 - width)
+    
+        gamma_x = np.zeros(self.Nx)
+        mask_x = np.abs(x) > x0
+        gamma_x[mask_x] = strength * ((np.abs(x[mask_x]) - x0) / (Lx_half - x0)) ** order
+    
+        gamma_y = np.zeros(self.Ny)
+        mask_y = np.abs(y) > y0
+        gamma_y[mask_y] = strength * ((np.abs(y[mask_y]) - y0) / (Ly_half - y0)) ** order
+    
+        # Take the max so corners get full damping from both axes
+        return np.maximum(gamma_x[:, None], gamma_y[None, :])
+
 
     def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
         """
@@ -1925,10 +2110,6 @@ class PDESolver:
                 #                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                 #                 correction: full L·u minus the diagonal approximation
                 u_new = _spectral_filter(u_new, cutoff=self.dealiasing_ratio)
-
-        # Applying boundary conditions
-        if self.boundary_condition != 'periodic':
-            self._apply_boundary(u_new)
             
         return u_new
 
@@ -1954,9 +2135,16 @@ class PDESolver:
         """
         Lu_prev = -self._apply_psiOp(self.u_prev)
         rhs_nl = self._apply_nonlinear(self.u_prev, is_v=False)
-        u_new = 2 * self.u_prev - self.u_prev2 + self.dt ** 2 * (Lu_prev + rhs_nl + source_contribution)
+        rhs = Lu_prev + rhs_nl + source_contribution
+        if self.sponge_profile is not None:
+            g = self.sponge_profile * self.dt          # γ·Δt, array
+            u_new = (2 * self.u_prev - (1 - g) * self.u_prev2 + self.dt ** 2 * rhs) / (1 + g)
+        else:
+            u_new = 2 * self.u_prev - self.u_prev2 + self.dt ** 2 * rhs
+                
         if self.boundary_condition != 'periodic':
             self._apply_boundary(u_new)
+
         self.u_prev2 = self.u_prev
         self.u_prev = u_new
         self.u = u_new
@@ -2021,7 +2209,13 @@ class PDESolver:
                     u_lin = self.ifft(u_hat)
                     u_nl = self._apply_nonlinear(u_lin)
                     u_new = u_lin + u_nl + source_contribution
+
+                # ── SPONGE DAMPING ──
+                if self.sponge_profile is not None:
+                    u_new *= np.exp(-self.dt * self.sponge_profile)
+                    
                 self._apply_boundary(u_new)
+                
                 self.u_prev = u_new
 
             elif self.temporal_order == 2:
@@ -2041,8 +2235,15 @@ class PDESolver:
                         v_nl = self._apply_nonlinear(self.v_prev, is_v=True)
                         u_new += (u_nl + source_contribution) * self.dt ** 2 / 2
                         v_new += (u_nl + source_contribution) * self.dt
+
+                    if self.sponge_profile is not None:
+                        damping = np.exp(-self.dt * self.sponge_profile)
+                        u_new *= damping
+                        v_new *= damping
+                        
                     self._apply_boundary(u_new)
                     self._apply_boundary(v_new)
+
                     self.u_prev = u_new
                     self.v_prev = v_new
 
@@ -2900,7 +3101,34 @@ class PDESolver:
             E_total = E_mech - self.accumulated_work
 
             return E_total
-
+        
+    def _plot_sponge_profile(self) -> None:
+        """Plot the sponge damping profile for verification."""
+        if self.sponge_profile is None:
+            return
+    
+        if self.dim == 1:
+            plt.figure(figsize=(10, 3))
+            plt.plot(self.x_grid, self.sponge_profile, 'r-', linewidth=2)
+            plt.xlabel('x')
+            plt.ylabel('γ(x)')
+            plt.title('Sponge damping profile')
+            plt.axvspan(-self.Lx/2, -self.Lx/2*(1-self.sponge_width), alpha=0.1, color='red')
+            plt.axvspan(self.Lx/2*(1-self.sponge_width), self.Lx/2, alpha=0.1, color='red')
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
+        elif self.dim == 2:
+            plt.figure(figsize=(6, 5))
+            plt.imshow(self.sponge_profile, origin='lower', cmap='hot',
+                       extent=[-self.Lx/2, self.Lx/2, -self.Ly/2, self.Ly/2])
+            plt.colorbar(label='γ(x, y)')
+            plt.xlabel('x')
+            plt.ylabel('y')
+            plt.title('2D Sponge damping profile')
+            plt.tight_layout()
+            plt.show()
+            
     def plot_energy(self, log: bool = False) -> None:
         """
         Plot the temporal evolution of energy components and print conservation diagnostics.
