@@ -37,7 +37,7 @@ Main objects and workflows
       (pure Fourier multipliers) and a memory-bounded, multi-threaded slow
       path for spatially dependent symbols.
     * `kohn_nirenberg_nonperiodic`: Applies the operator on a non-periodic
-      (Dirichlet-type) domain via direct discrete Fourier quadrature.
+      domain (zero extension outside the grid box; no BC is enforced by the kernel itself).
       Utilizes aggressive caching of phase matrices and windowing arrays to
       minimize redundant computations across repeated calls.
 
@@ -646,7 +646,7 @@ def kohn_nirenberg_fft(
 
 
 # ============================================================================
-# Non-Periodic Kohn-Nirenberg Quantization (Dirichlet)
+# Non-Periodic Kohn-Nirenberg Quantization (direct quadrature, no BC enforced)
 # ============================================================================
 
 def _cache_key_2d(
@@ -710,7 +710,7 @@ def kohn_nirenberg_nonperiodic(
     domain using direct matrix/quadrature-based transforms.
 
     .. note::
-       This kernel treats 'dirichlet' and 'neumann' identically: both
+       This kernel treats 'nonperiodic' (and legacy 'dirichlet'/'neumann') identically: both
        simply mean "do not assume periodicity." The quadrature evaluates
        the KN integral on the given grid without imposing any specific
        boundary condition. Physical BC enforcement (e.g., zero-gradient
@@ -726,6 +726,11 @@ def kohn_nirenberg_nonperiodic(
     Supports 1D and 2D spatial dimensions, featuring a caching mechanism for both
     1D and 2D phase/window matrices, symbol magnitude clamping, optional frequency
     windowing (Gaussian/Hann), and spatial tapering.
+
+    The quadrature is performed over the grid box only, which corresponds to
+    applying the operator to the zero extension of u (for non-local symbols,
+    the "restricted" operator). Boundary clipping is applied afterwards by the
+    solver and is a heuristic valid for solutions that vanish at the boundary.
 
     **1D Cached Path**
         In 1D, precalculates and caches discrete Fourier transform phases (`phase_ft`),

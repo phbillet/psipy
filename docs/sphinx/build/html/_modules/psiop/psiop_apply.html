@@ -122,7 +122,7 @@
 <span class="sd">      (pure Fourier multipliers) and a memory-bounded, multi-threaded slow</span>
 <span class="sd">      path for spatially dependent symbols.</span>
 <span class="sd">    * `kohn_nirenberg_nonperiodic`: Applies the operator on a non-periodic</span>
-<span class="sd">      (Dirichlet-type) domain via direct discrete Fourier quadrature.</span>
+<span class="sd">      domain (zero extension outside the grid box; no BC is enforced by the kernel itself).</span>
 <span class="sd">      Utilizes aggressive caching of phase matrices and windowing arrays to</span>
 <span class="sd">      minimize redundant computations across repeated calls.</span>
 
@@ -737,7 +737,7 @@
 
 
 <span class="c1"># ============================================================================</span>
-<span class="c1"># Non-Periodic Kohn-Nirenberg Quantization (Dirichlet)</span>
+<span class="c1"># Non-Periodic Kohn-Nirenberg Quantization (direct quadrature, no BC enforced)</span>
 <span class="c1"># ============================================================================</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_cache_key_2d</span><span class="p">(</span>
@@ -803,7 +803,7 @@
 <span class="sd">    domain using direct matrix/quadrature-based transforms.</span>
 
 <span class="sd">    .. note::</span>
-<span class="sd">       This kernel treats 'dirichlet' and 'neumann' identically: both</span>
+<span class="sd">       This kernel treats 'nonperiodic' (and legacy 'dirichlet'/'neumann') identically: both</span>
 <span class="sd">       simply mean "do not assume periodicity." The quadrature evaluates</span>
 <span class="sd">       the KN integral on the given grid without imposing any specific</span>
 <span class="sd">       boundary condition. Physical BC enforcement (e.g., zero-gradient</span>
@@ -819,6 +819,11 @@
 <span class="sd">    Supports 1D and 2D spatial dimensions, featuring a caching mechanism for both</span>
 <span class="sd">    1D and 2D phase/window matrices, symbol magnitude clamping, optional frequency</span>
 <span class="sd">    windowing (Gaussian/Hann), and spatial tapering.</span>
+
+<span class="sd">    The quadrature is performed over the grid box only, which corresponds to</span>
+<span class="sd">    applying the operator to the zero extension of u (for non-local symbols,</span>
+<span class="sd">    the "restricted" operator). Boundary clipping is applied afterwards by the</span>
+<span class="sd">    solver and is a heuristic valid for solutions that vanish at the boundary.</span>
 
 <span class="sd">    **1D Cached Path**</span>
 <span class="sd">        In 1D, precalculates and caches discrete Fourier transform phases (`phase_ft`),</span>

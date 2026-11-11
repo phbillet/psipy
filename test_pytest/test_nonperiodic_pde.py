@@ -104,7 +104,7 @@ class TestParsing:
         solver = PDESolver(eq)
         with pytest.raises(ValueError, match="psiOp"):
             solver.setup(Lx=2 * np.pi, Nx=32, Lt=0.1, Nt=10,
-                         boundary_condition='dirichlet',
+                         boundary_condition='nonperiodic',
                          initial_condition=lambda x: np.sin(x),
                          plot=False)
 
@@ -122,11 +122,11 @@ class TestGridAndBoundary:
         eq = Eq(psiOp(xi**2 + eta**2 + 1, u), -sin(x) * sin(y))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=32, Ny=32,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         return solver
 
-    def _make_solver_1d(self, bc='dirichlet'):
+    def _make_solver_1d(self, bc='nonperiodic'):
         x, xi = symbols('x xi', real=True)
         u = Function('u')(x)
         eq = Eq(psiOp(xi**2 + 1, u), -sin(x))
@@ -198,8 +198,7 @@ class TestGridAndBoundary:
         u = np.random.rand(32)
         u_copy = u.copy()
         solver._apply_boundary(u_copy)
-        assert u_copy[0] == u[-2], "Periodic: u[0] should equal u[-2]"
-        assert u_copy[-1] == u[1], "Periodic: u[-1] should equal u[1]"
+        np.testing.assert_array_equal(u_copy, u)
 
     def test_invalid_boundary_condition_raises(self):
         solver = self._make_solver_1d()
@@ -227,7 +226,7 @@ class TestStationary1D:
 
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Nx=64,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=6)
 
@@ -263,7 +262,7 @@ class TestStationary1D:
 
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Nx=64,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=0)
 
@@ -277,7 +276,7 @@ class TestStationary1D:
         eq = Eq(psiOp(xi**2 + 1, u), -sin(x))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Nx=32,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         u_num = solver.solve_stationary_psiOp(order=0)
         assert isinstance(u_num, np.ndarray)
@@ -298,7 +297,7 @@ class TestStationary1D:
 
         solver = PDESolver(equation)
         solver.setup(Lx=2 * np.pi, Nx=256,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=1)
         err = solver.test(u_exact=u_exact, threshold=5e-3, component='real')
@@ -315,7 +314,7 @@ class TestStationary1D:
 
         solver = PDESolver(equation)
         solver.setup(Lx=2 * np.pi, Nx=256,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=0)
         err = solver.test(u_exact=u_exact, threshold=1, component='real')
@@ -340,7 +339,7 @@ class TestStationary2D:
 
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=64, Ny=64,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=6)
 
@@ -353,7 +352,7 @@ class TestStationary2D:
         eq = Eq(psiOp(xi**2 + eta**2 + 1, u), -sin(x) * sin(y))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=32, Ny=32,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         u_num = solver.solve_stationary_psiOp(order=6)
         assert u_num.shape == (32, 32)
@@ -368,7 +367,7 @@ class TestStationary2D:
 
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=32, Ny=32,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=6)
 
@@ -387,7 +386,7 @@ class TestStationary2D:
 
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=64, Ny=64,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=6)
 
@@ -410,7 +409,7 @@ class TestTimeDependentSolver1D:
         solver.setup(
             Lx=2 * np.pi, Nx=64,
             Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=lambda x: np.sin(k0 * x),
             n_frames=20,
             plot=False,
@@ -468,7 +467,7 @@ class TestTimeDependentSolver1D:
         solver.setup(
             Lx=2 * np.pi, Nx=32,
             Lt=1.0, Nt=100,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=lambda x: np.zeros_like(x),
             n_frames=10,
             plot=False,
@@ -494,7 +493,7 @@ class TestTimeDependentSolver1D:
         k0 = 1.0
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=lambda x: np.sin(k0 * x),
             plot=False
         )
@@ -519,7 +518,7 @@ class TestTimeDependentSolver1D:
         Nx, Nt = 512, 1000
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=lambda x: np.sin(x),
             initial_velocity=lambda x: np.zeros_like(x),
             plot=False
@@ -545,7 +544,7 @@ class TestTimeDependentSolver1D:
         Lt, Nt = 5.0, 500
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=lambda x: np.sin(x),
             plot=False
         )
@@ -578,7 +577,7 @@ class TestTimeDependentSolver1D:
 
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=initial_condition,
             plot=False
         )
@@ -614,7 +613,7 @@ class TestTimeDependentSolver1D:
 
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=initial_condition,
             initial_velocity=initial_velocity,
             plot=False
@@ -649,7 +648,7 @@ class TestTimeDependentSolver1D:
 
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=initial_condition,
             initial_velocity=initial_velocity,
             plot=False
@@ -685,7 +684,7 @@ class TestTimeDependentSolver1D:
 
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=initial_condition,
             initial_velocity=initial_velocity,
             plot=False
@@ -725,7 +724,7 @@ class TestTimeDependentSolver1D:
 
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=initial_condition,
             initial_velocity=initial_velocity,
             plot=False
@@ -755,7 +754,7 @@ class TestTimeDependentSolver2D:
             Lx=2 * np.pi, Ly=2 * np.pi,
             Nx=32, Ny=32,
             Lt=Lt, Nt=Nt,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=lambda x, y: np.sin(k0 * x) * np.sin(l0 * y),
             n_frames=10,
             plot=False,
@@ -807,7 +806,7 @@ class TestErrorMetrics:
         eq = Eq(psiOp(xi**2 + eta**2 + 1, u), -sin(x) * sin(y))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=32, Ny=32,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=6)
         return solver
@@ -870,7 +869,7 @@ class TestInternalHelpers:
         eq = Eq(psiOp(symbol, u), -sin(x) * sin(y))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=16, Ny=16,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         return solver
 
@@ -918,7 +917,7 @@ class TestEdgeCases:
         eq = Eq(psiOp(xi**2 + eta**2 + 1, u), -sin(x) * sin(y))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=16, Ny=16,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=0)
         assert solver.is_stationary is True
@@ -931,7 +930,7 @@ class TestEdgeCases:
         solver.setup(
             Lx=2 * np.pi, Nx=16,
             Lt=0.1, Nt=10,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             initial_condition=lambda x: np.sin(x),
             n_frames=5,
             plot=False,
@@ -949,7 +948,7 @@ class TestEdgeCases:
         eq = Eq(psiOp(xi**2 + eta**2 + 1, u), -sin(x) * sin(y))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=16, Ny=32,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         u_num = solver.solve_stationary_psiOp(order=0)
         assert u_num.shape == (16, 32)
@@ -961,7 +960,7 @@ class TestEdgeCases:
         eq = Eq(psiOp(xi**2 + 1, u), -sin(x))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Nx=64,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         u_num = solver.solve_stationary_psiOp(order=0)
         imag_ratio = np.max(np.abs(np.imag(u_num))) / (np.max(np.abs(u_num)) + 1e-30)
@@ -974,7 +973,7 @@ class TestEdgeCases:
         eq = Eq(psiOp(xi**2 + eta**2 + 1, u), -sin(x) * sin(y))
         solver = PDESolver(eq)
         solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=32, Ny=32,
-                     boundary_condition='dirichlet', initial_condition=None,
+                     boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         u_num = solver.solve_stationary_psiOp(order=6)
         imag_ratio = np.max(np.abs(np.imag(u_num))) / (np.max(np.abs(u_num)) + 1e-30)
@@ -988,4 +987,4 @@ class TestEdgeCases:
         solver = PDESolver(eq)
         with pytest.raises(ValueError, match="Ny"):
             solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=16,
-                         boundary_condition='dirichlet', plot=False)
+                         boundary_condition='nonperiodic', plot=False)

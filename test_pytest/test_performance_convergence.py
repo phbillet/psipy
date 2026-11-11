@@ -157,92 +157,94 @@ def pde_case(request):
 
 
 # -----------------------------------------------------------------------
-# Spatial-convergence test
+# Round-off floor
 #
-# Since temporal error is zero, the total error equals the spatial error.
-# We check that it decreases monotonically as Nx grows (spectral convergence).
-# Nt is chosen large enough to be CFL-safe at the finest Nx.
+# Below this level the "error" is FFT round-off, not discretisation error.
+# It grows like eps * sqrt(N_points * Nt), so it is NOT monotone under
+# refinement and must be excluded from any convergence assertion.
+# -----------------------------------------------------------------------
+def roundoff_floor(Nx, Nt, Lx, Ly=None, amp=1.0):
+    """Discrete-L2 error level below which FFT round-off dominates."""
+    eps     = np.finfo(float).eps
+    measure = Lx if Ly is None else Lx * Ly
+    npts    = Nx if Ly is None else Nx * Nx
+    return 50.0 * eps * amp * np.sqrt(measure) * np.sqrt(Nt) * np.log2(npts)
+
+
+# -----------------------------------------------------------------------
+# Spatial convergence
 # -----------------------------------------------------------------------
 def test_spatial_convergence(pde_case):
     case             = pde_case
     dim              = case['dim']
-    Lx               = case['Lx']
-    Lt               = case['Lt']
-    exact            = case['exact']
-    initial          = case['initial']
+    Lx, Lt           = case['Lx'], case['Lt']
+    exact, initial   = case['exact'], case['initial']
     initial_velocity = case.get('initial_velocity', None)
 
     Nx_list = [32, 64, 128, 256] if dim == 1 else [16, 32, 48, 64]
 
+    # Nt is independent of Nx -> hoisted out of the loop.
+    if case['cfl_driven'] and dim == 1:
+        Nt = 4 * cfl_nt_min(Lt, Lx, max(Nx_list))
+    elif dim == 1:
+        Nt = 200
+    else:
+        Nt = 100
+
+    floor  = roundoff_floor(max(Nx_list), Nt, Lx, Lx if dim == 2 else None)
     errors = []
+
     for Nx in Nx_list:
         Ny = Nx if dim == 2 else None
-
-        if case['cfl_driven'] and dim == 1:
-            # CFL-safe Nt at the finest grid so temporal error stays zero.
-            Nt = 4 * cfl_nt_min(Lt, Lx, max(Nx_list))
-        elif dim == 1:
-            Nt = 200
-        else:
-            Nt = 100
-
         solver = PDESolver(case['equation'], time_scheme='default')
         solver.setup(
             Lx=Lx, Ly=Lx if dim == 2 else None,
-            Nx=Nx, Ny=Ny,
-            Lt=Lt, Nt=Nt,
+            Nx=Nx, Ny=Ny, Lt=Lt, Nt=Nt,
             initial_condition=initial,
             initial_velocity=initial_velocity,
             boundary_condition='periodic',
             plot=False,
         )
         solver.solve()
-        u_num = solver.frames[-1]
+        u_num = solver.u_prev            # exact final state at t = Lt
 
         if dim == 1:
-            dx   = Lx / Nx
             u_ex = exact(solver.x_grid, Lt)
-            err  = l2_error(u_num, u_ex, dx)
+            err  = l2_error(u_num, u_ex, Lx / Nx)
         else:
-            dx, dy = Lx / Nx, Lx / Nx
-            u_ex   = exact(solver.X, solver.Y, Lt)
-            err    = l2_error(u_num, u_ex, dx, dy)
+            u_ex = exact(solver.X, solver.Y, Lt)
+            err  = l2_error(u_num, u_ex, Lx / Nx, Lx / Nx)
 
         errors.append(err)
         print(f"{case['name']}: Nx={Nx:3d}, Nt={Nt:6d}, error={err:.4e}")
 
-    # Error must not increase when the grid is refined (10 % slack).
+    print(f"round-off floor = {floor:.2e}")
+
     for i in range(1, len(errors)):
+        if max(errors[i], errors[i - 1]) <= floor:
+            print(f"  Nx={Nx_list[i-1]}→{Nx_list[i]}: round-off only, skipped")
+            continue
         assert errors[i] < errors[i - 1] * 1.1, (
             f"Spatial error increased from Nx={Nx_list[i-1]} to {Nx_list[i]}: "
             f"{errors[i-1]:.4e} → {errors[i]:.4e}"
         )
 
+    assert errors[-1] <= max(floor, 1e-10), f"Final error too large: {errors[-1]:.4e}"
+
 
 # -----------------------------------------------------------------------
-# Temporal-convergence test
-#
-# Because the solver is an exact integrator for all four cases, there is
-# no temporal error to converge.  The correct check is:
-#   1. The error does not grow as dt decreases (stability).
-#   2. The error is small in absolute terms (fine Nx removes spatial error).
-#
-# We use Nx=256 for all cases so the fixed spatial floor is ~1e-12 or less,
-# and check only that errors[i] ≤ errors[i-1] * 1.1 across the Nt sweep.
+# Temporal convergence (exact integrator -> boundedness, not a slope)
 # -----------------------------------------------------------------------
 def test_temporal_convergence(pde_case):
     case             = pde_case
     dim              = case['dim']
-    Lx               = case['Lx']
-    Lt               = case['Lt']
-    exact            = case['exact']
-    initial          = case['initial']
+    Lx, Lt           = case['Lx'], case['Lt']
+    exact, initial   = case['exact'], case['initial']
     initial_velocity = case.get('initial_velocity', None)
 
     Nx_fine = 256 if dim == 1 else 128
     Ny_fine = Nx_fine if dim == 2 else None
 
-    # Build a Nt_list that covers a range of dt while staying CFL-safe.
     if case['cfl_driven'] and dim == 1:
         Nt_base = cfl_nt_min(Lt, Lx, Nx_fine)
         Nt_list = [Nt_base, 2 * Nt_base, 4 * Nt_base, 8 * Nt_base]
@@ -251,44 +253,46 @@ def test_temporal_convergence(pde_case):
     else:
         Nt_list = [20, 40, 80]
 
-    errors  = []
-    dt_vals = []
+    errors, dt_vals, floors = [], [], []
 
     for Nt in Nt_list:
         solver = PDESolver(case['equation'], time_scheme='default')
         solver.setup(
             Lx=Lx, Ly=Lx if dim == 2 else None,
-            Nx=Nx_fine, Ny=Ny_fine,
-            Lt=Lt, Nt=Nt,
+            Nx=Nx_fine, Ny=Ny_fine, Lt=Lt, Nt=Nt,
             initial_condition=initial,
             initial_velocity=initial_velocity,
             boundary_condition='periodic',
             plot=False,
         )
         solver.solve()
-        u_num = solver.frames[-1]
+        u_num = solver.u_prev            # exact final state at t = Lt
 
         if dim == 1:
-            dx   = Lx / Nx_fine
             u_ex = exact(solver.x_grid, Lt)
-            err  = l2_error(u_num, u_ex, dx)
+            err  = l2_error(u_num, u_ex, Lx / Nx_fine)
         else:
-            dx, dy = Lx / Nx_fine, Lx / Nx_fine
-            u_ex   = exact(solver.X, solver.Y, Lt)
-            err    = l2_error(u_num, u_ex, dx, dy)
+            u_ex = exact(solver.X, solver.Y, Lt)
+            err  = l2_error(u_num, u_ex, Lx / Nx_fine, Lx / Nx_fine)
 
         dt = Lt / Nt
         errors.append(err)
         dt_vals.append(dt)
+        floors.append(roundoff_floor(Nx_fine, Nt, Lx, Lx if dim == 2 else None))
         print(f"{case['name']}: Nt={Nt:6d}, dt={dt:.4e}, error={err:.4e}")
 
-    # Exact integrator: error must not grow as dt decreases (10 % slack).
     for i in range(1, len(errors)):
+        fl = max(floors[i - 1], floors[i])
+        if max(errors[i], errors[i - 1]) <= fl:
+            print(f"  dt={dt_vals[i]:.2e}: round-off only ({fl:.2e}), skipped")
+            continue
         assert errors[i] <= errors[i - 1] * 1.1, (
             f"Error grew from dt={dt_vals[i-1]:.3e} to dt={dt_vals[i]:.3e}: "
             f"{errors[i-1]:.4e} → {errors[i]:.4e}"
         )
-    print(f"Final error = {errors[-1]:.3e}  (exact integrator, spatial floor only)")
+
+    assert errors[-1] <= max(floors[-1], 1e-10), f"Final error too large: {errors[-1]:.4e}"
+    print(f"Final error = {errors[-1]:.3e}  (exact integrator, round-off floor only)")
 
 
 # -----------------------------------------------------------------------

@@ -834,7 +834,7 @@ class PseudoDifferentialOperator:
         Raises
         ------
         ValueError
-            If boundary_condition is not 'periodic' or 'dirichlet'.
+            If boundary_condition is not 'periodic' or 'nonperiodic' or 'dirichlet' or 'neumann'.
         """
 
         # ── INPUT VALIDATION ────────────────────────────────────────────
@@ -907,7 +907,7 @@ class PseudoDifferentialOperator:
             )
      
         # Case 3: Dirichlet BC (non-periodic)
-        if (boundary_condition == 'dirichlet' or boundary_condition == 'neumann'):
+        if (boundary_condition == 'nonperiodic' or boundary_condition == 'dirichlet' or boundary_condition == 'neumann'):
             if self.dim == 1:
                 return kohn_nirenberg_nonperiodic(
                     u_vals=u,
@@ -965,7 +965,7 @@ class PseudoDifferentialOperator:
             )
     
         # ── 2. Boundary condition membership ────────────────────────────
-        valid_bcs = {'periodic', 'dirichlet', 'neumann'}
+        valid_bcs = {'periodic', 'nonperiodic', 'dirichlet', 'neumann'}
         if boundary_condition not in valid_bcs:
             raise ValueError(
                 f"boundary_condition must be one of {valid_bcs}, "

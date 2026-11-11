@@ -672,7 +672,7 @@ to a more accurate method if this is exceeded.</p>
 <dd class="field-even"><p>ndarray</p>
 </dd>
 <dt class="field-odd">raises ValueError<span class="colon">:</span></dt>
-<dd class="field-odd"><p>If boundary_condition is not ‘periodic’ or ‘dirichlet’.</p>
+<dd class="field-odd"><p>If boundary_condition is not ‘periodic’ or ‘nonperiodic’ or ‘dirichlet’ or ‘neumann’.</p>
 </dd>
 </dl>
 </section>
@@ -2645,7 +2645,7 @@ FFTs. Features an automatic fast-path for spatially independent symbols
 (pure Fourier multipliers) and a memory-bounded, multi-threaded slow
 path for spatially dependent symbols.</p></li>
 <li><p><cite>kohn_nirenberg_nonperiodic</cite>: Applies the operator on a non-periodic
-(Dirichlet-type) domain via direct discrete Fourier quadrature.
+domain (zero extension outside the grid box; no BC is enforced by the kernel itself).
 Utilizes aggressive caching of phase matrices and windowing arrays to
 minimize redundant computations across repeated calls.</p></li>
 </ul>
@@ -3027,7 +3027,7 @@ applying the pseudo-differential operator.</p>
 domain using direct matrix/quadrature-based transforms.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This kernel treats ‘dirichlet’ and ‘neumann’ identically: both
+<p>This kernel treats ‘nonperiodic’ (and legacy ‘dirichlet’/’neumann’) identically: both
 simply mean “do not assume periodicity.” The quadrature evaluates
 the KN integral on the given grid without imposing any specific
 boundary condition. Physical BC enforcement (e.g., zero-gradient
@@ -3044,6 +3044,10 @@ arbitrary non-periodic spatial grid <cite>x</cite> and frequency grid <cite>xi</
 <p>Supports 1D and 2D spatial dimensions, featuring a caching mechanism for both
 1D and 2D phase/window matrices, symbol magnitude clamping, optional frequency
 windowing (Gaussian/Hann), and spatial tapering.</p>
+<p>The quadrature is performed over the grid box only, which corresponds to
+applying the operator to the zero extension of u (for non-local symbols,
+the “restricted” operator). Boundary clipping is applied afterwards by the
+solver and is a heuristic valid for solutions that vanish at the boundary.</p>
 <dl>
 <dt><strong>1D Cached Path</strong></dt><dd><p>In 1D, precalculates and caches discrete Fourier transform phases (<cite>phase_ft</cite>),
 reconstruction phases (<cite>exp_matrix</cite>), and window arrays in <cite>_cache</cite> to accelerate

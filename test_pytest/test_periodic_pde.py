@@ -138,23 +138,16 @@ class TestGridAndBoundary:
         u = np.random.rand(32)
         u_copy = u.copy()
         solver._apply_boundary(u_copy)
-        assert u_copy[0] == u[-2], "Periodic: u[0] should equal u[-2]"
-        assert u_copy[-1] == u[1], "Periodic: u[-1] should equal u[1]"
+        np.testing.assert_array_equal(u_copy, u) 
 
-    def test_periodic_2d_copies_boundary_values(self):
+    def test_periodic_2d_is_noop(self):
         solver = self._make_solver_2d()
         u = np.random.rand(32, 32)
         u_copy = u.copy()
         solver._apply_boundary(u_copy)
-    
-        # After periodic BC, first row must equal second‑last row
-        np.testing.assert_array_equal(u_copy[0, :], u_copy[-2, :])
-        # Last row must equal second row
-        np.testing.assert_array_equal(u_copy[-1, :], u_copy[1, :])
-        # First column must equal second‑last column
-        np.testing.assert_array_equal(u_copy[:, 0], u_copy[:, -2])
-        # Last column must equal second column
-        np.testing.assert_array_equal(u_copy[:, -1], u_copy[:, 1])
+
+        # Periodic BCs are native to the FFT: no clipping must be applied.
+        np.testing.assert_array_equal(u_copy, u)
 
     def test_invalid_boundary_condition_raises(self):
         solver = self._make_solver_1d()
