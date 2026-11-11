@@ -103,7 +103,7 @@
 <span class="sd">--------</span>
 <span class="sd">The `solver` module provides a high‑performance spectral solver for partial differential equations in one and two spatial dimensions.  It is designed to handle a wide class of problems, including:</span>
 
-<span class="sd">* Linear and nonlinear PDEs with periodic or Dirichlet boundary conditions.</span>
+<span class="sd">* Linear and nonlinear PDEs with periodic boundary conditions (native), plus heuristic 'dirichlet'/'neumann' treatments for localized solutions on large domains (see "Boundary conditions" below).</span>
 <span class="sd">* Time‑dependent evolution (first‑ or second‑order in time) and stationary problems.</span>
 <span class="sd">* Equations involving pseudo‑differential operators (via `psiOp`), such as fractional Laplacians or non‑local terms.</span>
 <span class="sd">* Source terms and arbitrary spatial derivatives.</span>
@@ -163,6 +163,8 @@
 
 <span class="sd">The damping is treated by operator splitting: after each (spectral) time step the fields are multiplied by e^{−γ Δt}, except for the second‑order pseudo‑differential scheme, where the friction term γ∂ₜu is included implicitly in the leap‑frog update.  The sponge is a numerical device, not a physical boundary condition: it only attenuates the solution, it does not impose any value on it, and the physics inside the layer is modified.  Place all features of interest in the undamped interior.</span>
 
+<span class="sd">**Boundary conditions.**  Only 'periodic' is exact: the FFT natively enforces u(x+L) = u(x), and no clipping is applied.  'dirichlet' and 'neumann' are implemented by post-hoc clipping of the boundary nodes after each time step (u[0]=u[-1]=0 for Dirichlet, u[0]=u[1], u[-1]=u[-2] for Neumann, a first-order approximation).  They do NOT constitute a rigorous spectral boundary-value-problem enforcement.  They are accurate when the solution is localized and negligible (~machine precision) at the boundary, i.e. they emulate the whole-space Cauchy problem on a sufficiently large box.  If the solution reaches the boundary with non-negligible amplitude, the clipping creates a jump in the periodic extension (Gibbs phenomenon) that pollutes the whole domain.  A runtime guard (`boundary_tol`) warns when this happens.  For hard-wall reflections with constant, even symbols, use periodic BCs with the method of images (odd extension = Dirichlet, even extension = Neumann on a doubled domain).  For open domains, use periodic BCs with a sponge layer.  Note that for non-local operators these choices define different operators (the odd extension yields the *spectral* fractional Laplacian, not the *restricted* one).</span>
+
 <span class="sd">References</span>
 <span class="sd">----------</span>
 <span class="sd">.. [1] Canuto, C., Hussaini, M. Y., Quarteroni, A., &amp; Zang, T. A.  *Spectral Methods: Fundamentals in Single Domains*, Springer, 2006.</span>
@@ -174,6 +176,28 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">psiop</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">_LEGACY_BC_CLIP</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'dirichlet'</span><span class="p">:</span> <span class="s1">'zero'</span><span class="p">,</span> <span class="s1">'neumann'</span><span class="p">:</span> <span class="s1">'copy'</span><span class="p">}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_bc</span><span class="p">(</span><span class="n">bc</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Return (canonical_bc, clip_mode). Legacy names are deprecated aliases."""</span>
+    <span class="k">if</span> <span class="n">bc</span> <span class="o">==</span> <span class="s1">'periodic'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">'periodic'</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">bc</span> <span class="o">==</span> <span class="s1">'nonperiodic'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">'nonperiodic'</span><span class="p">,</span> <span class="s1">'zero'</span>
+    <span class="k">if</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">_LEGACY_BC_CLIP</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"boundary_condition='</span><span class="si">{</span><span class="n">bc</span><span class="si">}</span><span class="s2">' is deprecated; use 'nonperiodic'. "</span>
+            <span class="s2">"These modes were never a rigorous BVP enforcement (boundary-node "</span>
+            <span class="s2">"clipping valid only for solutions that vanish at the boundary)."</span><span class="p">,</span>
+            <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="s1">'nonperiodic'</span><span class="p">,</span> <span class="n">_LEGACY_BC_CLIP</span><span class="p">[</span><span class="n">bc</span><span class="p">]</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Invalid boundary condition '</span><span class="si">{</span><span class="n">bc</span><span class="si">}</span><span class="s2">'. "</span>
+        <span class="s2">"Supported: 'periodic', 'nonperiodic' (deprecated aliases: "</span>
+        <span class="s2">"'dirichlet', 'neumann')."</span>
+    <span class="p">)</span>
 
 <div class="viewcode-block" id="PDESolver">
 <a class="viewcode-back" href="../solver.html#solver.PDESolver">[docs]</a>
@@ -910,6 +934,8 @@
         <span class="n">Lt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
         <span class="n">Nt</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
         <span class="n">boundary_condition</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'periodic'</span><span class="p">,</span>
+        <span class="n">boundary_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">,</span>
+        <span class="n">periodic_edge_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">initial_condition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">initial_velocity</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
@@ -955,9 +981,23 @@
 <span class="sd">        n_frames : int, default=100</span>
 <span class="sd">            Number of time frames to store during simulation for visualization or output.</span>
 <span class="sd">        boundary_condition : str, default='periodic'</span>
-<span class="sd">            Boundary treatment. 'periodic' is the native spectral setting.</span>
-<span class="sd">            'dirichlet' and 'neumann' are only available for equations</span>
-<span class="sd">            defined through a pseudo-differential operator (`psiOp`).</span>
+<span class="sd">            'periodic' (exact, native FFT) or 'nonperiodic' (heuristic: direct</span>
+<span class="sd">            quadrature backend + clipping of boundary nodes to 0 after each</span>
+<span class="sd">            step; valid only for solutions negligible at the boundary, see</span>
+<span class="sd">            `boundary_tol`). 'dirichlet'/'neumann' are deprecated aliases.</span>
+<span class="sd">            'nonperiodic' requires equations defined through `psiOp`.</span>
+<span class="sd">        boundary_tol : float, default=1e-8</span>
+<span class="sd">            Relative threshold on the correction applied by the clipping</span>
+<span class="sd">            (max |Δu| / max |u|). If exceeded, a RuntimeWarning is emitted once;</span>
+<span class="sd">            the largest correction seen is stored in `self._bc_max_correction`.</span>
+<span class="sd">            Ignored for 'periodic'.</span>
+<span class="sd">        periodic_edge_tol : float or None, default=None</span>
+<span class="sd">            Only for 'periodic'. If set, the amplitude of the solution on the</span>
+<span class="sd">            edge nodes (relative to max|u|) is monitored and a RuntimeWarning</span>
+<span class="sd">            is emitted once if it exceeds this value, meaning the solution</span>
+<span class="sd">            wraps around the torus (use when periodic BCs emulate a large</span>
+<span class="sd">            box, i.e. a localized solution). Nothing is clipped. None</span>
+<span class="sd">            disables the check (legitimately periodic problems).</span>
 <span class="sd">        plot : bool, default=True</span>
 <span class="sd">            If True, diagnostic plots are displayed during setup (symbol</span>
 <span class="sd">            analysis and, when the sponge is active, the damping profile).</span>
@@ -1049,14 +1089,20 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">n_frames</span> <span class="o">=</span> <span class="n">n_frames</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">frames</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initial_condition</span> <span class="o">=</span> <span class="n">initial_condition</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">=</span> <span class="n">boundary_condition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bc_clip</span> <span class="o">=</span> <span class="n">_normalize_bc</span><span class="p">(</span><span class="n">boundary_condition</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary_tol</span> <span class="o">=</span> <span class="n">boundary_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bc_max_correction</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bc_warned</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">periodic_edge_tol</span> <span class="o">=</span> <span class="n">periodic_edge_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_edge_max</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_edge_warned</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">plot</span> <span class="o">=</span> <span class="n">plot</span>
 
 
 
-        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'dirichlet'</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'neumann'</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'nonperiodic'</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">"Dirichlet or Neumann boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). "</span>
+                <span class="s2">"Nonperiodic boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). "</span>
                 <span class="s2">"Please provide an equation involving psiOp for non-periodic boundary treatment."</span>
             <span class="p">)</span>
 
@@ -1532,12 +1578,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
 
-        <span class="c1"># FIX: Do NOT clip boundaries for periodic BCs.</span>
-        <span class="c1"># The FFT handles periodicity natively; the clipping</span>
-        <span class="c1"># u[0]=u[-2], u[-1]=u[1] is mathematically incorrect</span>
-        <span class="c1"># for endpoint=False grids and corrupts the initial data.            </span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s1">'periodic'</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
 
         <span class="c1"># Initial velocity (second order)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
@@ -1566,67 +1607,91 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_boundary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Apply boundary conditions to the solution array based on the specified type.</span>
+<span class="sd">        Heuristic post-hoc clipping of the boundary nodes (in place).</span>
 
-<span class="sd">        This method supports two types of boundary conditions:</span>
+<span class="sd">        - 'periodic': no-op (the FFT enforces periodicity natively).</span>
+<span class="sd">        - 'nonperiodic' sets the boundary nodes to 0; the alias 'neumann' copies the interior neighbor.</span>
 
-<span class="sd">        - 'periodic': Enforces periodicity by copying opposite boundary values.</span>
-<span class="sd">        - 'dirichlet': Sets all boundary values to zero (homogeneous Dirichlet condition).</span>
-<span class="sd">        - 'neumann': Sets all boundary values to zero (homogeneous Dirichlet condition).</span>
+<span class="sd">        This is NOT a rigorous BVP enforcement; it is accurate only when the</span>
+<span class="sd">        solution is negligible at the boundary. The relative size of the</span>
+<span class="sd">        correction, max|Δu| / max|u|, is monitored: if it exceeds</span>
+<span class="sd">        `self.boundary_tol`, a RuntimeWarning is issued once and the largest</span>
+<span class="sd">        value seen is kept in `self._bc_max_correction`.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        u : np.ndarray</span>
-<span class="sd">            The solution array representing the field values on a spatial grid.</span>
-<span class="sd">            In 1D, shape must be (Nx,). In 2D, shape must be (Nx, Ny).</span>
+<span class="sd">            Field on the spatial grid, shape (Nx,) or (Nx, Ny). Modified in place.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If `self.boundary_condition` is not one of {'periodic', 'dirichlet', 'neumann'}.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        - For 'periodic':</span>
-<span class="sd">            * In 1D: u[0] = u[-2], u[-1] = u[1]</span>
-<span class="sd">            * In 2D: First and last rows/columns are set equal to their neighbors.</span>
-<span class="sd">        - For 'dirichlet':</span>
-<span class="sd">            * All boundary points are explicitly set to zero.</span>
+<span class="sd">            If `self.boundary_condition` is not 'periodic', 'dirichlet' or 'neumann'.</span>
 <span class="sd">        """</span>
+        <span class="n">bc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span>
+        <span class="k">if</span> <span class="n">bc</span> <span class="o">==</span> <span class="s1">'periodic'</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">periodic_edge_tol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_check_periodic_edge</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">bc</span> <span class="o">!=</span> <span class="s1">'nonperiodic'</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid boundary condition '</span><span class="si">{</span><span class="n">bc</span><span class="si">}</span><span class="s2">'. "</span>
+                             <span class="s2">"Supported types are 'periodic' and 'nonperiodic'."</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'periodic'</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-                <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span>
-                <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
-                <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-                <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">before</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'dirichlet'</span><span class="p">:</span>
+        <span class="n">before</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bc_clip</span> <span class="o">==</span> <span class="s1">'zero'</span><span class="p">:</span>
+        <span class="c1"># Dirichlet</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">else</span><span class="p">:</span>
                 <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'neumann'</span><span class="p">:</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># neumann</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
                 <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">else</span><span class="p">:</span>
                 <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
                 <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span>
                 <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
                 <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"Invalid boundary condition '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">'. "</span>
-                <span class="s2">"Supported types are 'periodic', 'dirichlet' and 'neumann'."</span>
+
+        <span class="n">scale</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">before</span><span class="p">))),</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">tiny</span><span class="p">)</span>
+        <span class="n">corr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u</span> <span class="o">-</span> <span class="n">before</span><span class="p">)))</span> <span class="o">/</span> <span class="n">scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bc_max_correction</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bc_max_correction</span><span class="p">,</span> <span class="n">corr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">corr</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_tol</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bc_warned</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">bc</span><span class="si">}</span><span class="s2">' clipping changed the solution by </span><span class="si">{</span><span class="n">corr</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> (relative) "</span>
+                <span class="sa">f</span><span class="s2">"at the boundary (&gt; boundary_tol=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_tol</span><span class="si">:</span><span class="s2">.1e</span><span class="si">}</span><span class="s2">). "</span>
+                <span class="s2">"The solution reaches the boundary: the clipping creates a jump "</span>
+                <span class="s2">"in the periodic extension (Gibbs ringing). Enlarge the domain, "</span>
+                <span class="s2">"use periodic BCs with a sponge layer, or the method of images."</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_bc_warned</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_periodic_edge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Warn (once) if the solution has non-negligible edge amplitude (wrap-around)."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">edge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">u</span><span class="p">[:</span><span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">edge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u</span><span class="p">))),</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">tiny</span><span class="p">)</span>
+        <span class="n">amp</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">edge</span><span class="p">)))</span> <span class="o">/</span> <span class="n">scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_edge_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_edge_max</span><span class="p">,</span> <span class="n">amp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">amp</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">periodic_edge_tol</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edge_warned</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Periodic solution reaches the box edge (relative amplitude "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">amp</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> &gt; periodic_edge_tol=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">periodic_edge_tol</span><span class="si">:</span><span class="s2">.1e</span><span class="si">}</span><span class="s2">): "</span>
+                <span class="s2">"it wraps around the torus. Enlarge the domain, or add a sponge "</span>
+                <span class="s2">"layer / use the method of images."</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_edge_warned</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">is_v</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -2157,7 +2222,7 @@
             <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
             <span class="n">u_new</span> <span class="o">=</span> <span class="n">u_symb</span> <span class="o">+</span> <span class="n">u_nl</span> <span class="o">+</span> <span class="n">source</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'dirichlet'</span><span class="p">,</span> <span class="s1">'neumann'</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">'nonperiodic'</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
                 <span class="c1"># General case with ETD1</span>
                 <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
 
@@ -2231,8 +2296,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">u_new</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">rhs</span>
                 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s1">'periodic'</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">u_new</span>
@@ -2406,10 +2470,10 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Stationary psiOp problems must be linear and purely pseudo-differential."</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'periodic'</span><span class="p">,</span> <span class="s1">'dirichlet'</span><span class="p">,</span> <span class="s1">'neumann'</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'periodic'</span><span class="p">,</span> <span class="s1">'nonperiodic'</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">"For stationary PDEs, boundary conditions must be explicitly defined. "</span>
-                <span class="s2">"Supported types are 'periodic', 'dirichlet' and 'neumann'."</span>
+                <span class="s2">"Supported types are 'periodic' and 'nonperiodic'."</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
