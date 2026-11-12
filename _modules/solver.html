@@ -1641,15 +1641,14 @@
 
         <span class="n">before</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bc_clip</span> <span class="o">==</span> <span class="s1">'zero'</span><span class="p">:</span>
-        <span class="c1"># Dirichlet</span>
+            <span class="c1"># endpoint=False grid: node 0 is both x=-L/2 and its periodic image</span>
+            <span class="c1"># x=+L/2, so zeroing it enforces BOTH walls. The last node</span>
+            <span class="c1"># (x=L/2-h) is a free interior node and must not be clipped.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">else</span><span class="p">:</span>  <span class="c1"># neumann</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
@@ -2402,7 +2401,7 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">=</span> <span class="n">u_new</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="o">=</span> <span class="n">v_new</span>
 
-            <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="n">save_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">step</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">save_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">frames</span></div>
@@ -3796,6 +3795,12 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">t_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">t_eval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lt</span>
+
+            <span class="k">if</span> <span class="n">t_eval</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">t_eval</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lt</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"t_eval = </span><span class="si">{</span><span class="n">t_eval</span><span class="si">}</span><span class="s2"> is outside the simulation interval "</span>
+                    <span class="sa">f</span><span class="s2">"[0, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">Lt</span><span class="si">}</span><span class="s2">]."</span>
+                <span class="p">)</span>
 
             <span class="n">save_interval</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nt</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_frames</span><span class="p">)</span>
             <span class="n">frame_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="n">save_interval</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
