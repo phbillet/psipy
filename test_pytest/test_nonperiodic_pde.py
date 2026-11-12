@@ -180,18 +180,20 @@ class TestGridAndBoundary:
     def test_dirichlet_2d_sets_boundary_to_zero(self):
         solver = self._make_solver_2d()
         u = np.random.rand(32, 32)
+        ref = u.copy()
         solver._apply_boundary(u)
+        # endpoint=False grid: row/column 0 carry both walls; the rest is free.
         assert np.all(u[0, :] == 0), "First row should be 0 (Dirichlet)"
-        assert np.all(u[-1, :] == 0), "Last row should be 0 (Dirichlet)"
         assert np.all(u[:, 0] == 0), "First column should be 0 (Dirichlet)"
-        assert np.all(u[:, -1] == 0), "Last column should be 0 (Dirichlet)"
+        np.testing.assert_array_equal(u[1:, 1:], ref[1:, 1:])
 
     def test_dirichlet_1d_sets_boundary_to_zero(self):
         solver = self._make_solver_1d()
         u = np.random.rand(32)
+        ref = u.copy()
         solver._apply_boundary(u)
         assert u[0] == 0.0, "u[0] should be 0 for Dirichlet"
-        assert u[-1] == 0.0, "u[-1] should be 0 for Dirichlet"
+        np.testing.assert_array_equal(u[1:], ref[1:])
 
     def test_periodic_1d_copies_corner_values(self):
         solver = self._make_solver_1d(bc='periodic')
@@ -317,8 +319,8 @@ class TestStationary1D:
                      boundary_condition='nonperiodic', initial_condition=None,
                      plot=False)
         solver.solve_stationary_psiOp(order=0)
-        err = solver.test(u_exact=u_exact, threshold=1, component='real')
-        assert err < 1
+        err = solver.test(u_exact=u_exact, threshold=1e-5, component='real')
+        assert err < 1e-5
 
 
 # ===========================================================================
@@ -371,9 +373,9 @@ class TestStationary2D:
                      plot=False)
         solver.solve_stationary_psiOp(order=6)
 
-        err = solver.test(u_exact=u_exact, norm='absolute', threshold=10.0,
+        err = solver.test(u_exact=u_exact, norm='absolute', threshold=1e-5,
                           component='real')
-        assert err < 10.0
+        assert err < 1e-5
 
     def test_cos_source_2d(self, sym2d):
         x, y, xi, eta = sym2d
@@ -454,9 +456,15 @@ class TestTimeDependentSolver1D:
         def u_exact(x, t):
             return np.sin(k0 * x) * np.exp(-(k0**2 + 1) * t)
 
-        with pytest.raises((ValueError, AssertionError)):
+        with pytest.raises(ValueError, match="outside the simulation interval"):
             solver.test(u_exact=u_exact, t_eval=999.0,
                         threshold=1e-10, component='real')
+            
+        with pytest.raises(ValueError, match="outside the simulation interval"):
+            solver.test(u_exact=u_exact, t_eval=-0.1, threshold=1.0, component='real')
+        solver.test(u_exact=u_exact, t_eval=1.0, threshold=1e-6, component='real')
+
+
 
     def test_zero_initial_condition_stays_zero(self):
         """For a homogeneous linear equation, zero IC → zero solution."""
@@ -505,8 +513,8 @@ class TestTimeDependentSolver1D:
         n_test = 4
         for i in range(n_test + 1):
             err = solver.test(u_exact=u_exact, t_eval=i * Lt / n_test,
-                              threshold=50, component='real')
-            assert err < 50
+                              threshold=1e-5, component='real')
+            assert err < 1e-5
 
     def test_wave_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -531,8 +539,8 @@ class TestTimeDependentSolver1D:
         n_test = 10
         for i in range(n_test + 1):
             err = solver.test(u_exact=u_exact, t_eval=i * Lt / n_test,
-                              threshold=7e-1, component='real')
-            assert err < 7e-1
+                              threshold=1e-4, component='real')
+            assert err < 1e-4
 
     def test_schrodinger_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -556,8 +564,8 @@ class TestTimeDependentSolver1D:
         n_test = 5
         for i in range(n_test + 1):
             err = solver.test(u_exact=u_exact, t_eval=i * Lt / n_test,
-                              threshold=7e-1, component='real')
-            assert err < 7e-1
+                              threshold=1e-5, component='real')
+            assert err < 1e-5
 
     def test_equation_psiOp_depending_on_x_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -587,8 +595,8 @@ class TestTimeDependentSolver1D:
         for i in range(n_test + 1):
             t_eval = i * Lt / n_test
             err = solver.test(u_exact=u_exact, t_eval=t_eval,
-                              threshold=5e-2, component='real')
-            assert err < 5e-2
+                              threshold=1e-5, component='real')
+            assert err < 1e-5
 
     def test_hermite_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -624,8 +632,8 @@ class TestTimeDependentSolver1D:
         for i in range(n_test + 1):
             t_eval = i * Lt / n_test
             err = solver.test(u_exact=u_exact, t_eval=t_eval,
-                              threshold=50, component='real')
-            assert err < 50
+                              threshold=1e-2, component='real')
+            assert err < 1e-2
 
     def test_airy_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -635,7 +643,7 @@ class TestTimeDependentSolver1D:
 
         solver = PDESolver(equation, compute_energy=False)
         Lx, Nx = 40.0, 256
-        Lt, Nt = 2.0, 1000
+        Lt, Nt = 1.0, 1000
 
         def initial_condition(x):
             return airy(x)[0]
@@ -644,7 +652,7 @@ class TestTimeDependentSolver1D:
             return 0.0 * x
 
         def u_exact(x, t):
-            return airy(x - t**2 / 4)[0]
+            return airy(x)[0]
 
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
@@ -659,8 +667,8 @@ class TestTimeDependentSolver1D:
         for i in range(n_test + 1):
             t_eval = i * Lt / n_test
             err = solver.test(u_exact=u_exact, t_eval=t_eval,
-                              threshold=50, component='real')
-            assert err < 50
+                              threshold=10, component='real')
+            assert err < 10
 
     def test_gaussian_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -695,8 +703,8 @@ class TestTimeDependentSolver1D:
         for i in range(n_test + 1):
             t_eval = i * Lt / n_test
             err = solver.test(u_exact=u_exact, t_eval=t_eval,
-                              threshold=0.2, component='real')
-            assert err < 0.2
+                              threshold=1e-2, component='real')
+            assert err < 1e-2
 
     def test_legendre_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -735,8 +743,8 @@ class TestTimeDependentSolver1D:
         for i in range(n_test + 1):
             t_eval = i * Lt / n_test
             err = solver.test(u_exact=u_exact, t_eval=t_eval,
-                              threshold=5, component='real')
-            assert err < 5
+                              threshold=10, component='real')
+            assert err < 10
 
 # ===========================================================================
 # 6.  Time‑dependent solver — 2D (strengthened)

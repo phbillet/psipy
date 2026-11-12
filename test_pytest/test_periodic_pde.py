@@ -179,7 +179,7 @@ class TestStationary1D:
         u_ref = u_exact(solver.X)
         error = np.linalg.norm(np.real(u_num) - u_ref) / np.linalg.norm(u_ref)
 
-        assert error < 5e-3
+        assert error < 1e-5
 
     def test_stationary_psiOp_x_dependent(self, sym1d):
         x, xi = sym1d
@@ -197,7 +197,7 @@ class TestStationary1D:
         u_num = solver.solve_stationary_psiOp(order=1)
         u_ref = u_exact(solver.X)
         err = np.linalg.norm(np.real(u_num) - u_ref) / np.linalg.norm(u_ref)
-        assert err < 2.0  # loose threshold due to large domain
+        assert err < 0.2  # loose threshold due to large domain
 
 
 # ===========================================================================
@@ -222,7 +222,7 @@ class TestStationary2D:
         u_num = solver.solve_stationary_psiOp()
         ref = u_exact(solver.X, solver.Y)
         err = np.linalg.norm(np.real(u_num) - ref) / np.linalg.norm(ref)
-        assert err < 2e-1
+        assert err < 1e-5
 
     def test_stationary_psiOp_variable_symbol_2d(self, sym2d):
         x, y, xi, eta = sym2d
@@ -242,7 +242,7 @@ class TestStationary2D:
 
         ref = u_exact(solver.X, solver.Y)
         err = np.linalg.norm(np.real(u_num) - ref) / np.linalg.norm(ref)
-        assert err < 3e-1
+        assert err < 0.3
 
 
 # ===========================================================================
@@ -266,9 +266,9 @@ class TestTimeDependent1D:
         solver = PDESolver(eq, time_scheme='ETD-RK4')
 
         Lt = 0.5
-        Lx = 20
-        Nx = 256
-        Nt = 50
+        Lx = 6*np.pi
+        Nx = 2048
+        Nt = 200
 
         solver.setup(Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
                      initial_condition=lambda x: np.sin(x), plot=False)
@@ -280,7 +280,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=0.6, component='real')
+                            threshold=1e-3, component='real')
 
     def test_integro_differential_with_psiOp(self):
         t, x, xi, omega = symbols('t x xi omega')
@@ -293,9 +293,9 @@ class TestTimeDependent1D:
         solver = PDESolver(eq, dealiasing_ratio=2/3)
 
         Lt = 0.5
-        Lx = 20
-        Nx = 256
-        Nt = 50
+        Lx = 6*np.pi
+        Nx = 2048
+        Nt = 200
 
         solver.setup(Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
                      initial_condition=lambda x: np.sin(x), plot=False)
@@ -307,7 +307,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=0.6, component='real')
+                            threshold=1e-3, component='real')
 
     # -----------------------------------------------------------------------
     # Convolution equations
@@ -337,7 +337,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-3, component='real')
+                            threshold=1e-5, component='real')
 
     def test_convolution_with_psiOp(self):
         t, x, kx, xi, omega, lam = symbols('t x kx xi omega lambda')
@@ -363,7 +363,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-3, component='real')
+                            threshold=1e-5, component='real')
 
     # -----------------------------------------------------------------------
     # Transport
@@ -385,7 +385,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-2, component='real')
+                            threshold=1e-5, component='real')
 
     def test_transport_with_Op(self):
         t, x, kx, xi, omega = symbols('t x kx xi omega')
@@ -406,7 +406,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=7e-2, component='real')
+                            threshold=1e-5, component='real')
 
     def test_transport_with_psiOp(self):
         t, x, kx, xi, omega = symbols('t x kx xi omega')
@@ -427,7 +427,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=7e-2, component='real')
+                            threshold=1e-5, component='real')
 
     # -----------------------------------------------------------------------
     # Heat / diffusion
@@ -448,7 +448,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-2, component='real')
+                            threshold=1e-5, component='real')
 
     def test_heat_gaussian_initial(self):
         t, x = symbols('t x')
@@ -469,7 +469,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-2, component='real')
+                            threshold=1e-5, component='real')
 
     def test_heat_with_Op(self):
         t, x, kx, xi, omega = symbols('t x kx xi omega')
@@ -488,7 +488,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-2, component='real')
+                            threshold=1e-5, component='real')
 
     def test_fractional_heat(self):
         t, x, kx, xi, omega = symbols('t x kx xi omega')
@@ -509,7 +509,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=2e-2, component='real')
+                            threshold=1e-5, component='real')
 
     # -----------------------------------------------------------------------
     # Burgers' equation (nonlinear)
@@ -536,7 +536,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-2, component='real')
+                            threshold=1e-1, component='real')
 
     # -----------------------------------------------------------------------
     # psiOp with spatial potential
@@ -558,7 +558,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-2, component='real')
+                            threshold=1e-5, component='real')
 
     # -----------------------------------------------------------------------
     # Wave equation (second order)
@@ -581,7 +581,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=0.2, component='real')
+                            threshold=1e-2, component='real')
 
     # -----------------------------------------------------------------------
     # Wave equation (second order) with a source term
@@ -594,19 +594,20 @@ class TestTimeDependent1D:
 
         solver = PDESolver(eq, time_scheme='ETD-RK4', dealiasing_ratio=1)
         Lt = 0.5
-        solver.setup(Lx=20, Nx=256, Lt=Lt, Nt=100,
+        solver.setup(Lx=6 * np.pi, Nx=1024, Lt=Lt, Nt=100,
                      initial_condition=lambda x: np.cos(x),
                      initial_velocity=lambda x: np.zeros_like(x),
                      plot=False)
         solver.solve()
 
+        # Exact solution
         def u_exact(x, t):
-            return np.cos(x) * np.cos(np.sqrt(2) * t)
+            return np.cos(x) * ((t/2 + 1) * np.cos(np.sqrt(2) * t) + (3 * np.sqrt(2) * t/4 - np.sqrt(2)/4)*np.sin(np.sqrt(2)*t))
 
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=1, component='real')
+                            threshold=1e-2, component='real')
 
     # -----------------------------------------------------------------------
     # Schrödinger equation
@@ -628,7 +629,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=0.6, component='real')
+                            threshold=1e-2, component='real')
 
     # -----------------------------------------------------------------------
     # Klein‑Gordon equation
@@ -639,7 +640,7 @@ class TestTimeDependent1D:
         eq = Eq(diff(u, t, t), diff(u, x, x) - u)
         Lt = 0.5
         solver = PDESolver(eq, time_scheme='ETD-RK4', dealiasing_ratio=1/4)
-        solver.setup(Lx=20, Nx=256, Lt=Lt, Nt=100,
+        solver.setup(Lx=6*np.pi, Nx=1024, Lt=Lt, Nt=200,
                      initial_condition=lambda x: np.cos(x),
                      initial_velocity=lambda x: np.zeros_like(x),
                      plot=False)
@@ -651,7 +652,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5, component='real')
+                            threshold=5e-3, component='real')
 
     # -----------------------------------------------------------------------
     # KdV soliton
@@ -699,7 +700,7 @@ class TestTimeDependent1D:
         n_test = 5
         for i in range(n_test + 1):
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
-                            threshold=5e-2, component='real')
+                            threshold=1e-5, component='real')
 
     # ---------------------------------------------
     #  Heat equation with a source term
@@ -769,7 +770,7 @@ class TestTimeDependent2D:
             return np.exp(-(xs**2 + ys**2))
 
         _run_and_assert(solver, u_exact, t_eval=Lt/2,
-                        threshold=5e-2, component='real')
+                        threshold=1e-5, component='real')
 
     def test_heat_2d(self):
         t, x, y = symbols('t x y')
@@ -786,7 +787,7 @@ class TestTimeDependent2D:
             return np.sin(x) * np.sin(y) * np.exp(-2*t)
 
         _run_and_assert(solver, u_exact, t_eval=0.5,
-                        threshold=5e-2, component='real')
+                        threshold=1e-5, component='real')
 
     def test_heat_psiop_2d(self):
         t, x, y, xi, eta = symbols('t x y xi eta', real=True)   # define t explicitly
@@ -803,7 +804,7 @@ class TestTimeDependent2D:
             return np.sin(x) * np.sin(y) * np.exp(-2*t)
     
         _run_and_assert(solver, u_exact, t_eval=0.5,
-                        threshold=5e-2, component='real')
+                        threshold=1e-5, component='real')
 
     def test_schrodinger_2d(self):
         t, x, y = symbols('t x y')
@@ -820,7 +821,7 @@ class TestTimeDependent2D:
             return 1 / np.sqrt(1 + 4j * t)**2 * np.exp(1j*(x + y - 2*t)) * np.exp(-((x + 2*t)**2 + (y + 2*t)**2) / (1 + 4j * t))
 
         _run_and_assert(solver, u_exact, t_eval=0.5,
-                        threshold=0.3, component='abs')
+                        threshold=0.2, component='abs')
 
     def test_fractional_diffusion_2d(self):
         t, x, y, kx, ky = symbols('t x y kx ky')
@@ -838,7 +839,7 @@ class TestTimeDependent2D:
             return np.sin(x) * np.sin(y) * np.exp(-t * (2**(alpha/2)))
 
         _run_and_assert(solver, u_exact, t_eval=0.5,
-                        threshold=5e-2, component='real')
+                        threshold=1e-5, component='real')
 
     def test_wave_2d(self):
         t, x, y = symbols('t x y')
@@ -856,7 +857,7 @@ class TestTimeDependent2D:
             return np.sin(x) * np.sin(y) * np.cos(np.sqrt(2) * t)
 
         _run_and_assert(solver, u_exact, t_eval=0.5,
-                        threshold=5, component='abs')
+                        threshold=6e-3, component='abs')
 
     def test_klein_gordon_2d(self):
         t, x, y = symbols('t x y')
@@ -883,7 +884,7 @@ class TestTimeDependent2D:
             return np.sin(x) * np.sin(y) * np.cos(omega_val * t)
 
         _run_and_assert(solver, u_exact, t_eval=0.5,
-                        threshold=5, component='abs')
+                        threshold=1e-5, component='abs')
 
     def test_biharmonic_2d(self):
         t, x, y = symbols('t x y')
@@ -905,7 +906,7 @@ class TestTimeDependent2D:
             return np.sin(x) * np.sin(y) * np.exp(-4 * t)
 
         _run_and_assert(solver, u_exact, t_eval=0.5,
-                        threshold=7e-2, component='abs')
+                        threshold=1e-5, component='abs')
 
 
 # ===========================================================================
@@ -1083,6 +1084,23 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="Ny"):
             solver.setup(Lx=2 * np.pi, Ly=2 * np.pi, Nx=16,
                          boundary_condition='periodic', plot=False)
+
+    def test_frames_are_saved_at_expected_times(self):
+        """frames[k] must hold the solution at t = k * save_interval * dt."""
+        t, x, xi = symbols('t x xi', real=True); u = Function('u')
+        s = PDESolver(Eq(diff(u(t, x), t), -psiOp(xi**2 + 1, u(t, x))))
+        s.setup(Lx=2 * np.pi, Nx=64, Lt=1.0, Nt=500, boundary_condition='periodic',
+                initial_condition=np.sin, n_frames=20, plot=False)
+        s.solve()
+    
+        save_interval = max(1, s.Nt // s.n_frames)
+        sx = np.sin(s.X)
+        assert len(s.frames) == s.n_frames + 1
+        for k, f in enumerate(s.frames):
+            amp = np.real(f) @ sx / (sx @ sx)
+            assert amp == pytest.approx(np.exp(-2.0 * k * save_interval * s.dt), abs=1e-10)
+    
+        np.testing.assert_array_equal(s.frames[-1], s.u_prev)   # final state saved
 
 # ===========================================================================
 # 10.  Sponge layer (absorbing boundaries on a periodic domain)

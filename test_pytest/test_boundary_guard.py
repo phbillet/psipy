@@ -94,23 +94,23 @@ class TestApplyBoundary:
         assert solver._bc_max_correction == 0.0
         assert solver._bc_warned is False
 
-    def test_dirichlet_1d_zeros_endpoints_only(self):
+    def test_dirichlet_1d_zeros_node0_only(self):
         solver = _stationary_solver(1, 'dirichlet')
         u = np.arange(1.0, 17.0)
         ref = u.copy()
         with pytest.warns(RuntimeWarning):
             solver._apply_boundary(u)
-        assert u[0] == 0 and u[-1] == 0
-        np.testing.assert_array_equal(u[1:-1], ref[1:-1])
+        # endpoint=False grid: node 0 is both walls; the last node is free.
+        assert u[0] == 0
+        np.testing.assert_array_equal(u[1:], ref[1:])
 
-    def test_dirichlet_2d_zeros_all_edges(self):
+    def test_dirichlet_2d_zeros_row0_and_col0_only(self):
         solver = _stationary_solver(2, 'dirichlet')
         u = np.ones((16, 16))
         with pytest.warns(RuntimeWarning):
             solver._apply_boundary(u)
-        assert np.all(u[0, :] == 0) and np.all(u[-1, :] == 0)
-        assert np.all(u[:, 0] == 0) and np.all(u[:, -1] == 0)
-        assert np.all(u[1:-1, 1:-1] == 1)
+        assert np.all(u[0, :] == 0) and np.all(u[:, 0] == 0)
+        assert np.all(u[1:, 1:] == 1)
 
     def test_neumann_1d_copies_inner_neighbour(self):
         solver = _stationary_solver(1, 'neumann')
@@ -149,7 +149,7 @@ class TestApplyBoundary:
         u = (1.0 + 1.0j) * np.ones(16)
         with pytest.warns(RuntimeWarning):
             solver._apply_boundary(u)
-        assert u[0] == 0 and u[-1] == 0
+        assert u[0] == 0 and u[-1] == 1.0 + 1.0j
 
 
 # ===========================================================================
@@ -318,6 +318,11 @@ class TestPeriodicRegression:
         np.testing.assert_allclose(np.real(solver.u_prev), ic(solver.X),
                                    atol=0, rtol=0)
 
+
+# ===========================================================================
+# 5.  'nonperiodic' mode and deprecated aliases
+# ===========================================================================
+
 class TestNonperiodicMode:
 
     def test_nonperiodic_accepted_and_clips_to_zero(self):
@@ -326,7 +331,8 @@ class TestNonperiodicMode:
         u = np.ones(128)
         with pytest.warns(RuntimeWarning):
             solver._apply_boundary(u)
-        assert u[0] == 0 and u[-1] == 0
+        # node 0 carries both walls (endpoint=False grid); the last node is free
+        assert u[0] == 0 and u[-1] == 1
 
     @pytest.mark.parametrize("legacy,clip", [('dirichlet', 'zero'), ('neumann', 'copy')])
     def test_legacy_alias_warns_and_maps(self, legacy, clip):

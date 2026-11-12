@@ -1552,15 +1552,14 @@ class PDESolver:
 
         before = u.copy()
         if self._bc_clip == 'zero':
-        # Dirichlet
+            # endpoint=False grid: node 0 is both x=-L/2 and its periodic image
+            # x=+L/2, so zeroing it enforces BOTH walls. The last node
+            # (x=L/2-h) is a free interior node and must not be clipped.
             if self.dim == 1:
                 u[0] = 0
-                u[-1] = 0
             else:
                 u[0, :] = 0
-                u[-1, :] = 0
                 u[:, 0] = 0
-                u[:, -1] = 0
         else:  # neumann
             if self.dim == 1:
                 u[0] = u[1]
@@ -2311,7 +2310,7 @@ class PDESolver:
                     self.u_prev = u_new
                     self.v_prev = v_new
 
-            if step % save_interval == 0:
+            if (step + 1) % save_interval == 0:
                 self.frames.append(self.u_prev.copy())
 
         return self.frames
@@ -3690,6 +3689,12 @@ class PDESolver:
         else:
             if t_eval is None:
                 t_eval = self.Lt
+
+            if t_eval < 0 or t_eval > self.Lt + 0.5 * self.dt:
+                raise ValueError(
+                    f"t_eval = {t_eval} is outside the simulation interval "
+                    f"[0, {self.Lt}]."
+                )
 
             save_interval = max(1, self.Nt // self.n_frames)
             frame_times = np.arange(0, self.Lt + self.dt, save_interval * self.dt)

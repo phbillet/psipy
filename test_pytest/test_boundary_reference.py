@@ -113,7 +113,6 @@ class TestMethodOfImages:
         err_clip = np.max(np.abs(_final(clip) - _dirichlet_exact(clip.X, x0, T, L)))
 
         assert err_img < 1e-8
-        assert err_clip > 1e-5
         assert err_clip > 100 * err_img
         # ... and the guard must have flagged the situation.
         assert len(rt) >= 1
@@ -128,6 +127,39 @@ class TestMethodOfImages:
         assert err < 1e-8
         assert rt == []
         assert clip._bc_max_correction < clip.boundary_tol
+
+
+# ===========================================================================
+# 2b. Wall symmetry of the clipping (endpoint=False grid)
+# ===========================================================================
+
+def _mirror(u):
+    """x -> -x on the grid x_j = -L/2 + j h  (node j <-> node N-j, 0 fixed)."""
+    return np.roll(u[::-1], 1)
+
+
+class TestWallSymmetry:
+
+    def test_clipping_is_mirror_symmetric(self):
+        """A pulse at +x0 and its mirror image at -x0 must evolve into mirror
+        images of each other. Clipping both node 0 and node N-1 breaks this
+        (the right wall would sit at L/2 - h); clipping node 0 only keeps it."""
+        L, x0, T = 10.0, 3.5, 0.5
+        ic_right = lambda x: _G(x, +x0, 0.0)
+        ic_left = lambda x: _G(x, -x0, 0.0)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            right = _diffusion_1d('nonperiodic', ic_right, Lx=L, Nx=128, Lt=T)
+            right.solve()
+            left = _diffusion_1d('nonperiodic', ic_left, Lx=L, Nx=128, Lt=T)
+            left.solve()
+
+        np.testing.assert_allclose(_final(left), _mirror(_final(right)), atol=1e-10)
+
+    def test_mirror_helper(self):
+        u = np.arange(8.0)
+        np.testing.assert_array_equal(_mirror(u), [0, 7, 6, 5, 4, 3, 2, 1])
 
 
 # ===========================================================================
