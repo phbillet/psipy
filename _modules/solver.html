@@ -1398,7 +1398,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">gamma_x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">gamma_y</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_omega_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_omega_terms_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize terms derived from the angular frequency ω for time evolution.</span>
 
@@ -1448,6 +1448,22 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">omega_val</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span>
         <span class="c1"># For the zero mode, the correct factor is dt</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="o">~</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_omega_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">omega_val</span> <span class="o">=</span> <span class="n">omega_val</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cos_omega_dt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">omega_val</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sin_omega_dt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">omega_val</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+        
+        <span class="c1"># Compute sin(ω·dt)/ω safely using sinc function</span>
+        <span class="c1"># sinc(x) = sin(π·x)/(π·x), so sin(ω·dt)/ω = dt·sinc(ω·dt/π)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">omega_val</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega_sin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sinc</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>  <span class="c1"># sin(ω·dt)/ω for all modes including ω=0</span>
+        
+        <span class="c1"># Keep inv_omega for other uses, but handle zero mode properly</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">omega_val</span><span class="p">)</span>
+        <span class="n">nonzero</span> <span class="o">=</span> <span class="n">omega_val</span> <span class="o">!=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">omega_val</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="o">~</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Will be handled by inv_omega_sin where needed</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_precompile_source_funcs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -2377,7 +2393,7 @@
                     <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_order2_with_psi</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'time_scheme'</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_scheme</span> <span class="o">==</span> <span class="s1">'ETD-RK4'</span><span class="p">:</span>
-                        <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">,</span> <span class="n">t_val</span><span class="p">)</span>
+                        <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">,</span> <span class="n">t_val</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                         <span class="n">v_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">)</span>
@@ -2623,7 +2639,59 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="mf">0.0</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_etdrk4_coefficients_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L_fft</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Cox–Matthews ETD-RK4 coefficients (Kassam–Trefethen contour integral), cached."""</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_etd_coefs'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">L_fft</span>
+            <span class="n">M</span> <span class="o">=</span> <span class="mi">32</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">M</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">/</span> <span class="n">M</span><span class="p">)</span>   <span class="c1"># cercle complet (z complexe)</span>
+            <span class="n">zz</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">r</span>
+            <span class="n">E</span><span class="p">,</span> <span class="n">E2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">Q</span>  <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">zz</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">f1</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="o">-</span><span class="mi">4</span> <span class="o">-</span> <span class="n">zz</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">4</span> <span class="o">-</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">zz</span> <span class="o">+</span> <span class="n">zz</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="n">zz</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">f2</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="mi">2</span> <span class="o">+</span> <span class="n">zz</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">+</span> <span class="n">zz</span><span class="p">))</span> <span class="o">/</span> <span class="n">zz</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">f3</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="o">-</span><span class="mi">4</span> <span class="o">-</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">zz</span> <span class="o">-</span> <span class="n">zz</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">4</span> <span class="o">-</span> <span class="n">zz</span><span class="p">))</span> <span class="o">/</span> <span class="n">zz</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">L_fft</span><span class="p">)))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>      <span class="c1"># real L (diffusion): coefficients are real</span>
+                <span class="n">Q</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">f3</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">real</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">f3</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_etd_coefs</span> <span class="o">=</span> <span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">E2</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">f3</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_etd_coefs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_etdrk4_coefficients</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L_fft</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Cox–Matthews ETD-RK4 coefficients (Kassam–Trefethen contour integral).</span>
+<span class="sd">        Cache is keyed by (dt, L_fft.shape, L_fft.dtype) to handle reconfiguration.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Create a cache key based on current configuration</span>
+        <span class="n">cache_key</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span>
+            <span class="n">L_fft</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+            <span class="n">L_fft</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">L_fft</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_etd_L_fft_cache'</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="p">)</span>
+        
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_etd_coefs'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_etd_cache_key'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="n">cache_key</span><span class="p">:</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">L_fft</span>
+            <span class="n">M</span> <span class="o">=</span> <span class="mi">32</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">M</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">/</span> <span class="n">M</span><span class="p">)</span>
+            <span class="n">zz</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">r</span>
+            <span class="n">E</span><span class="p">,</span> <span class="n">E2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">Q</span>  <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">zz</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">f1</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="o">-</span><span class="mi">4</span> <span class="o">-</span> <span class="n">zz</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">4</span> <span class="o">-</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">zz</span> <span class="o">+</span> <span class="n">zz</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="n">zz</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">f2</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="mi">2</span> <span class="o">+</span> <span class="n">zz</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">+</span> <span class="n">zz</span><span class="p">))</span> <span class="o">/</span> <span class="n">zz</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">f3</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="o">-</span><span class="mi">4</span> <span class="o">-</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">zz</span> <span class="o">-</span> <span class="n">zz</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">4</span> <span class="o">-</span> <span class="n">zz</span><span class="p">))</span> <span class="o">/</span> <span class="n">zz</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">L_fft</span><span class="p">)))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># real L (diffusion): coefficients are real</span>
+                <span class="n">Q</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">f3</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">real</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">f3</span><span class="p">))</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">_etd_coefs</span> <span class="o">=</span> <span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">E2</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">f3</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_etd_cache_key</span> <span class="o">=</span> <span class="n">cache_key</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_etd_L_fft_cache</span> <span class="o">=</span> <span class="n">L_fft</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_etd_coefs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order1_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step</span>
 <span class="sd">        for first-order in time PDEs.</span>
@@ -2660,7 +2728,7 @@
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
-<span class="sd">        _step_ETD_RK4_order2 : For second-order in time equations.</span>
+<span class="sd">        _step_RK4_order2 : For second-order in time equations.</span>
 <span class="sd">        _apply_psiOp : For applying pseudo-differential operators.</span>
 <span class="sd">        _apply_nonlinear : For handling nonlinear terms in the PDE.</span>
 <span class="sd">        """</span>
@@ -2707,8 +2775,68 @@
 
         <span class="k">return</span> <span class="n">ifft</span><span class="p">(</span><span class="n">u_new_hat</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step</span>
+<span class="sd">        for first-order in time PDEs.</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="sd">        Solves equations of the form:</span>
+<span class="sd">            ∂ₜu = L u + N(u) + f(x,t)</span>
+<span class="sd">        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a</span>
+<span class="sd">        nonlinear term treated via pseudo-spectral methods.</span>
+
+<span class="sd">        The ETD-RK4 scheme uses four stages to approximate the integral of the</span>
+<span class="sd">        variation-of-constants formula:</span>
+<span class="sd">            uⁿ⁺¹ = e^(L Δt) uⁿ + Δt ∫₀¹ e^(L Δt (1 - τ)) φ(N(u(τ))) dτ</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        u : np.ndarray</span>
+<span class="sd">            Current solution in real space (physical grid values).</span>
+<span class="sd">        t : float, optional</span>
+<span class="sd">            Current time. Default is 0.0.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Updated solution in real space after one ETD-RK4 time step.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - The linear part L is diagonal in Fourier space and precomputed as `self.L(k)`.</span>
+<span class="sd">        - Nonlinear terms are evaluated in physical space and transformed via FFT.</span>
+<span class="sd">        - The functions φ₁(z) and φ₂(z) are entire functions arising from the ETD scheme:</span>
+<span class="sd">              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0, else 1</span>
+<span class="sd">              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0, else ½</span>
+<span class="sd">        - Assumes periodic boundary conditions and uses spectral differentiation via FFT.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        _step_RK4_order2 : For second-order in time equations.</span>
+<span class="sd">        _apply_psiOp : For applying pseudo-differential operators.</span>
+<span class="sd">        _apply_nonlinear : For handling nonlinear terms in the PDE.</span>
+<span class="sd">        """</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+        <span class="n">L_fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+        <span class="n">E</span><span class="p">,</span> <span class="n">E2</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">f3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_etdrk4_coefficients</span><span class="p">(</span><span class="n">L_fft</span><span class="p">)</span>
+        <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span>
+
+        <span class="n">s0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">s1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">nl</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt</span>        <span class="c1"># _apply_nonlinear returns dt*N(v)</span>
+
+        <span class="n">u_hat</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">Nu</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">nl</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">+</span> <span class="n">s0</span><span class="p">)</span>
+        <span class="n">a</span>  <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">E2</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="n">Q</span> <span class="o">*</span> <span class="n">Nu</span><span class="p">)</span>
+        <span class="n">Na</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">nl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">sh</span><span class="p">)</span>
+        <span class="n">b</span>  <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">E2</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="n">Q</span> <span class="o">*</span> <span class="n">Na</span><span class="p">)</span>
+        <span class="n">Nb</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">nl</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">+</span> <span class="n">sh</span><span class="p">)</span>
+        <span class="n">c</span>  <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">E2</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">Q</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">Nb</span> <span class="o">-</span> <span class="n">Nu</span><span class="p">))</span>
+        <span class="n">Nc</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">nl</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">+</span> <span class="n">s1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ifft</span><span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="n">f1</span> <span class="o">*</span> <span class="n">Nu</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">f2</span> <span class="o">*</span> <span class="p">(</span><span class="n">Na</span> <span class="o">+</span> <span class="n">Nb</span><span class="p">)</span> <span class="o">+</span> <span class="n">f3</span> <span class="o">*</span> <span class="n">Nc</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order2_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform one time step of the ETD-RK4 scheme for second-order PDEs.</span>
 
@@ -2771,8 +2899,129 @@
 
         <span class="k">return</span> <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order2_old2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Perform one time step of the ETD-RK4 scheme for second-order PDEs.</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_cfl_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="sd">        Evolves the solution u and its time derivative v forward in time by one step</span>
+<span class="sd">        using the ETD-RK4 integrator. Designed for systems of the form:</span>
+<span class="sd">            ∂ₜ²u = L u + N(u) + f(x,t)</span>
+<span class="sd">        where L is a linear operator and N is a nonlinear term.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        u : np.ndarray</span>
+<span class="sd">            Current solution array in real space.</span>
+<span class="sd">        v : np.ndarray</span>
+<span class="sd">            Current time derivative of the solution (∂ₜu) in real space.</span>
+<span class="sd">        t : float, optional</span>
+<span class="sd">            Current time. Default is 0.0.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of np.ndarray</span>
+<span class="sd">            `(u_new, v_new)`: Updated solution and its time derivative after one time step.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Assumes periodic boundary conditions and uses FFT-based spectral methods.</span>
+<span class="sd">        - Handles both 1D and 2D problems seamlessly.</span>
+<span class="sd">        - Uses phi functions to compute exponential integrators efficiently.</span>
+<span class="sd">        """</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+
+        <span class="n">L_fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+        <span class="n">fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span>
+        <span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">L_fft</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">u_val</span><span class="p">))</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt</span>     <span class="c1"># returns dt*N</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">))</span>
+
+        <span class="c1"># Stage A (t)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">ua</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span>
+        <span class="n">va</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">A</span>
+
+        <span class="c1"># Stage B (t + dt/2)</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ua</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">ub</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">va</span>
+        <span class="n">vb</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">B</span>
+
+        <span class="c1"># Stage C (t + dt/2)</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">uc</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vb</span>
+
+        <span class="c1"># Stage D (t + dt)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">uc</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">)</span>
+
+        <span class="c1"># Final update</span>
+        <span class="n">u_new</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="n">B</span> <span class="o">+</span> <span class="n">C</span><span class="p">)</span>
+        <span class="n">v_new</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">B</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">C</span> <span class="o">+</span> <span class="n">D</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Perform one time step using explicit 4th-order Runge-Kutta (RK4) for second-order PDEs.</span>
+<span class="sd">        </span>
+<span class="sd">        NOTE: This is NOT an exponential integrator. It is subject to CFL restrictions</span>
+<span class="sd">        for stiff linear operators. For true ETD-RK4 on second-order equations, use</span>
+<span class="sd">        the complex diagonalization approach or implement oscillatory ETD schemes.</span>
+<span class="sd">        </span>
+<span class="sd">        Evolves the system:</span>
+<span class="sd">            ∂ₜu = v</span>
+<span class="sd">            ∂ₜv = L·u + N(u) + f(x,t)</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        u : np.ndarray</span>
+<span class="sd">            Current solution array in real space.</span>
+<span class="sd">        v : np.ndarray</span>
+<span class="sd">            Current time derivative ∂ₜu in real space.</span>
+<span class="sd">        t : float, optional</span>
+<span class="sd">            Current time. Default is 0.0.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of np.ndarray</span>
+<span class="sd">            (u_new, v_new): Updated solution and velocity after one time step.</span>
+<span class="sd">        """</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+        <span class="n">L_fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+        <span class="n">fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span>
+        <span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span>
+        
+        <span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">L_fft</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">u_val</span><span class="p">))</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">))</span>
+        
+        <span class="c1"># Stage A (t)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">ua</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span>
+        <span class="n">va</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">A</span>
+        
+        <span class="c1"># Stage B (t + dt/2)</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ua</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">ub</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">va</span>
+        <span class="n">vb</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">B</span>
+        
+        <span class="c1"># Stage C (t + dt/2)</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">uc</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vb</span>
+        
+        <span class="c1"># Stage D (t + dt)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">uc</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">)</span>
+        
+        <span class="c1"># Final update (correct RK4 weights for 2nd order system)</span>
+        <span class="n">u_new</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="n">B</span> <span class="o">+</span> <span class="n">C</span><span class="p">)</span>
+        <span class="n">v_new</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">B</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">C</span> <span class="o">+</span> <span class="n">D</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_cfl_condition_old</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity</span>
 <span class="sd">        for second-order time-dependent PDEs.</span>
@@ -2836,6 +3085,85 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">&gt;</span> <span class="n">cfl_limit</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CFL condition violated: dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">}</span><span class="s2">, max allowed dt = </span><span class="si">{</span><span class="n">cfl_limit</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Only 1D and 2D problems are supported."</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_cfl_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">*****************"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"* CFL condition *"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"*****************</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        
+        <span class="n">cfl_factor</span> <span class="o">=</span> <span class="mf">0.5</span>  <span class="c1"># Safety factor</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'omega'</span><span class="p">):</span>
+                <span class="c1"># Second order: use group velocity from dispersion relation</span>
+                <span class="n">k_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kx</span>
+                <span class="n">omega_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">(</span><span class="n">k_vals</span><span class="p">))</span>
+                <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">):</span>
+                    <span class="n">v_group</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">omega_vals</span><span class="p">,</span> <span class="n">k_vals</span><span class="p">)</span>
+                <span class="n">max_speed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v_group</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># First order: compute group velocity from dispersion relation</span>
+                <span class="c1"># For ∂ₜu = L·u, the dispersion relation is ω = -i·L(k)</span>
+                <span class="n">k_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kx</span>
+                <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="n">k_vals</span><span class="p">)</span>
+                <span class="n">omega_vals</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">L_vals</span>  <span class="c1"># ω(k) = -i·L(k)</span>
+                
+                <span class="c1"># Group velocity: v_g = dω/dk = -i·dL/dk</span>
+                <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">):</span>
+                    <span class="n">dL_dk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">L_vals</span><span class="p">,</span> <span class="n">k_vals</span><span class="p">)</span>
+                    <span class="n">v_group</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">dL_dk</span>
+                
+                <span class="c1"># For stability, we need the maximum characteristic speed</span>
+                <span class="c1"># For advective equations (L purely imaginary), this is |Im(ω)/k|</span>
+                <span class="c1"># For dissipative equations (L has real part), use the imaginary part</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">L_vals</span><span class="p">),</span> <span class="mi">0</span><span class="p">):</span>
+                    <span class="c1"># Purely advective: v_g = d(Im(ω))/dk</span>
+                    <span class="n">max_speed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v_group</span><span class="p">)))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Mixed or dissipative: use phase velocity as upper bound</span>
+                    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">):</span>
+                        <span class="n">v_phase</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">L_vals</span><span class="p">)</span> <span class="o">/</span> <span class="n">k_vals</span><span class="p">)</span>
+                        <span class="n">v_phase</span><span class="p">[</span><span class="n">k_vals</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">max_speed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">v_phase</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Fallback</span>
+                <span class="n">max_speed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">))))</span>
+            
+            <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
+            <span class="n">cfl_limit</span> <span class="o">=</span> <span class="n">cfl_factor</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">/</span> <span class="n">max_speed</span> <span class="k">if</span> <span class="n">max_speed</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">&gt;</span> <span class="n">cfl_limit</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"⚠️ CFL condition violated: dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">, max allowed dt = </span><span class="si">{</span><span class="n">cfl_limit</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ CFL condition satisfied: dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2"> ≤ </span><span class="si">{</span><span class="n">cfl_limit</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># Similar corrections for 2D...</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'omega'</span><span class="p">):</span>
+                <span class="n">k_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kx</span>
+                <span class="n">omega_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">(</span><span class="n">k_vals</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                <span class="n">omega_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">k_vals</span><span class="p">))</span>
+                <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">):</span>
+                    <span class="n">v_group_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">omega_x</span><span class="p">,</span> <span class="n">k_vals</span><span class="p">)</span>
+                    <span class="n">v_group_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">omega_y</span><span class="p">,</span> <span class="n">k_vals</span><span class="p">)</span>
+                <span class="n">max_speed_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v_group_x</span><span class="p">))</span>
+                <span class="n">max_speed_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v_group_y</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># First order or fallback</span>
+                <span class="n">max_speed_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span> <span class="mi">0</span><span class="p">))))</span>
+                <span class="n">max_speed_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ky</span><span class="p">))))</span>
+            
+            <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
+            <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ny</span>
+            <span class="n">cfl_limit</span> <span class="o">=</span> <span class="n">cfl_factor</span> <span class="o">/</span> <span class="p">(</span><span class="n">max_speed_x</span> <span class="o">/</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">max_speed_y</span> <span class="o">/</span> <span class="n">dy</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">max_speed_x</span> <span class="o">+</span> <span class="n">max_speed_y</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">&gt;</span> <span class="n">cfl_limit</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"⚠️ CFL condition violated: dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">, max allowed dt = </span><span class="si">{</span><span class="n">cfl_limit</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✅ CFL condition satisfied: dt = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2"> ≤ </span><span class="si">{</span><span class="n">cfl_limit</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Only 1D and 2D problems are supported."</span><span class="p">)</span>
 
@@ -3141,7 +3469,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Only 1D and 2D supported."</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_energy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_energy_old</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">t_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">source_contribution</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -3216,6 +3544,137 @@
                 <span class="n">minus_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">L_vals</span><span class="p">)</span>
 
                 <span class="c1"># Compute potential energy density directly via inverse FFT of (-L * u_hat) multiplied by u</span>
+                <span class="n">Lu_pot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+                <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">Lu_pot</span><span class="p">))</span>
+
+            <span class="c1"># 2. Compute Total Mechanical Energy</span>
+            <span class="n">kin_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">energy_density</span> <span class="o">=</span> <span class="n">kin_density</span> <span class="o">+</span> <span class="n">pot_density</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
+
+            <span class="c1"># 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx</span>
+            <span class="n">N_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">source_contribution</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">):</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">source_contribution</span>
+
+            <span class="n">power_density</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">N_u</span> <span class="o">+</span> <span class="n">f</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
+
+            <span class="c1"># 4. Accumulate Work via Trapezoidal Rule</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_prev_power'</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="n">power</span>
+
+            <span class="n">work_increment</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">+</span> <span class="n">power</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span> <span class="o">+=</span> <span class="n">work_increment</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="n">power</span>
+
+            <span class="c1"># Store histories</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E_mech</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span><span class="p">)</span>
+
+            <span class="c1"># Total conserved energy</span>
+            <span class="n">E_total</span> <span class="o">=</span> <span class="n">E_mech</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span>
+
+            <span class="k">return</span> <span class="n">E_total</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_energy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">t_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">source_contribution</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">            </span><span class="sd">"""</span>
+<span class="sd">            Compute the total energy of the system at time `t_val`.</span>
+
+<span class="sd">            For second-order time-dependent equations (∂ₜ²u = L u + N(u) + f), the total energy</span>
+<span class="sd">            is defined as the sum of kinetic and potential energy:</span>
+
+<span class="sd">            E(t) = Eₖ(t) + Eₚ(t)</span>
+
+<span class="sd">            where:</span>
+<span class="sd">            - Eₖ(t) = ½ ∫ |∂ₜu|² dx is the kinetic energy.</span>
+<span class="sd">            - Eₚ(t) = -½ ∫ u · (L u + N(u) + f(x,t)) dx is the potential energy.</span>
+
+<span class="sd">            For equations involving pseudo-differential operators (ψOp), the linear</span>
+<span class="sd">            part L u is evaluated using Kohn–Nirenberg quantization, and the fractional</span>
+<span class="sd">            power P¹/² symbol is used where applicable.</span>
+
+<span class="sd">            Parameters</span>
+<span class="sd">            ----------</span>
+<span class="sd">            t_val : float</span>
+<span class="sd">                Current simulation time t.</span>
+<span class="sd">            source_contribution : np.ndarray or float, optional</span>
+<span class="sd">                Evaluated source term f(x,t) on the spatial grid at time `t_val`. Default is 0.0.</span>
+
+<span class="sd">            Returns</span>
+<span class="sd">            -------</span>
+<span class="sd">            float</span>
+<span class="sd">                Total mechanical energy E(t) integrated over the spatial domain.</span>
+<span class="sd">            """</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+            <span class="c1"># Warning for nonlinear/source terms (once)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_energy_warning_issued'</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">"⚠️ Warning: Energy monitoring includes work from nonlinear/source terms."</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_energy_warning_issued</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
+            <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
+            <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ny</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">1.0</span>
+
+            <span class="c1"># 1. Compute Velocity and Potential Operator Terms Consistent with Physics</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+                <span class="c1"># Centered difference for velocity when using staggered states</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_energy_psi_op'</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+
+                <span class="c1"># For psi_op path, Lu already represents the correct square-root potential mapped state</span>
+                <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span> <span class="n">psi_ops</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span><span class="p">)],</span>
+                    <span class="n">is_spatial</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span>
+                <span class="p">)</span>
+                <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
+                
+                <span class="c1"># Compute potential energy via Fourier representation</span>
+                <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+                <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+                
+                <span class="c1"># For well-posed 2nd order equations, L should be negative definite</span>
+                <span class="c1"># (e.g., L = -k² for wave equation, L = -k⁴ for beam equation)</span>
+                <span class="c1"># The potential energy operator is -L, which should be positive</span>
+                <span class="n">minus_L</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">L_vals</span><span class="p">)</span>  <span class="c1"># Take real part and negate</span>
+                
+                <span class="c1"># Check if the operator is indeed negative definite</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">1e-10</span><span class="p">):</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">"Linear operator L is not negative definite. "</span>
+                        <span class="s2">"Energy computation may be incorrect."</span><span class="p">,</span>
+                        <span class="ne">RuntimeWarning</span>
+                    <span class="p">)</span>
+                
+                <span class="c1"># Ensure positivity for safety</span>
+                <span class="n">minus_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">minus_L</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+                
+                <span class="c1"># Compute potential energy density</span>
                 <span class="n">Lu_pot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
                 <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">Lu_pot</span><span class="p">))</span>
 
