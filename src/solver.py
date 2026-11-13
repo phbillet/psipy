@@ -1309,7 +1309,7 @@ class PDESolver:
         return np.maximum(gamma_x[:, None], gamma_y[None, :])
 
 
-    def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
+    def _setup_omega_terms_old(self, omega_val: np.ndarray) -> None:
         """
         Initialize terms derived from the angular frequency ω for time evolution.
 
@@ -1359,6 +1359,22 @@ class PDESolver:
         self.inv_omega[nonzero] = 1.0 / omega_val[nonzero]
         # For the zero mode, the correct factor is dt
         self.inv_omega[~nonzero] = self.dt
+
+    def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
+        self.omega_val = omega_val
+        self.cos_omega_dt = np.cos(omega_val * self.dt)
+        self.sin_omega_dt = np.sin(omega_val * self.dt)
+        
+        # Compute sin(ω·dt)/ω safely using sinc function
+        # sinc(x) = sin(π·x)/(π·x), so sin(ω·dt)/ω = dt·sinc(ω·dt/π)
+        z = omega_val * self.dt / np.pi
+        self.inv_omega_sin = self.dt * np.sinc(z)  # sin(ω·dt)/ω for all modes including ω=0
+        
+        # Keep inv_omega for other uses, but handle zero mode properly
+        self.inv_omega = np.zeros_like(omega_val)
+        nonzero = omega_val != 0
+        self.inv_omega[nonzero] = 1.0 / omega_val[nonzero]
+        self.inv_omega[~nonzero] = 0.0  # Will be handled by inv_omega_sin where needed
 
     def _precompile_source_funcs(self) -> None:
         """
@@ -2286,7 +2302,7 @@ class PDESolver:
                     u_new = self._step_order2_with_psi(source_contribution)
                 else:
                     if hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
-                        u_new, v_new = self._step_ETD_RK4_order2(self.u_prev, self.v_prev, t_val)
+                        u_new, v_new = self._step_RK4_order2(self.u_prev, self.v_prev, t_val)
                     else:
                         u_hat = self.fft(self.u_prev)
                         v_hat = self.fft(self.v_prev)
@@ -2528,7 +2544,59 @@ class PDESolver:
         else:
             return 0.0
 
-    def _step_ETD_RK4_order1(self, u: np.ndarray, t: float = 0.0) -> np.ndarray:
+    def _etdrk4_coefficients_old(self, L_fft):
+        """Cox–Matthews ETD-RK4 coefficients (Kassam–Trefethen contour integral), cached."""
+        if getattr(self, '_etd_coefs', None) is None:
+            dt = self.dt
+            z = dt * L_fft
+            M = 32
+            r = np.exp(2j * np.pi * (np.arange(1, M + 1) - 0.5) / M)   # cercle complet (z complexe)
+            zz = z[..., None] + r
+            E, E2 = np.exp(z), np.exp(z / 2)
+            Q  = dt * np.mean((np.exp(zz / 2) - 1) / zz, axis=-1)
+            f1 = dt * np.mean((-4 - zz + np.exp(zz) * (4 - 3 * zz + zz**2)) / zz**3, axis=-1)
+            f2 = dt * np.mean((2 + zz + np.exp(zz) * (-2 + zz)) / zz**3, axis=-1)
+            f3 = dt * np.mean((-4 - 3 * zz - zz**2 + np.exp(zz) * (4 - zz)) / zz**3, axis=-1)
+            if np.max(np.abs(np.imag(L_fft))) == 0:      # real L (diffusion): coefficients are real
+                Q, f1, f2, f3 = (c.real for c in (Q, f1, f2, f3))
+            self._etd_coefs = (E, E2, Q, f1, f2, f3)
+        return self._etd_coefs
+
+    def _etdrk4_coefficients(self, L_fft):
+        """
+        Cox–Matthews ETD-RK4 coefficients (Kassam–Trefethen contour integral).
+        Cache is keyed by (dt, L_fft.shape, L_fft.dtype) to handle reconfiguration.
+        """
+        # Create a cache key based on current configuration
+        cache_key = (
+            self.dt,
+            L_fft.shape,
+            L_fft.dtype,
+            np.array_equal(L_fft, getattr(self, '_etd_L_fft_cache', None))
+        )
+        
+        if getattr(self, '_etd_coefs', None) is None or getattr(self, '_etd_cache_key', None) != cache_key:
+            dt = self.dt
+            z = dt * L_fft
+            M = 32
+            r = np.exp(2j * np.pi * (np.arange(1, M + 1) - 0.5) / M)
+            zz = z[..., None] + r
+            E, E2 = np.exp(z), np.exp(z / 2)
+            Q  = dt * np.mean((np.exp(zz / 2) - 1) / zz, axis=-1)
+            f1 = dt * np.mean((-4 - zz + np.exp(zz) * (4 - 3 * zz + zz**2)) / zz**3, axis=-1)
+            f2 = dt * np.mean((2 + zz + np.exp(zz) * (-2 + zz)) / zz**3, axis=-1)
+            f3 = dt * np.mean((-4 - 3 * zz - zz**2 + np.exp(zz) * (4 - zz)) / zz**3, axis=-1)
+            
+            if np.max(np.abs(np.imag(L_fft))) == 0:  # real L (diffusion): coefficients are real
+                Q, f1, f2, f3 = (c.real for c in (Q, f1, f2, f3))
+            
+            self._etd_coefs = (E, E2, Q, f1, f2, f3)
+            self._etd_cache_key = cache_key
+            self._etd_L_fft_cache = L_fft.copy()
+        
+        return self._etd_coefs
+
+    def _step_ETD_RK4_order1_old(self, u: np.ndarray, t: float = 0.0) -> np.ndarray:
         """
         Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step
         for first-order in time PDEs.
@@ -2565,7 +2633,7 @@ class PDESolver:
 
         See Also
         --------
-        _step_ETD_RK4_order2 : For second-order in time equations.
+        _step_RK4_order2 : For second-order in time equations.
         _apply_psiOp : For applying pseudo-differential operators.
         _apply_nonlinear : For handling nonlinear terms in the PDE.
         """
@@ -2612,8 +2680,68 @@ class PDESolver:
 
         return ifft(u_new_hat)
 
+    def _step_ETD_RK4_order1(self, u: np.ndarray, t: float = 0.0) -> np.ndarray:
+        """
+        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step
+        for first-order in time PDEs.
 
-    def _step_ETD_RK4_order2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
+        Solves equations of the form:
+            ∂ₜu = L u + N(u) + f(x,t)
+        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a
+        nonlinear term treated via pseudo-spectral methods.
+
+        The ETD-RK4 scheme uses four stages to approximate the integral of the
+        variation-of-constants formula:
+            uⁿ⁺¹ = e^(L Δt) uⁿ + Δt ∫₀¹ e^(L Δt (1 - τ)) φ(N(u(τ))) dτ
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution in real space (physical grid values).
+        t : float, optional
+            Current time. Default is 0.0.
+
+        Returns
+        -------
+        np.ndarray
+            Updated solution in real space after one ETD-RK4 time step.
+
+        Notes
+        -----
+        - The linear part L is diagonal in Fourier space and precomputed as `self.L(k)`.
+        - Nonlinear terms are evaluated in physical space and transformed via FFT.
+        - The functions φ₁(z) and φ₂(z) are entire functions arising from the ETD scheme:
+              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0, else 1
+              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0, else ½
+        - Assumes periodic boundary conditions and uses spectral differentiation via FFT.
+
+        See Also
+        --------
+        _step_RK4_order2 : For second-order in time equations.
+        _apply_psiOp : For applying pseudo-differential operators.
+        _apply_nonlinear : For handling nonlinear terms in the PDE.
+        """
+        dt = self.dt
+        L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
+        E, E2, Q, f1, f2, f3 = self._etdrk4_coefficients(L_fft)
+        fft, ifft = self.fft, self.ifft
+
+        s0 = self._eval_source(t)
+        sh = self._eval_source(t + 0.5 * dt)
+        s1 = self._eval_source(t + dt)
+        nl = lambda v: self._apply_nonlinear(v) / dt        # _apply_nonlinear returns dt*N(v)
+
+        u_hat = fft(u)
+        Nu = fft(nl(u) + s0)
+        a  = ifft(E2 * u_hat + Q * Nu)
+        Na = fft(nl(a) + sh)
+        b  = ifft(E2 * u_hat + Q * Na)
+        Nb = fft(nl(b) + sh)
+        c  = ifft(E2 * fft(a) + Q * (2 * Nb - Nu))
+        Nc = fft(nl(c) + s1)
+        return ifft(E * u_hat + f1 * Nu + 2 * f2 * (Na + Nb) + f3 * Nc)
+
+    def _step_ETD_RK4_order2_old(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
         """
         Perform one time step of the ETD-RK4 scheme for second-order PDEs.
 
@@ -2676,8 +2804,129 @@ class PDESolver:
 
         return u_new, v_new
 
+    def _step_ETD_RK4_order2_old2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Perform one time step of the ETD-RK4 scheme for second-order PDEs.
 
-    def _check_cfl_condition(self) -> None:
+        Evolves the solution u and its time derivative v forward in time by one step
+        using the ETD-RK4 integrator. Designed for systems of the form:
+            ∂ₜ²u = L u + N(u) + f(x,t)
+        where L is a linear operator and N is a nonlinear term.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution array in real space.
+        v : np.ndarray
+            Current time derivative of the solution (∂ₜu) in real space.
+        t : float, optional
+            Current time. Default is 0.0.
+
+        Returns
+        -------
+        tuple of np.ndarray
+            `(u_new, v_new)`: Updated solution and its time derivative after one time step.
+
+        Notes
+        -----
+        - Assumes periodic boundary conditions and uses FFT-based spectral methods.
+        - Handles both 1D and 2D problems seamlessly.
+        - Uses phi functions to compute exponential integrators efficiently.
+        """
+        dt = self.dt
+
+        L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
+        fft = self.fft
+        ifft = self.ifft
+
+        def rhs(u_val, t_val):
+            return (ifft(L_fft * fft(u_val))
+                    + self._apply_nonlinear(u_val, is_v=False) / dt     # returns dt*N
+                    + self._eval_source(t_val))
+
+        # Stage A (t)
+        A = rhs(u, t)
+        ua = u + 0.5 * dt * v
+        va = v + 0.5 * dt * A
+
+        # Stage B (t + dt/2)
+        B = rhs(ua, t + 0.5 * dt)
+        ub = u + 0.5 * dt * va
+        vb = v + 0.5 * dt * B
+
+        # Stage C (t + dt/2)
+        C = rhs(ub, t + 0.5 * dt)
+        uc = u + dt * vb
+
+        # Stage D (t + dt)
+        D = rhs(uc, t + dt)
+
+        # Final update
+        u_new = u + dt * v + (dt**2 / 6.0) * (A + B + C)
+        v_new = v + (dt / 6.0) * (A + 2*B + 2*C + D)
+
+        return u_new, v_new
+
+    def _step_RK4_order2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Perform one time step using explicit 4th-order Runge-Kutta (RK4) for second-order PDEs.
+        
+        NOTE: This is NOT an exponential integrator. It is subject to CFL restrictions
+        for stiff linear operators. For true ETD-RK4 on second-order equations, use
+        the complex diagonalization approach or implement oscillatory ETD schemes.
+        
+        Evolves the system:
+            ∂ₜu = v
+            ∂ₜv = L·u + N(u) + f(x,t)
+        
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution array in real space.
+        v : np.ndarray
+            Current time derivative ∂ₜu in real space.
+        t : float, optional
+            Current time. Default is 0.0.
+        
+        Returns
+        -------
+        tuple of np.ndarray
+            (u_new, v_new): Updated solution and velocity after one time step.
+        """
+        dt = self.dt
+        L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
+        fft = self.fft
+        ifft = self.ifft
+        
+        def rhs(u_val, t_val):
+            return (ifft(L_fft * fft(u_val))
+                    + self._apply_nonlinear(u_val, is_v=False) / dt
+                    + self._eval_source(t_val))
+        
+        # Stage A (t)
+        A = rhs(u, t)
+        ua = u + 0.5 * dt * v
+        va = v + 0.5 * dt * A
+        
+        # Stage B (t + dt/2)
+        B = rhs(ua, t + 0.5 * dt)
+        ub = u + 0.5 * dt * va
+        vb = v + 0.5 * dt * B
+        
+        # Stage C (t + dt/2)
+        C = rhs(ub, t + 0.5 * dt)
+        uc = u + dt * vb
+        
+        # Stage D (t + dt)
+        D = rhs(uc, t + dt)
+        
+        # Final update (correct RK4 weights for 2nd order system)
+        u_new = u + dt * v + (dt**2 / 6.0) * (A + B + C)
+        v_new = v + (dt / 6.0) * (A + 2*B + 2*C + D)
+        
+        return u_new, v_new
+
+    def _check_cfl_condition_old(self) -> None:
         """
         Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity
         for second-order time-dependent PDEs.
@@ -2741,6 +2990,85 @@ class PDESolver:
             if self.dt > cfl_limit:
                 print(f"CFL condition violated: dt = {self.dt}, max allowed dt = {cfl_limit}")
 
+        else:
+            raise NotImplementedError("Only 1D and 2D problems are supported.")
+
+    def _check_cfl_condition(self) -> None:
+        print("\n*****************")
+        print("* CFL condition *")
+        print("*****************\n")
+        
+        cfl_factor = 0.5  # Safety factor
+        
+        if self.dim == 1:
+            if self.temporal_order == 2 and hasattr(self, 'omega'):
+                # Second order: use group velocity from dispersion relation
+                k_vals = self.kx
+                omega_vals = np.real(self.omega(k_vals))
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    v_group = np.gradient(omega_vals, k_vals)
+                max_speed = np.max(np.abs(v_group))
+            elif self.temporal_order == 1:
+                # First order: compute group velocity from dispersion relation
+                # For ∂ₜu = L·u, the dispersion relation is ω = -i·L(k)
+                k_vals = self.kx
+                L_vals = self.L(k_vals)
+                omega_vals = -1j * L_vals  # ω(k) = -i·L(k)
+                
+                # Group velocity: v_g = dω/dk = -i·dL/dk
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    dL_dk = np.gradient(L_vals, k_vals)
+                    v_group = -1j * dL_dk
+                
+                # For stability, we need the maximum characteristic speed
+                # For advective equations (L purely imaginary), this is |Im(ω)/k|
+                # For dissipative equations (L has real part), use the imaginary part
+                if np.allclose(np.real(L_vals), 0):
+                    # Purely advective: v_g = d(Im(ω))/dk
+                    max_speed = np.max(np.abs(np.real(v_group)))
+                else:
+                    # Mixed or dissipative: use phase velocity as upper bound
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        v_phase = np.abs(np.imag(L_vals) / k_vals)
+                        v_phase[k_vals == 0] = 0
+                    max_speed = np.max(v_phase)
+            else:
+                # Fallback
+                max_speed = np.max(np.abs(np.imag(self.L(self.kx))))
+            
+            dx = self.Lx / self.Nx
+            cfl_limit = cfl_factor * dx / max_speed if max_speed != 0 else np.inf
+            
+            if self.dt > cfl_limit:
+                print(f"⚠️ CFL condition violated: dt = {self.dt:.4e}, max allowed dt = {cfl_limit:.4e}")
+            else:
+                print(f"✅ CFL condition satisfied: dt = {self.dt:.4e} ≤ {cfl_limit:.4e}")
+        
+        elif self.dim == 2:
+            # Similar corrections for 2D...
+            if self.temporal_order == 2 and hasattr(self, 'omega'):
+                k_vals = self.kx
+                omega_x = np.real(self.omega(k_vals, 0))
+                omega_y = np.real(self.omega(0, k_vals))
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    v_group_x = np.gradient(omega_x, k_vals)
+                    v_group_y = np.gradient(omega_y, k_vals)
+                max_speed_x = np.max(np.abs(v_group_x))
+                max_speed_y = np.max(np.abs(v_group_y))
+            else:
+                # First order or fallback
+                max_speed_x = np.max(np.abs(np.imag(self.L(self.kx, 0))))
+                max_speed_y = np.max(np.abs(np.imag(self.L(0, self.ky))))
+            
+            dx = self.Lx / self.Nx
+            dy = self.Ly / self.Ny
+            cfl_limit = cfl_factor / (max_speed_x / dx + max_speed_y / dy) if (max_speed_x + max_speed_y) != 0 else np.inf
+            
+            if self.dt > cfl_limit:
+                print(f"⚠️ CFL condition violated: dt = {self.dt:.4e}, max allowed dt = {cfl_limit:.4e}")
+            else:
+                print(f"✅ CFL condition satisfied: dt = {self.dt:.4e} ≤ {cfl_limit:.4e}")
+        
         else:
             raise NotImplementedError("Only 1D and 2D problems are supported.")
 
@@ -3046,7 +3374,7 @@ class PDESolver:
         else:
             raise ValueError("Only 1D and 2D supported.")
 
-    def _compute_energy(
+    def _compute_energy_old(
         self,
         t_val: float,
         source_contribution: Union[np.ndarray, float, int] = 0.0
@@ -3121,6 +3449,137 @@ class PDESolver:
                 minus_L = np.abs(L_vals)
 
                 # Compute potential energy density directly via inverse FFT of (-L * u_hat) multiplied by u
+                Lu_pot = self.ifft(minus_L * u_hat)
+                pot_density = 0.5 * np.real(u * np.conj(Lu_pot))
+
+            # 2. Compute Total Mechanical Energy
+            kin_density = 0.5 * np.abs(v)**2
+            energy_density = kin_density + pot_density
+
+            if self.dim == 1:
+                E_mech = np.sum(energy_density) * dx
+            else:
+                E_mech = np.sum(energy_density) * dx * dy
+
+            # 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx
+            N_u = self._apply_nonlinear(self.u_prev, is_v=False)
+
+            if source_contribution is None or np.isscalar(source_contribution):
+                f = np.zeros_like(u)
+            else:
+                f = source_contribution
+
+            power_density = np.real(v * np.conj(N_u + f))
+
+            if self.dim == 1:
+                power = np.sum(power_density) * dx
+            else:
+                power = np.sum(power_density) * dx * dy
+
+            # 4. Accumulate Work via Trapezoidal Rule
+            if not hasattr(self, '_prev_power'):
+                self._prev_power = power
+
+            work_increment = 0.5 * (self._prev_power + power) * self.dt
+            self.accumulated_work += work_increment
+            self._prev_power = power
+
+            # Store histories
+            self.mechanical_energy_history.append(E_mech)
+            self.work_history.append(self.accumulated_work)
+
+            # Total conserved energy
+            E_total = E_mech - self.accumulated_work
+
+            return E_total
+
+    def _compute_energy(
+        self,
+        t_val: float,
+        source_contribution: Union[np.ndarray, float, int] = 0.0
+    ) -> Optional[float]:
+            """
+            Compute the total energy of the system at time `t_val`.
+
+            For second-order time-dependent equations (∂ₜ²u = L u + N(u) + f), the total energy
+            is defined as the sum of kinetic and potential energy:
+
+            E(t) = Eₖ(t) + Eₚ(t)
+
+            where:
+            - Eₖ(t) = ½ ∫ |∂ₜu|² dx is the kinetic energy.
+            - Eₚ(t) = -½ ∫ u · (L u + N(u) + f(x,t)) dx is the potential energy.
+
+            For equations involving pseudo-differential operators (ψOp), the linear
+            part L u is evaluated using Kohn–Nirenberg quantization, and the fractional
+            power P¹/² symbol is used where applicable.
+
+            Parameters
+            ----------
+            t_val : float
+                Current simulation time t.
+            source_contribution : np.ndarray or float, optional
+                Evaluated source term f(x,t) on the spatial grid at time `t_val`. Default is 0.0.
+
+            Returns
+            -------
+            float
+                Total mechanical energy E(t) integrated over the spatial domain.
+            """
+            if self.temporal_order != 2:
+                return None
+
+            # Warning for nonlinear/source terms (once)
+            if not getattr(self, '_energy_warning_issued', False):
+                if self.nonlinear_terms or self.source_terms:
+                    print("⚠️ Warning: Energy monitoring includes work from nonlinear/source terms.")
+                    self._energy_warning_issued = True
+
+            u = self.u_prev
+            dx = self.Lx / self.Nx
+            dy = self.Ly / self.Ny if self.dim > 1 else 1.0
+
+            # 1. Compute Velocity and Potential Operator Terms Consistent with Physics
+            if self.has_psi:
+                if self.u_prev2 is None:
+                    return None
+                # Centered difference for velocity when using staggered states
+                v = (self.u_prev - self.u_prev2) / self.dt
+                if not hasattr(self, '_energy_psi_op'):
+                    return None
+
+                # For psi_op path, Lu already represents the correct square-root potential mapped state
+                Lu = self._apply_psiOp(
+                    u, psi_ops=[(1, self._energy_psi_op)],
+                    is_spatial=self._energy_is_spatial
+                )
+                pot_density = 0.5 * np.abs(Lu)**2
+            else:
+                if self.v_prev is None:
+                    return None
+                v = self.v_prev
+                
+                # Compute potential energy via Fourier representation
+                u_hat = self.fft(u)
+                L_vals = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
+                
+                # For well-posed 2nd order equations, L should be negative definite
+                # (e.g., L = -k² for wave equation, L = -k⁴ for beam equation)
+                # The potential energy operator is -L, which should be positive
+                minus_L = -np.real(L_vals)  # Take real part and negate
+                
+                # Check if the operator is indeed negative definite
+                if np.any(minus_L < -1e-10):
+                    warnings.warn(
+                        "Linear operator L is not negative definite. "
+                        "Energy computation may be incorrect.",
+                        RuntimeWarning
+                    )
+                
+                # Ensure positivity for safety
+                minus_L = np.maximum(minus_L, 0.0)
+                
+                # Compute potential energy density
                 Lu_pot = self.ifft(minus_L * u_hat)
                 pot_density = 0.5 * np.real(u * np.conj(Lu_pot))
 
