@@ -19,12 +19,12 @@ Overview
 --------
 The `solver` module provides a high‑performance spectral solver for partial differential equations in one and two spatial dimensions.  It is designed to handle a wide class of problems, including:
 
-* Linear and nonlinear PDEs with periodic boundary conditions (native), plus heuristic 'dirichlet'/'neumann' treatments for localized solutions on large domains (see "Boundary conditions" below).
+* Linear and nonlinear PDEs with periodic boundary conditions (native), plus heuristic 'nonperiodic'/'neumann' treatments for localized solutions on large domains (see "Boundary conditions" below).
 * Time‑dependent evolution (first‑ or second‑order in time) and stationary problems.
 * Equations involving pseudo‑differential operators (via `psiOp`), such as fractional Laplacians or non‑local terms.
 * Source terms and arbitrary spatial derivatives.
 
-The solver is built on **Fourier spectral methods** for spatial discretisation, ensuring exponential convergence for smooth solutions.  Time stepping is performed with either a simple exponential integrator, a fourth‑order **Exponential Time Differencing Runge–Kutta (ETD‑RK4)** scheme, or explicit Runge–Kutta methods for nonlinear problems.  For stationary pseudo‑differential equations, an **asymptotic inversion** of the operator is available.
+The solver is built on **Fourier spectral methods** for spatial discretisation, ensuring exponential convergence for smooth solutions.  Time stepping is performed with either a simple exponential integrator, a fourth‑order **Exponential Time Differencing Runge–Kutta (ETD‑RK4)** scheme for first‑order equations, or explicit Runge–Kutta methods for second‑order equations and nonlinear problems.  For stationary pseudo‑differential equations, an **asymptotic inversion** of the operator is available.
 
 Key features:
 
@@ -43,7 +43,7 @@ Mathematical background
 -----------------------
 **Spectral discretisation.**  The solution `u(x,t)` is approximated by its truncated Fourier series.  Spatial derivatives are replaced by multiplication with the corresponding wavenumber in Fourier space:
 
-    ∂/∂x   →   i k ,  ∂²/∂x² →   -k² .
+    ∂/∂x   →   i k , ∂²/∂x² →   -k² .
 
 Nonlinear terms are evaluated in physical space and then transformed back (pseudo‑spectral approach).  Dealiasing is applied by zeroing out the highest one‑third of the Fourier modes (the 2/3‑rule).
 
@@ -54,13 +54,16 @@ Nonlinear terms are evaluated in physical space and then transformed back (pseud
 the variation‑of‑constants formula motivates exponential integrators.  The solver implements:
 
 * **Exponential Euler** (first order): `uⁿ⁺¹ = e^{LΔt} uⁿ + Δt φ₁(LΔt) (N(uⁿ)+fⁿ)` with `φ₁(z) = (e^z-1)/z`.
-* **ETD‑RK4** (fourth order): a Runge–Kutta scheme that uses exponentials of the linear part, achieving high accuracy for stiff problems.
+* **ETD‑RK4** (fourth order, first‑order equations only): the Kassam–Trefethen Runge–Kutta scheme that uses exponentials of the linear part, achieving high accuracy and unconditional stability for the linear part of stiff problems.
 
 For second‑order equations
 
     ∂ₜ² u = L u + N(u) + f(x,t),
 
-the system is reduced to first order in time, and a leap‑frog style integrator or a second‑order ETD scheme is used.
+the system is reduced to first order in time (∂ₜu = v, ∂ₜv = L u + N(u) + f), and explicit Runge–Kutta methods are used.  The solver provides:
+
+* **Explicit RK4** (fourth order): a standard Runge–Kutta scheme applied to the first‑order system.  This is subject to the CFL condition Δt ∝ Δx^(m/2) where m is the order of the linear operator L.  For stiff operators, this imposes severe time‑step restrictions.  (Note: despite historical naming, this is not an exponential integrator.)
+* **Leap‑frog** (second order, for pseudo‑differential operators): an explicit finite‑difference scheme used when `psiOp` is present.
 
 **Pseudo‑differential operators.**  When the equation contains `psiOp(p(x,ξ), u)`, the solver builds a `PseudoDifferentialOperator` object (from the companion `psiop` module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.
 
@@ -79,21 +82,21 @@ with x₀ = (Lx/2)(1 − w), where `w` is the relative width (`sponge_width`), �
 
 The damping is treated by operator splitting: after each (spectral) time step the fields are multiplied by e^{−γ Δt}, except for the second‑order pseudo‑differential scheme, where the friction term γ∂ₜu is included implicitly in the leap‑frog update.  The sponge is a numerical device, not a physical boundary condition: it only attenuates the solution, it does not impose any value on it, and the physics inside the layer is modified.  Place all features of interest in the undamped interior.
 
-**Boundary conditions.**  Only 'periodic' is exact: the FFT natively enforces u(x+L) = u(x), and no clipping is applied.  'dirichlet' and 'neumann' are implemented by post-hoc clipping of the boundary nodes after each time step (u[0]=u[-1]=0 for Dirichlet, u[0]=u[1], u[-1]=u[-2] for Neumann, a first-order approximation).  They do NOT constitute a rigorous spectral boundary-value-problem enforcement.  They are accurate when the solution is localized and negligible (~machine precision) at the boundary, i.e. they emulate the whole-space Cauchy problem on a sufficiently large box.  If the solution reaches the boundary with non-negligible amplitude, the clipping creates a jump in the periodic extension (Gibbs phenomenon) that pollutes the whole domain.  A runtime guard (`boundary_tol`) warns when this happens.  For hard-wall reflections with constant, even symbols, use periodic BCs with the method of images (odd extension = Dirichlet, even extension = Neumann on a doubled domain).  For open domains, use periodic BCs with a sponge layer.  Note that for non-local operators these choices define different operators (the odd extension yields the *spectral* fractional Laplacian, not the *restricted* one).
+**Boundary conditions.**  Only 'periodic' is exact: the FFT natively enforces u(x+L) = u(x), and no clipping is applied.  'nonperiodic' and 'neumann' are implemented by post-hoc clipping of the boundary nodes after each time step (u[0]=u[-1]=0 for Dirichlet, u[0]=u[1], u[-1]=u[-2] for Neumann, a first-order approximation).  They do NOT constitute a rigorous spectral boundary-value-problem enforcement.  They are accurate when the solution is localized and negligible (~machine precision) at the boundary, i.e. they emulate the whole-space Cauchy problem on a sufficiently large box.  If the solution reaches the boundary with non-negligible amplitude, the clipping creates a jump in the periodic extension (Gibbs phenomenon) that pollutes the whole domain.  A runtime guard (`boundary_tol`) warns when this happens.  For hard-wall reflections with constant, even symbols, use periodic BCs with the method of images (odd extension = Dirichlet, even extension = Neumann on a doubled domain).  For open domains, use periodic BCs with a sponge layer.  Note that for non-local operators these choices define different operators (the odd extension yields the *spectral* fractional Laplacian, not the *restricted* one).
 
 References
 ----------
 .. [1] Canuto, C., Hussaini, M. Y., Quarteroni, A., & Zang, T. A.  *Spectral Methods: Fundamentals in Single Domains*, Springer, 2006.
 .. [2] Trefethen, L. N.  *Spectral Methods in MATLAB*, SIAM, 2000.
 .. [3] Boyd, J. P.  *Chebyshev and Fourier Spectral Methods*, Dover, 2001.
-.. [4] Hochbruck, M., & Ostermann, A.  “Exponential integrators”, *Acta Numerica* 19, 209–286, 2010.
-.. [5] Kassam, A.-K., & Trefethen, L. N.  “Fourth‑order time‑stepping for stiff PDEs”, *SIAM J. Sci. Comput.* 26(4), 1214–1233, 2005.
+.. [4] Hochbruck, M., & Ostermann, A.  "Exponential integrators", *Acta Numerica* 19, 209–286, 2010.
+.. [5] Kassam, A.-K., & Trefethen, L. N.  "Fourth‑order time‑stepping for stiff PDEs", *SIAM J. Sci. Comput.* 26(4), 1214–1233, 2005.
 """
 
 from imports import *
 from psiop import *
 
-_LEGACY_BC_CLIP = {'dirichlet': 'zero', 'neumann': 'copy'}
+_LEGACY_BC_CLIP = {'nonperiodic': 'zero', 'neumann': 'copy'}
 
 def _normalize_bc(bc):
     """Return (canonical_bc, clip_mode). Legacy names are deprecated aliases."""
@@ -112,7 +115,7 @@ def _normalize_bc(bc):
     raise ValueError(
         f"Invalid boundary condition '{bc}'. "
         "Supported: 'periodic', 'nonperiodic' (deprecated aliases: "
-        "'dirichlet', 'neumann')."
+        "'nonperiodic', 'neumann')."
     )
 
 class PDESolver:
@@ -200,7 +203,7 @@ class PDESolver:
         time_scheme : str
             Temporal integration scheme:
                 - 'default' for exponential
-                - time-stepping or 'ETD-RK4' for fourth-order exponential
+                - time-stepping or 'RK4' for fourth-order exponential
                 - time differencing Runge–Kutta.
         dealiasing_ratio : float
             Fraction of high-frequency modes to zero out
@@ -228,7 +231,7 @@ class PDESolver:
                         if unsupported dimensions are detected, or invalid dependencies.
         """
         self.equation = equation
-        self.time_scheme = time_scheme # 'default'  or 'ETD-RK4'
+        self.time_scheme = time_scheme # 'default'  or 'RK4'
         self.dealiasing_ratio = dealiasing_ratio
         self.compute_energy = compute_energy
 
@@ -896,7 +899,7 @@ class PDESolver:
             'periodic' (exact, native FFT) or 'nonperiodic' (heuristic: direct
             quadrature backend + clipping of boundary nodes to 0 after each
             step; valid only for solutions negligible at the boundary, see
-            `boundary_tol`). 'dirichlet'/'neumann' are deprecated aliases.
+            `boundary_tol`). 'nonperiodic'/'neumann' are deprecated aliases.
             'nonperiodic' requires equations defined through `psiOp`.
         boundary_tol : float, default=1e-8
             Relative threshold on the correction applied by the clipping
@@ -1308,25 +1311,24 @@ class PDESolver:
         # Take the max so corners get full damping from both axes
         return np.maximum(gamma_x[:, None], gamma_y[None, :])
 
-
-    def _setup_omega_terms_old(self, omega_val: np.ndarray) -> None:
+    def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
         """
         Initialize terms derived from the angular frequency ω for time evolution.
-
+    
         This private method precomputes and stores key trigonometric and inverse quantities
         based on the dispersion relation ω(k), used in second-order time integration schemes.
-
+    
         These values are essential for solving wave-like equations with dispersive behavior:
-            cos(ω·dt), sin(ω·dt), 1/ω
-
-        The inverse frequency is computed safely to avoid division by zero.
-
+            cos(ω·dt), sin(ω·dt)/ω
+    
+        The inverse frequency terms are computed safely to avoid division by zero at ω=0.
+    
         Parameters
         ----------
         omega_val : np.ndarray
             Array of angular frequency values ω(k) evaluated at discrete wavenumbers.
             Can be one-dimensional (1D) or two-dimensional (2D) depending on spatial dimension.
-
+    
         Attributes Set
         --------------
         - self.omega_val : np.ndarray
@@ -1335,32 +1337,30 @@ class PDESolver:
             Cosine of ω(k) multiplied by time step: cos(ω(k) · dt).
         - self.sin_omega_dt : np.ndarray
             Sine of ω(k) multiplied by time step: sin(ω(k) · dt).
+        - self.inv_omega_sin : np.ndarray
+            Safe computation of sin(ω·dt)/ω using the sinc function:
+            sin(ω·dt)/ω = dt·sinc(ω·dt/π), valid for all modes including ω=0.
+            This is the primary quantity used in the spectral propagator for the
+            velocity-to-position coupling term.
         - self.inv_omega : np.ndarray
-            Inverse of ω(k), with zeros where ω(k) == 0 to avoid division by zero.
-
+            Inverse of ω(k), with zeros where ω(k) == 0. Used for auxiliary
+            computations where the zero mode does not contribute.
+    
         Notes
         -----
         - This method is typically called during setup when solving second-order PDEs
           involving dispersive waves (e.g., Klein-Gordon, Schrödinger, or water wave equations).
-        - The safe computation of 1/ω ensures numerical stability even when low frequencies are present.
+        - The computation of sin(ω·dt)/ω via the sinc function ensures numerical stability
+          and correctness even when low frequencies (including ω=0) are present.
+        - For the zero mode (ω=0), the limit sin(ω·dt)/ω → dt is correctly captured.
         - These precomputed arrays are used in spectral propagators for accurate time stepping.
-
+    
         See Also
         --------
         setup_1D : Sets up internal variables for one-dimensional problems.
         setup_2D : Sets up internal variables for two-dimensional problems.
         solve : Time integration using the computed frequency terms.
         """
-        self.omega_val = omega_val
-        self.cos_omega_dt = np.cos(omega_val * self.dt)
-        self.sin_omega_dt = np.sin(omega_val * self.dt)
-        self.inv_omega = np.zeros_like(omega_val)
-        nonzero = omega_val != 0
-        self.inv_omega[nonzero] = 1.0 / omega_val[nonzero]
-        # For the zero mode, the correct factor is dt
-        self.inv_omega[~nonzero] = self.dt
-
-    def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
         self.omega_val = omega_val
         self.cos_omega_dt = np.cos(omega_val * self.dt)
         self.sin_omega_dt = np.sin(omega_val * self.dt)
@@ -1553,7 +1553,7 @@ class PDESolver:
         Raises
         ------
         ValueError
-            If `self.boundary_condition` is not 'periodic', 'dirichlet' or 'neumann'.
+            If `self.boundary_condition` is not 'periodic', 'nonperiodic' or 'neumann'.
         """
         bc = self.boundary_condition
         if bc == 'periodic':
@@ -2279,7 +2279,7 @@ class PDESolver:
             if self.temporal_order == 1:
                 if self.has_psi:
                     u_new = self._step_order1_with_psi(source_contribution)
-                elif hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
+                elif hasattr(self, 'time_scheme') and self.time_scheme == 'RK4':
                     u_new = self._step_ETD_RK4_order1(self.u_prev, t_val)
                 else:
                     u_hat = self.fft(self.u_prev)
@@ -2301,7 +2301,7 @@ class PDESolver:
                 if self.has_psi:
                     u_new = self._step_order2_with_psi(source_contribution)
                 else:
-                    if hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
+                    if hasattr(self, 'time_scheme') and self.time_scheme == 'RK4':
                         u_new, v_new = self._step_RK4_order2(self.u_prev, self.v_prev, t_val)
                     else:
                         u_hat = self.fft(self.u_prev)
@@ -2544,28 +2544,89 @@ class PDESolver:
         else:
             return 0.0
 
-    def _etdrk4_coefficients_old(self, L_fft):
-        """Cox–Matthews ETD-RK4 coefficients (Kassam–Trefethen contour integral), cached."""
-        if getattr(self, '_etd_coefs', None) is None:
-            dt = self.dt
-            z = dt * L_fft
-            M = 32
-            r = np.exp(2j * np.pi * (np.arange(1, M + 1) - 0.5) / M)   # cercle complet (z complexe)
-            zz = z[..., None] + r
-            E, E2 = np.exp(z), np.exp(z / 2)
-            Q  = dt * np.mean((np.exp(zz / 2) - 1) / zz, axis=-1)
-            f1 = dt * np.mean((-4 - zz + np.exp(zz) * (4 - 3 * zz + zz**2)) / zz**3, axis=-1)
-            f2 = dt * np.mean((2 + zz + np.exp(zz) * (-2 + zz)) / zz**3, axis=-1)
-            f3 = dt * np.mean((-4 - 3 * zz - zz**2 + np.exp(zz) * (4 - zz)) / zz**3, axis=-1)
-            if np.max(np.abs(np.imag(L_fft))) == 0:      # real L (diffusion): coefficients are real
-                Q, f1, f2, f3 = (c.real for c in (Q, f1, f2, f3))
-            self._etd_coefs = (E, E2, Q, f1, f2, f3)
-        return self._etd_coefs
-
     def _etdrk4_coefficients(self, L_fft):
         """
-        Cox–Matthews ETD-RK4 coefficients (Kassam–Trefethen contour integral).
-        Cache is keyed by (dt, L_fft.shape, L_fft.dtype) to handle reconfiguration.
+        Precompute the Cox–Matthews ETD-RK4 weights by the Kassam–Trefethen
+        contour-integral trick, with memoisation.
+    
+        All weights are functions of the single dimensionless argument
+        z = Δt·L(k), where L(k) is the Fourier symbol of the linear part.
+        Written with the entire functions
+    
+            φ₁(z) = (eᶻ − 1)/z,
+            φ₂(z) = (eᶻ − 1 − z)/z²,
+            φ₃(z) = (eᶻ − 1 − z − z²/2)/z³,
+    
+        the returned quantities are
+    
+            E  = eᶻ,
+            E2 = e^{z/2},
+            Q  = Δt·(e^{z/2} − 1)/z          = (Δt/2)·φ₁(z/2),
+            f1 = Δt·(φ₁ − 3φ₂ + 4φ₃),
+            f2 = Δt·(φ₂ − 2φ₃),
+            f3 = Δt·(4φ₃ − φ₂),
+    
+        i.e. exactly the combinations used by `_step_ETD_RK4_order1`:
+    
+            a = E2·û + Q·N̂ᵤ,
+            b = E2·û + Q·N̂ₐ,
+            c = E2·â + Q·(2N̂_b − N̂ᵤ),
+            ûⁿ⁺¹ = E·û + f1·N̂ᵤ + 2f2·(N̂ₐ + N̂_b) + f3·N̂_c.
+    
+        Each weight is evaluated as the mean of its defining expression over
+        M = 32 points zz = z + rⱼ, rⱼ = exp(2iπ(j − ½)/M), j = 1…M, i.e. a
+        circle of radius 1 centred at z, sampled at the half-offset roots of
+        unity. Since the expressions are entire (their apparent poles at 0
+        are removable), the mean equals the value at the centre by Cauchy's
+        formula, while never evaluating them at or near zz = 0. This removes
+        the catastrophic cancellation of the direct formulas for |z| ≪ 1
+        (in particular at the zero mode k = 0) without any series branching.
+    
+        Parameters
+        ----------
+        L_fft : numpy.ndarray
+            Fourier symbol L(k) evaluated on the spectral grid, shape (Nx,)
+            in 1D or (Nx, Ny) in 2D. May be complex (dispersive/advective
+            symbols) or purely real (diffusive symbols).
+    
+        Returns
+        -------
+        E, E2, Q, f1, f2, f3 : tuple of numpy.ndarray
+            Arrays broadcastable to `L_fft.shape`. E and E2 are always
+            complex; Q, f1, f2, f3 are cast to real when `L_fft` has
+            identically zero imaginary part, so that diffusive problems stay
+            in real arithmetic downstream.
+    
+        Notes
+        -----
+        - The result is cached in `self._etd_coefs`; the associated key is
+          stored in `self._etd_cache_key` and the symbol it was built from in
+          `self._etd_L_fft_cache`.
+        - The key is (Δt, shape, dtype, array_equal(L_fft, cached_symbol)).
+          The last entry is a *boolean*, not a hash of the values: it detects
+          that the symbol has changed, but the flag stored at rebuild time
+          then differs from the flag computed at the next call, so the cache
+          keeps alternating and the coefficients are effectively recomputed
+          on every call once a change has occurred. To make the cache stable,
+          drop the boolean from the key and compare `L_fft` with
+          `_etd_L_fft_cache` separately.
+        - Δt is read from `self.dt`; changing it (or the grid, hence the
+          symbol) invalidates the cache through the key.
+        - The contour radius is fixed to 1. Very large |z| (stiff symbols
+          with large Δt) can overflow in exp(zz); no rescaling is attempted.
+        - Cost: six exp evaluations on an array of size (…, 32), once per
+          distinct configuration; memory peak is 32× the symbol array.
+    
+        References
+        ----------
+        .. [1] Kassam, A.-K., & Trefethen, L. N. "Fourth-order time-stepping
+               for stiff PDEs", SIAM J. Sci. Comput. 26(4), 1214–1233, 2005.
+        .. [2] Cox, S. M., & Matthews, P. C. "Exponential time differencing
+               for stiff systems", J. Comput. Phys. 176, 430–455, 2002.
+    
+        See Also
+        --------
+        _step_ETD_RK4_order1 : The consumer of these weights (first-order PDEs).
         """
         # Create a cache key based on current configuration
         cache_key = (
@@ -2596,103 +2657,37 @@ class PDESolver:
         
         return self._etd_coefs
 
-    def _step_ETD_RK4_order1_old(self, u: np.ndarray, t: float = 0.0) -> np.ndarray:
-        """
-        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step
-        for first-order in time PDEs.
-
-        Solves equations of the form:
-            ∂ₜu = L u + N(u) + f(x,t)
-        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a
-        nonlinear term treated via pseudo-spectral methods.
-
-        The ETD-RK4 scheme uses four stages to approximate the integral of the
-        variation-of-constants formula:
-            uⁿ⁺¹ = e^(L Δt) uⁿ + Δt ∫₀¹ e^(L Δt (1 - τ)) φ(N(u(τ))) dτ
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current solution in real space (physical grid values).
-        t : float, optional
-            Current time. Default is 0.0.
-
-        Returns
-        -------
-        np.ndarray
-            Updated solution in real space after one ETD-RK4 time step.
-
-        Notes
-        -----
-        - The linear part L is diagonal in Fourier space and precomputed as `self.L(k)`.
-        - Nonlinear terms are evaluated in physical space and transformed via FFT.
-        - The functions φ₁(z) and φ₂(z) are entire functions arising from the ETD scheme:
-              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0, else 1
-              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0, else ½
-        - Assumes periodic boundary conditions and uses spectral differentiation via FFT.
-
-        See Also
-        --------
-        _step_RK4_order2 : For second-order in time equations.
-        _apply_psiOp : For applying pseudo-differential operators.
-        _apply_nonlinear : For handling nonlinear terms in the PDE.
-        """
-        dt = self.dt
-        L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
-
-        E  = np.exp(dt * L_fft)
-        E2 = np.exp(dt * L_fft / 2)
-
-        def phi1(z):
-            return np.where(np.abs(z) > 1e-12, (np.exp(z) - 1) / z, 1.0)
-
-        def phi2(z):
-            return np.where(np.abs(z) > 1e-12, (np.exp(z) - 1 - z) / z**2, 0.5)
-
-        phi1_dtL = phi1(dt * L_fft)
-        phi2_dtL = phi2(dt * L_fft)
-
-        fft = self.fft
-        ifft = self.ifft
-
-        # Source term sampled at the stage times required for 4th-order accuracy
-        f0    = self._eval_source(t)
-        fhalf = self._eval_source(t + 0.5 * dt)
-        f1    = self._eval_source(t + dt)
-
-        # NOTE: _apply_nonlinear returns dt*N(u); ETD-RK4 needs the bare N(u)
-        # (it multiplies by dt itself), so divide the dt back out here.
-        u_hat = fft(u)
-        N1 = fft(self._apply_nonlinear(u) + f0)
-
-        a = ifft(E2 * (u_hat + 0.5 * dt * N1 * phi1_dtL))
-        N2 = fft(self._apply_nonlinear(a) + fhalf)
-
-        b = ifft(E2 * (u_hat + 0.5 * dt * N2 * phi1_dtL))
-        N3 = fft(self._apply_nonlinear(b) + fhalf)
-
-        c = ifft(E * (u_hat + dt * N3 * phi1_dtL))
-        N4 = fft(self._apply_nonlinear(c) + f1)
-
-        u_new_hat = E * u_hat + dt * (
-            N1 * phi1_dtL + 2 * (N2 + N3) * phi2_dtL + N4 * phi1_dtL
-        ) / 6
-
-        return ifft(u_new_hat)
 
     def _step_ETD_RK4_order1(self, u: np.ndarray, t: float = 0.0) -> np.ndarray:
         """
         Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step
-        for first-order in time PDEs.
+        for first-order in time PDEs, using the Kassam–Trefethen scheme.
 
         Solves equations of the form:
-            ∂ₜu = L u + N(u) + f(x,t)
-        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a
+            ∂ₜu = L·u + N(u) + f(x,t)
+        where L is a linear operator (diagonal in Fourier space) and N is a
         nonlinear term treated via pseudo-spectral methods.
 
-        The ETD-RK4 scheme uses four stages to approximate the integral of the
-        variation-of-constants formula:
-            uⁿ⁺¹ = e^(L Δt) uⁿ + Δt ∫₀¹ e^(L Δt (1 - τ)) φ(N(u(τ))) dτ
+        Let G(v, τ) = N(v) + f(τ). The scheme exactly integrates the linear part
+        and uses a 4-stage Runge-Kutta approximation for G:
+            a  = exp(dt/2·L)·uₙ + Q·G(uₙ, tₙ)
+            b  = exp(dt/2·L)·uₙ + Q·G(a, tₙ + dt/2)
+            c  = exp(dt/2·L)·a  + Q·[2·G(b, tₙ + dt/2) - G(uₙ, tₙ)]
+            uₙ₊₁ = exp(dt·L)·uₙ + f₁·G(uₙ, tₙ) + 2·f₂·[G(a, tₙ + dt/2) + G(b, tₙ + dt/2)]
+                                  + f₃·G(c, tₙ + dt)
+
+        The weights Q, f₁, f₂, f₃ correspond to dt·φₖ(dt·L) or dt·φₖ(dt/2·L):
+            Q  = dt·φ₁(dt/2·L)
+            f₁ = dt·φ₁(dt·L)
+            f₂ = dt·φ₂(dt·L)
+            f₃ = dt·φ₃(dt·L)
+        where the entire functions φₖ(z) are defined as:
+            φ₁(z) = (eᶻ - 1) / z
+            φ₂(z) = (eᶻ - 1 - z) / z²
+            φ₃(z) = (eᶻ - 1 - z - z²/2) / z³
+
+        To avoid numerical cancellation (0/0) near z = 0, these coefficients are computed
+        using a 32-point Cauchy contour integral in the complex plane.
 
         Parameters
         ----------
@@ -2709,17 +2704,21 @@ class PDESolver:
         Notes
         -----
         - The linear part L is diagonal in Fourier space and precomputed as `self.L(k)`.
-        - Nonlinear terms are evaluated in physical space and transformed via FFT.
-        - The functions φ₁(z) and φ₂(z) are entire functions arising from the ETD scheme:
-              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0, else 1
-              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0, else ½
+        - Nonlinear terms and source terms are evaluated in physical space and transformed via FFT.
+        - The source term f(x,t) is treated as part of the non-autonomous nonlinear term
+          and sampled at the stage times t, t + dt/2, and t + dt.
         - Assumes periodic boundary conditions and uses spectral differentiation via FFT.
 
         See Also
         --------
-        _step_RK4_order2 : For second-order in time equations.
-        _apply_psiOp : For applying pseudo-differential operators.
+        _step_RK4_order2 : Explicit RK4 for second-order in time equations.
+        _etdrk4_coefficients : Computation of the ETD-RK4 weights via contour integration.
         _apply_nonlinear : For handling nonlinear terms in the PDE.
+
+        References
+        ----------
+        .. [1] Kassam, A.-K., & Trefethen, L. N. (2005). Fourth-order time-stepping for stiff PDEs.
+               SIAM Journal on Scientific Computing, 26(4), 1214-1233.
         """
         dt = self.dt
         L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
@@ -2741,143 +2740,16 @@ class PDESolver:
         Nc = fft(nl(c) + s1)
         return ifft(E * u_hat + f1 * Nu + 2 * f2 * (Na + Nb) + f3 * Nc)
 
-    def _step_ETD_RK4_order2_old(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Perform one time step of the ETD-RK4 scheme for second-order PDEs.
-
-        Evolves the solution u and its time derivative v forward in time by one step
-        using the ETD-RK4 integrator. Designed for systems of the form:
-            ∂ₜ²u = L u + N(u) + f(x,t)
-        where L is a linear operator and N is a nonlinear term.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current solution array in real space.
-        v : np.ndarray
-            Current time derivative of the solution (∂ₜu) in real space.
-        t : float, optional
-            Current time. Default is 0.0.
-
-        Returns
-        -------
-        tuple of np.ndarray
-            `(u_new, v_new)`: Updated solution and its time derivative after one time step.
-
-        Notes
-        -----
-        - Assumes periodic boundary conditions and uses FFT-based spectral methods.
-        - Handles both 1D and 2D problems seamlessly.
-        - Uses phi functions to compute exponential integrators efficiently.
-        """
-        dt = self.dt
-
-        L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
-        fft = self.fft
-        ifft = self.ifft
-
-        def rhs(u_val, t_val):
-            return (ifft(L_fft * fft(u_val))
-                    + self._apply_nonlinear(u_val, is_v=False)
-                    + self._eval_source(t_val))
-
-        # Stage A (t)
-        A = rhs(u, t)
-        ua = u + 0.5 * dt * v
-        va = v + 0.5 * dt * A
-
-        # Stage B (t + dt/2)
-        B = rhs(ua, t + 0.5 * dt)
-        ub = u + 0.5 * dt * va
-        vb = v + 0.5 * dt * B
-
-        # Stage C (t + dt/2)
-        C = rhs(ub, t + 0.5 * dt)
-        uc = u + dt * vb
-
-        # Stage D (t + dt)
-        D = rhs(uc, t + dt)
-
-        # Final update
-        u_new = u + dt * v + (dt**2 / 6.0) * (A + 2*B + 2*C + D)
-        v_new = v + (dt / 6.0) * (A + 2*B + 2*C + D)
-
-        return u_new, v_new
-
-    def _step_ETD_RK4_order2_old2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Perform one time step of the ETD-RK4 scheme for second-order PDEs.
-
-        Evolves the solution u and its time derivative v forward in time by one step
-        using the ETD-RK4 integrator. Designed for systems of the form:
-            ∂ₜ²u = L u + N(u) + f(x,t)
-        where L is a linear operator and N is a nonlinear term.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current solution array in real space.
-        v : np.ndarray
-            Current time derivative of the solution (∂ₜu) in real space.
-        t : float, optional
-            Current time. Default is 0.0.
-
-        Returns
-        -------
-        tuple of np.ndarray
-            `(u_new, v_new)`: Updated solution and its time derivative after one time step.
-
-        Notes
-        -----
-        - Assumes periodic boundary conditions and uses FFT-based spectral methods.
-        - Handles both 1D and 2D problems seamlessly.
-        - Uses phi functions to compute exponential integrators efficiently.
-        """
-        dt = self.dt
-
-        L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
-        fft = self.fft
-        ifft = self.ifft
-
-        def rhs(u_val, t_val):
-            return (ifft(L_fft * fft(u_val))
-                    + self._apply_nonlinear(u_val, is_v=False) / dt     # returns dt*N
-                    + self._eval_source(t_val))
-
-        # Stage A (t)
-        A = rhs(u, t)
-        ua = u + 0.5 * dt * v
-        va = v + 0.5 * dt * A
-
-        # Stage B (t + dt/2)
-        B = rhs(ua, t + 0.5 * dt)
-        ub = u + 0.5 * dt * va
-        vb = v + 0.5 * dt * B
-
-        # Stage C (t + dt/2)
-        C = rhs(ub, t + 0.5 * dt)
-        uc = u + dt * vb
-
-        # Stage D (t + dt)
-        D = rhs(uc, t + dt)
-
-        # Final update
-        u_new = u + dt * v + (dt**2 / 6.0) * (A + B + C)
-        v_new = v + (dt / 6.0) * (A + 2*B + 2*C + D)
-
-        return u_new, v_new
 
     def _step_RK4_order2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Perform one time step using explicit 4th-order Runge-Kutta (RK4) for second-order PDEs.
+        Perform one time step using explicit 4th-order Runge-Kutta for second-order PDEs.
         
-        NOTE: This is NOT an exponential integrator. It is subject to CFL restrictions
-        for stiff linear operators. For true ETD-RK4 on second-order equations, use
-        the complex diagonalization approach or implement oscillatory ETD schemes.
-        
-        Evolves the system:
+        Advances the solution of ∂ₜ²u = L·u + N(u) + f(x,t) by rewriting it as a first-order system:
             ∂ₜu = v
             ∂ₜv = L·u + N(u) + f(x,t)
+        
+        and applying the classical 4-stage Runge-Kutta method.
         
         Parameters
         ----------
@@ -2892,6 +2764,19 @@ class PDESolver:
         -------
         tuple of np.ndarray
             (u_new, v_new): Updated solution and velocity after one time step.
+        
+        Notes
+        -----
+        This is an explicit integrator subject to CFL stability restrictions Δt ∝ Δx^(m/2),
+        where m is the order of the linear operator L. For stiff operators, consider using
+        exponential time differencing schemes (e.g., `step_ETD_RK4_order1` for first-order equations).
+        
+        The linear operator L is applied spectrally via FFT, and nonlinear terms are evaluated
+        in physical space using the pseudo-spectral method with dealiasing.
+        
+        See Also
+        --------
+        _step_ETD_RK4_order1 : Exponential integrator for first-order equations
         """
         dt = self.dt
         L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
@@ -2926,74 +2811,50 @@ class PDESolver:
         
         return u_new, v_new
 
-    def _check_cfl_condition_old(self) -> None:
+    def _check_cfl_condition(self) -> None:
         """
-        Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity
-        for second-order time-dependent PDEs.
-
-        Verifies whether the chosen time step Δt satisfies the numerical stability
-        condition derived from the maximum wave propagation speed in the system.
-
+        Check the CFL (Courant–Friedrichs–Lewy) condition for numerical stability.
+        
+        Verifies whether the chosen time step Δt satisfies the stability condition
+        derived from the maximum wave propagation speed in the system. The maximum
+        speed is computed from the group velocity of the dispersion relation.
+        
         Notes
         -----
-        - In 1D, the group velocity v₉(k) = dω/dk is used to compute the maximum wave speed.
-        - In 2D, the x- and y-directional group velocities are evaluated independently.
-        - If no dispersion relation is available, the imaginary part of the linear operator L(k)
-          is used as an approximation for wave speed.
-        - Prints a warning message if the current time step Δt exceeds the CFL-stable limit.
-
+        **Second-order equations** (∂ₜ²u = L u + N(u) + f):
+            Uses the group velocity v_g(k) = dω/dk from the dispersion relation ω(k).
+            The maximum wave speed is max|v_g(k)|.
+        
+        **First-order equations** (∂ₜu = L u + N(u) + f):
+            The dispersion relation is ω(k) = -i·L(k). The group velocity is
+            v_g(k) = dω/dk = -i·dL/dk.
+            
+            - For purely advective equations (Re(L) = 0): uses v_g = d(Im(ω))/dk
+            - For dissipative or mixed equations: uses phase velocity |Im(L)/k| as
+              an upper bound on characteristic speed
+        
+        **Dimensionality**:
+            - 1D: Evaluates group velocity along the single spatial direction
+            - 2D: Evaluates group velocities independently in x and y directions,
+              then combines as 1/(v_x/Δx + v_y/Δy)
+        
+        **Safety factor**:
+            Uses a conservative safety factor of 0.5, so the reported CFL limit is
+            Δt_max = 0.5 · Δx / max_speed (1D) or the 2D equivalent.
+        
         Raises
         ------
         NotImplementedError
             If the spatial dimension is not 1D or 2D.
+        
+        Examples
+        --------
+        For the advection equation ∂ₜu + c·∂ₓu = 0, we have L(k) = -i·c·k,
+        so ω(k) = c·k and v_g = c. The CFL condition becomes Δt ≤ 0.5·Δx/|c|.
+        
+        For the wave equation ∂ₜ²u = c²·∂ₓₓu, we have ω(k) = c·|k| and
+        v_g = c·sign(k), so Δt ≤ 0.5·Δx/c.
         """
-        print("\n*****************")
-        print("* CFL condition *")
-        print("*****************\n")
-
-        cfl_factor = 0.5  # Safety factor
-
-        if self.dim == 1:
-            if self.temporal_order == 2 and hasattr(self, 'omega'):
-                k_vals = self.kx
-                omega_vals = np.real(self.omega(k_vals))
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    v_group = np.gradient(omega_vals, k_vals)
-                max_speed = np.max(np.abs(v_group))
-            else:
-                max_speed = np.max(np.abs(np.imag(self.L(self.kx))))
-
-            dx = self.Lx / self.Nx
-            cfl_limit = cfl_factor * dx / max_speed if max_speed != 0 else np.inf
-
-            if self.dt > cfl_limit:
-                print(f"CFL condition violated: dt = {self.dt}, max allowed dt = {cfl_limit}")
-
-        elif self.dim == 2:
-            if self.temporal_order == 2 and hasattr(self, 'omega'):
-                k_vals = self.kx
-                omega_x = np.real(self.omega(k_vals, 0))
-                omega_y = np.real(self.omega(0, k_vals))
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    v_group_x = np.gradient(omega_x, k_vals)
-                    v_group_y = np.gradient(omega_y, k_vals)
-                max_speed_x = np.max(np.abs(v_group_x))
-                max_speed_y = np.max(np.abs(v_group_y))
-            else:
-                max_speed_x = np.max(np.abs(np.imag(self.L(self.kx, 0))))
-                max_speed_y = np.max(np.abs(np.imag(self.L(0, self.ky))))
-
-            dx = self.Lx / self.Nx
-            dy = self.Ly / self.Ny
-            cfl_limit = cfl_factor / (max_speed_x / dx + max_speed_y / dy) if (max_speed_x + max_speed_y) != 0 else np.inf
-
-            if self.dt > cfl_limit:
-                print(f"CFL condition violated: dt = {self.dt}, max allowed dt = {cfl_limit}")
-
-        else:
-            raise NotImplementedError("Only 1D and 2D problems are supported.")
-
-    def _check_cfl_condition(self) -> None:
         print("\n*****************")
         print("* CFL condition *")
         print("*****************\n")
@@ -3374,157 +3235,75 @@ class PDESolver:
         else:
             raise ValueError("Only 1D and 2D supported.")
 
-    def _compute_energy_old(
-        self,
-        t_val: float,
-        source_contribution: Union[np.ndarray, float, int] = 0.0
-    ) -> Optional[float]:
-            """
-            Compute the total energy of the system at time `t_val`.
-
-            For second-order time-dependent equations (∂ₜ²u = L u + N(u) + f), the total energy
-            is defined as the sum of kinetic and potential energy:
-
-            E(t) = Eₖ(t) + Eₚ(t)
-
-            where:
-            - Eₖ(t) = ½ ∫ |∂ₜu|² dx is the kinetic energy.
-            - Eₚ(t) = -½ ∫ u · (L u + N(u) + f(x,t)) dx is the potential energy.
-
-            For equations involving pseudo-differential operators (ψOp), the linear
-            part L u is evaluated using Kohn–Nirenberg quantization, and the fractional
-            power P¹/² symbol is used where applicable.
-
-            Parameters
-            ----------
-            t_val : float
-                Current simulation time t.
-            source_contribution : np.ndarray or float, optional
-                Evaluated source term f(x,t) on the spatial grid at time `t_val`. Default is 0.0.
-
-            Returns
-            -------
-            float
-                Total mechanical energy E(t) integrated over the spatial domain.
-            """
-            if self.temporal_order != 2:
-                return None
-
-            # Warning for nonlinear/source terms (once)
-            if not getattr(self, '_energy_warning_issued', False):
-                if self.nonlinear_terms or self.source_terms:
-                    print("⚠️ Warning: Energy monitoring includes work from nonlinear/source terms.")
-                    self._energy_warning_issued = True
-
-            u = self.u_prev
-            dx = self.Lx / self.Nx
-            dy = self.Ly / self.Ny if self.dim > 1 else 1.0
-
-            # 1. Compute Velocity and Potential Operator Terms Consistent with Physics
-            if self.has_psi:
-                if self.u_prev2 is None:
-                    return None
-                # Centered difference for velocity when using staggered states
-                v = (self.u_prev - self.u_prev2) / self.dt
-                if not hasattr(self, '_energy_psi_op'):
-                    return None
-
-                # For psi_op path, Lu already represents the correct square-root potential mapped state
-                Lu = self._apply_psiOp(
-                    u, psi_ops=[(1, self._energy_psi_op)],
-                    is_spatial=self._energy_is_spatial
-                )
-                pot_density = 0.5 * np.abs(Lu)**2
-            else:
-                if self.v_prev is None:
-                    return None
-                v = self.v_prev
-
-                # FIXED: Compute Potential Energy via explicit Fourier representation of -L
-                u_hat = self.fft(u)
-                L_vals = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
-
-                # If L is negative definite (e.g. -xi^2), -L_vals represents the positive energy operator
-                # We use np.abs to ensure safety across varying user sign conventions
-                minus_L = np.abs(L_vals)
-
-                # Compute potential energy density directly via inverse FFT of (-L * u_hat) multiplied by u
-                Lu_pot = self.ifft(minus_L * u_hat)
-                pot_density = 0.5 * np.real(u * np.conj(Lu_pot))
-
-            # 2. Compute Total Mechanical Energy
-            kin_density = 0.5 * np.abs(v)**2
-            energy_density = kin_density + pot_density
-
-            if self.dim == 1:
-                E_mech = np.sum(energy_density) * dx
-            else:
-                E_mech = np.sum(energy_density) * dx * dy
-
-            # 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx
-            N_u = self._apply_nonlinear(self.u_prev, is_v=False)
-
-            if source_contribution is None or np.isscalar(source_contribution):
-                f = np.zeros_like(u)
-            else:
-                f = source_contribution
-
-            power_density = np.real(v * np.conj(N_u + f))
-
-            if self.dim == 1:
-                power = np.sum(power_density) * dx
-            else:
-                power = np.sum(power_density) * dx * dy
-
-            # 4. Accumulate Work via Trapezoidal Rule
-            if not hasattr(self, '_prev_power'):
-                self._prev_power = power
-
-            work_increment = 0.5 * (self._prev_power + power) * self.dt
-            self.accumulated_work += work_increment
-            self._prev_power = power
-
-            # Store histories
-            self.mechanical_energy_history.append(E_mech)
-            self.work_history.append(self.accumulated_work)
-
-            # Total conserved energy
-            E_total = E_mech - self.accumulated_work
-
-            return E_total
-
     def _compute_energy(
         self,
         t_val: float,
         source_contribution: Union[np.ndarray, float, int] = 0.0
     ) -> Optional[float]:
             """
-            Compute the total energy of the system at time `t_val`.
-
-            For second-order time-dependent equations (∂ₜ²u = L u + N(u) + f), the total energy
-            is defined as the sum of kinetic and potential energy:
-
-            E(t) = Eₖ(t) + Eₚ(t)
-
-            where:
-            - Eₖ(t) = ½ ∫ |∂ₜu|² dx is the kinetic energy.
-            - Eₚ(t) = -½ ∫ u · (L u + N(u) + f(x,t)) dx is the potential energy.
-
-            For equations involving pseudo-differential operators (ψOp), the linear
-            part L u is evaluated using Kohn–Nirenberg quantization, and the fractional
-            power P¹/² symbol is used where applicable.
-
+            Compute the total (conserved) energy of the system at time `t_val`.
+        
+            For a second-order evolution ∂ₜ²u = L·u + N(u) + f(x,t), the mechanical
+            energy is split into a kinetic part and a linear-potential part, while the
+            work done by the non-conservative terms (N, f) is accumulated separately
+            so that a conserved quantity can be monitored:
+        
+                E_mech(t) = Eₖ(t) + Eₚ(t)
+                W(t)      = ∫₀ᵗ ⟨v, N(u) + f⟩ dx dt'        (trapezoidal rule)
+                E_total(t) = E_mech(t) − W(t)                  ← conserved
+        
+            with
+                Eₖ(t) = ½ ∫ |v|² dx,
+                Eₚ(t) = ½ ∫ u · (−L) u dx,
+        
+            where v = ∂ₜu and (−L) is the positive-definite potential operator
+            (e.g. −L = k² for the wave equation, −L = k⁴ for the beam equation).
+        
+            Two branches are implemented:
+        
+            1. **Standard (no ψOp)**:
+               - v is taken directly from `self.v_prev`.
+               - The potential energy is computed in Fourier space as
+                     Eₚ = ½ ⟨u, (−Re L) u⟩,
+                 with a safety clipping `max(−Re L, 0)` and a `RuntimeWarning`
+                 if `L` is not negative-definite.
+        
+            2. **Pseudo-differential (ψOp)**:
+               - The velocity is reconstructed by a centered finite difference
+                     v ≈ (uⁿ − uⁿ⁻¹) / Δt
+                 (staggered leap-frog state).
+               - The potential energy uses the fractional power P¹/² of the total
+                 pseudo-differential symbol (precomputed in `_compute_linear_operator`),
+                 so that Eₚ = ½ ∫ |P¹/² u|² dx, which is the natural energy for
+                 non-local operators such as the fractional Laplacian.
+        
+            The instantaneous power P(t) = ⟨v, N(u) + f⟩ is accumulated via the
+            trapezoidal rule to form W(t). The returned value is E_total(t), which
+            should remain constant (up to time-stepping error) for conservative
+            problems, and tracks the energy balance otherwise.
+        
             Parameters
             ----------
             t_val : float
-                Current simulation time t.
+                Current simulation time.
             source_contribution : np.ndarray or float, optional
-                Evaluated source term f(x,t) on the spatial grid at time `t_val`. Default is 0.0.
-
+                Source term f(x,t) evaluated on the spatial grid at time `t_val`.
+                A scalar or `None` is treated as zero.
+        
             Returns
             -------
-            float
-                Total mechanical energy E(t) integrated over the spatial domain.
+            float or None
+                The conserved energy E_total(t) = E_mech(t) − W(t), or `None` if
+                the problem is not second-order in time or the required state is
+                not yet initialised.
+        
+            Side effects
+            ------------
+            - Appends `E_mech` to `self.mechanical_energy_history`.
+            - Appends `W(t)` to `self.work_history`.
+            - Updates `self._prev_power` for the next trapezoidal increment.
+            - On first call with nonlinear or source terms, prints a one-time
+              warning that energy monitoring tracks the work balance.
             """
             if self.temporal_order != 2:
                 return None

@@ -4396,7 +4396,7 @@ class RiemannianGrid:
     # Spectral geometry
     # ------------------------------------------------------------------
 
-    def laplace_beltrami_eigenmodes(self, k=6, boundary='dirichlet', sigma=1e-8):
+    def laplace_beltrami_eigenmodes(self, k=6, boundary='nonperiodic', sigma=1e-8):
         """
         Compute the lowest ``k`` eigenvalues/eigenfunctions of the
         Laplace-Beltrami operator Delta_0 on this grid.
@@ -4421,8 +4421,8 @@ class RiemannianGrid:
         ----------
         k : int
             Number of eigenmodes to compute.
-        boundary : {'dirichlet', 'neumann'}
-            'dirichlet' solves on the interior only (u = 0 on the boundary,
+        boundary : {'nonperiodic', 'neumann'}
+            'nonperiodic' solves on the interior only (u = 0 on the boundary,
             like a drum with a fixed rim). 'neumann' solves on the full grid
             with a free boundary; the first eigenvalue will be ~0 (the
             constant function).
@@ -4461,7 +4461,7 @@ class RiemannianGrid:
         A_raw = D.dot(self.A_scalar)
         A_raw = 0.5 * (A_raw + A_raw.T)          # symmetrize away round-off
 
-        if boundary == 'dirichlet':
+        if boundary == 'nonperiodic':
             interior = np.setdiff1d(np.arange(self.N2), self.idx_bound)
             A_sub = (-A_raw)[interior][:, interior]
             D_sub = D[interior][:, interior]
@@ -4476,7 +4476,7 @@ class RiemannianGrid:
             vals, vecs = vals[order], vecs[:, order]
             modes = vecs.T
         else:
-            raise ValueError("boundary must be 'dirichlet' or 'neumann'")
+            raise ValueError("boundary must be 'nonperiodic' or 'neumann'")
 
         vals = np.clip(vals, 0, None)             # kill tiny negative round-off
         modes = modes.reshape(k, self.N, self.N)

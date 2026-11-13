@@ -263,7 +263,7 @@ class TestTimeDependent1D:
         integral_term = Op(1 / (I * (kx + eps)), u)
 
         eq = Eq(diff(u, t), diff(u, x) + integral_term - u)
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
 
         Lt = 0.5
         Lx = 6*np.pi
@@ -322,7 +322,7 @@ class TestTimeDependent1D:
         # Convolution equation: ∂t u = - OpConv(f_kernel, u)
         eq = Eq(diff(u, t), -Op(fourier_transform(f_kernel, x, kx/(2*np.pi)), u))
 
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         Lt = 0.5
         solver.setup(Lx=2*np.pi, Nx=256, Lt=Lt, Nt=50,
                      initial_condition=lambda x: np.cos(x), plot=False)
@@ -373,7 +373,7 @@ class TestTimeDependent1D:
         u = Function('u')(t, x)
         eq = Eq(diff(u, t), -diff(u, x))
         Lt = 1.0
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         solver.setup(Lx=10, Nx=256, Lt=Lt, Nt=200,
                      initial_condition=lambda x: np.exp(-x**2), plot=False)
         solver.solve()
@@ -395,7 +395,7 @@ class TestTimeDependent1D:
         beta = 1.3
         eq = Eq(diff(u, t) + c * diff(u, x), -Op(abs(kx)**beta, u))
         Lt = 0.5
-        solver = PDESolver(eq, dealiasing_ratio=0.5, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, dealiasing_ratio=0.5, time_scheme='RK4')
         solver.setup(Lx=2*np.pi, Nx=256, Lt=Lt, Nt=200,
                      initial_condition=lambda x: np.cos(x), plot=False)
         solver.solve()
@@ -437,7 +437,7 @@ class TestTimeDependent1D:
         u = Function('u')(t, x)
         eq = Eq(diff(u, t), diff(u, x, 2))
         Lt = 0.5
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         solver.setup(Lx=2*np.pi, Nx=128, Lt=Lt, Nt=40,
                      initial_condition=lambda x: np.sin(x), plot=False)
         solver.solve()
@@ -455,7 +455,7 @@ class TestTimeDependent1D:
         u = Function('u')(t, x)
         eq = Eq(diff(u, t), diff(u, x, 2))
 
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         Lt = 0.5
         solver.setup(Lx=5*np.pi, Nx=256, Lt=Lt, Nt=40,
                      initial_condition=lambda x: np.exp(-2 * x**2), plot=False)
@@ -477,7 +477,7 @@ class TestTimeDependent1D:
         u = u_func(t, x)
         eq = Eq(diff(u, t), Op((I*kx)**2, u)/2 + diff(u, x, 2)/2)
         Lt = 0.5
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         solver.setup(Lx=2*np.pi, Nx=128, Lt=Lt, Nt=40,
                      initial_condition=lambda x: np.sin(x), plot=False)
         solver.solve()
@@ -498,7 +498,7 @@ class TestTimeDependent1D:
         nu = 0.1
         eq = Eq(diff(u, t), -Op(abs(kx)**alpha, u) + nu * diff(u, x, 2))
         Lt = 0.5
-        solver = PDESolver(eq, dealiasing_ratio=0.5, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, dealiasing_ratio=0.5, time_scheme='RK4')
         solver.setup(Lx=2*np.pi, Nx=128, Lt=Lt, Nt=200,
                      initial_condition=lambda x: np.sin(x), plot=False)
         solver.solve()
@@ -528,7 +528,7 @@ class TestTimeDependent1D:
             return -2 * nu * dphi_dx(x, t) / phi(x, t)
 
         Lt = 0.5
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         solver.setup(Lx=2*np.pi, Nx=128, Lt=Lt, Nt=100,
                      initial_condition=lambda x: u_exact(x, 0), plot=False)
         solver.solve()
@@ -568,7 +568,7 @@ class TestTimeDependent1D:
         u = Function('u')(t, x)
         eq = Eq(diff(u, t, t), diff(u, x, x))
         Lt = 0.5
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         solver.setup(Lx=2*np.pi, Nx=256, Lt=Lt, Nt=100,
                      initial_condition=lambda x: np.sin(x),
                      initial_velocity=lambda x: np.zeros_like(x),
@@ -592,7 +592,7 @@ class TestTimeDependent1D:
         source_term = cos(x) * (3 * cos(np.sqrt(2) * t) - np.sqrt(2) * sin(np.sqrt(2) * t))
         eq = Eq(diff(u, t, t), diff(u, x, x) - u + source_term)
 
-        solver = PDESolver(eq, time_scheme='ETD-RK4', dealiasing_ratio=1)
+        solver = PDESolver(eq, time_scheme='RK4', dealiasing_ratio=1)
         Lt = 0.5
         solver.setup(Lx=6 * np.pi, Nx=1024, Lt=Lt, Nt=100,
                      initial_condition=lambda x: np.cos(x),
@@ -617,7 +617,7 @@ class TestTimeDependent1D:
         u = Function('u')(t, x)
         eq = Eq(diff(u, t), -I * diff(u, x, x))
         Lt = 0.5
-        solver = PDESolver(eq, time_scheme='ETD-RK4', dealiasing_ratio=1/2)
+        solver = PDESolver(eq, time_scheme='RK4', dealiasing_ratio=1/2)
         solver.setup(Lx=20, Nx=512, Lt=Lt, Nt=200,
                      initial_condition=lambda x: np.exp(-x**2) * np.exp(1j * x),
                      plot=False)
@@ -639,7 +639,7 @@ class TestTimeDependent1D:
         u = Function('u')(t, x)
         eq = Eq(diff(u, t, t), diff(u, x, x) - u)
         Lt = 0.5
-        solver = PDESolver(eq, time_scheme='ETD-RK4', dealiasing_ratio=1/4)
+        solver = PDESolver(eq, time_scheme='RK4', dealiasing_ratio=1/4)
         solver.setup(Lx=6*np.pi, Nx=1024, Lt=Lt, Nt=200,
                      initial_condition=lambda x: np.cos(x),
                      initial_velocity=lambda x: np.zeros_like(x),
@@ -668,7 +668,7 @@ class TestTimeDependent1D:
             return c / 2 * (1 / np.cosh(np.sqrt(c)/2 * (x - x0)))**2
         Lt = 0.5
 
-        solver = PDESolver(eq, time_scheme='ETD-RK4', dealiasing_ratio=2/3)
+        solver = PDESolver(eq, time_scheme='RK4', dealiasing_ratio=2/3)
         solver.setup(Lx=40, Nx=1024, Lt=Lt, Nt=200,
                      initial_condition=initial_condition, plot=False)
         solver.solve()
@@ -717,8 +717,8 @@ class TestTimeDependent1D:
         # Equation with source term
         eq = Eq(diff(u, t), diff(u, x, x) + source_term)
         
-        # Create the solver with ETD-RK4 scheme
-        solver = PDESolver(eq, time_scheme="ETD-RK4")
+        # Create the solver with RK4 scheme
+        solver = PDESolver(eq, time_scheme="RK4")
         
         # Simulation parameters
         Lt = 5.0  # Total simulation time
@@ -811,7 +811,7 @@ class TestTimeDependent2D:
         u = Function('u')(t, x, y)
         eq = Eq(I * diff(u, t), diff(u, x, 2) + diff(u, y, 2))
 
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         solver.setup(Lx=10, Ly=10, Nx=128, Ny=128, Lt=1.0, Nt=100,
                      initial_condition=lambda x, y: np.exp(-x**2 - y**2) * np.exp(1j*(x + y)),
                      plot=False)
@@ -846,7 +846,7 @@ class TestTimeDependent2D:
         u = Function('u')(t, x, y)
         eq = Eq(diff(u, t, 2), diff(u, x, 2) + diff(u, y, 2))
 
-        solver = PDESolver(eq, time_scheme='ETD-RK4')
+        solver = PDESolver(eq, time_scheme='RK4')
         solver.setup(Lx=2*np.pi, Ly=2*np.pi, Nx=128, Ny=128, Lt=1.0, Nt=100,
                      initial_condition=lambda x, y: np.sin(x) * np.sin(y),
                      initial_velocity=lambda x, y: np.zeros_like(x),

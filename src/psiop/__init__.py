@@ -736,7 +736,7 @@ class PseudoDifferentialOperator:
      
         Dispatches based on:
         - Whether the symbol is spatially dependent (x / y).
-        - The boundary condition ('periodic' or 'dirichlet').
+        - The boundary condition ('periodic' or 'nonperiodic').
         - The quantization convention stored in ``self.quantization``.
      
         Supported quantizations
@@ -769,11 +769,11 @@ class PseudoDifferentialOperator:
             Spatial grid in x direction.
         kx : ndarray
             Frequency grid in x direction.
-        boundary_condition : {'periodic', 'dirichlet', 'neumann'}, default='periodic'
+        boundary_condition : {'periodic', 'nonperiodic', 'neumann'}, default='periodic'
             Boundary condition type.
     
             - 'periodic': uses FFT-based Kohn–Nirenberg quantization.
-            - 'dirichlet' / 'neumann': both route to the same non-periodic
+            - 'nonperiodic' / 'neumann': both route to the same non-periodic
               direct quadrature kernel (``kohn_nirenberg_nonperiodic``).
               The quadrature itself does NOT enforce a specific boundary
               condition — it simply evaluates the KN integral on the given
@@ -834,7 +834,7 @@ class PseudoDifferentialOperator:
         Raises
         ------
         ValueError
-            If boundary_condition is not 'periodic' or 'nonperiodic' or 'dirichlet' or 'neumann'.
+            If boundary_condition is not 'periodic' or 'nonperiodic' or 'nonperiodic' or 'neumann'.
         """
 
         # ── INPUT VALIDATION ────────────────────────────────────────────
@@ -907,7 +907,7 @@ class PseudoDifferentialOperator:
             )
      
         # Case 3: Dirichlet BC (non-periodic)
-        if (boundary_condition == 'nonperiodic' or boundary_condition == 'dirichlet' or boundary_condition == 'neumann'):
+        if (boundary_condition == 'nonperiodic' or boundary_condition == 'nonperiodic' or boundary_condition == 'neumann'):
             if self.dim == 1:
                 return kohn_nirenberg_nonperiodic(
                     u_vals=u,
@@ -965,7 +965,7 @@ class PseudoDifferentialOperator:
             )
     
         # ── 2. Boundary condition membership ────────────────────────────
-        valid_bcs = {'periodic', 'nonperiodic', 'dirichlet', 'neumann'}
+        valid_bcs = {'periodic', 'nonperiodic', 'nonperiodic', 'neumann'}
         if boundary_condition not in valid_bcs:
             raise ValueError(
                 f"boundary_condition must be one of {valid_bcs}, "
@@ -2369,7 +2369,7 @@ class PseudoDifferentialOperator:
         x_grid, kx, y_grid, ky : ndarray
             Spatial and frequency grids.
         boundary_condition : str
-            'periodic' or 'dirichlet'/'neumann'.
+            'periodic' or 'nonperiodic'/'neumann'.
         peetre_quantization : str
             Quantization for sub-operators.
         common_apply_kwargs : dict

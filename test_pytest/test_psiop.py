@@ -717,7 +717,7 @@ def test_apply_dirichlet_bc_1d():
     op = PseudoDifferentialOperator(I * xi_sym, [x_sym], mode='symbol')
     x_grid, kx = _make_1d_grid(L=5.0, N=64)
     u = _gaussian(x_grid)
-    result = op.apply(u, x_grid, kx, boundary_condition='dirichlet')
+    result = op.apply(u, x_grid, kx, boundary_condition='nonperiodic')
     assert result.shape == u.shape
 
 def test_apply_2d_constant_periodic():
@@ -861,7 +861,7 @@ def test_weyl_2d_x_xi_plus_y_eta():
     expected = -1j * (X * du_dx + Y * du_dy) - 1j * u
     result = op.apply_peetre(
         u, x, kx, 
-        boundary_condition='dirichlet',
+        boundary_condition='nonperiodic',
         y_grid=y, ky=ky, 
         freq_window=None,
         clamp=np.inf
@@ -3680,7 +3680,7 @@ def test_apply_peetre_nufft_nonperiodic_fallback():
         _w.simplefilter("always")
         result = op.apply(
             u, x_grid, kx,
-            boundary_condition='dirichlet',
+            boundary_condition='nonperiodic',
             joint_backend='nufft',
             freq_window=None, clamp=np.inf,
         )
@@ -4382,7 +4382,7 @@ def test_apply_constant_fft_rejects_space_window():
 # ---------------------------------------------------------------------------
 
 def test_neumann_and_dirichlet_use_same_kernel():
-    """Both 'neumann' and 'dirichlet' should route to
+    """Both 'neumann' and 'nonperiodic' should route to
     kohn_nirenberg_nonperiodic and produce identical results.
     This is by design: the quadrature kernel does not enforce
     specific BCs; the solver handles that separately."""
@@ -4396,7 +4396,7 @@ def test_neumann_and_dirichlet_use_same_kernel():
 
     result_dirichlet = op.apply(
         u, x_grid, kx,
-        boundary_condition='dirichlet',
+        boundary_condition='nonperiodic',
         freq_window=None, clamp=np.inf,
     )
     result_neumann = op.apply(

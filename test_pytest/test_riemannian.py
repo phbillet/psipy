@@ -2705,7 +2705,7 @@ class TestLaplaceBeltramiEigenmodes:
     def test_flat_dirichlet(self, m_flat):
         """Test Dirichlet eigenmodes on a flat square."""
         grid = RiemannianGrid(m_flat, ((0, np.pi), (0, np.pi)), resolution=20)
-        vals, vecs = grid.laplace_beltrami_eigenmodes(k=3, boundary='dirichlet')
+        vals, vecs = grid.laplace_beltrami_eigenmodes(k=3, boundary='nonperiodic')
         
         assert vals.shape == (3,)
         assert vecs.shape == (3, 20, 20)

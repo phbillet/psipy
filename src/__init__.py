@@ -85,10 +85,12 @@ riemannian
     cohomology quantities.
 
 solver
-    Spectral PDE solver for 1D/2D equations with periodic or Dirichlet
-    conditions.  Supports linear/nonlinear problems, pseudo‑differential
-    operators, and time‑dependent/stationary equations.  Uses Fourier
-    spectral methods and exponential time‑stepping (ETD‑RK4).
+    Spectral PDE solver for 1D/2D equations with periodic boundary
+    conditions (and heuristic nonperiodic treatments). Supports
+    linear/nonlinear problems, pseudo‑differential operators, and
+    time‑dependent/stationary equations. Uses Fourier spectral methods,
+    exponential time‑stepping (ETD‑RK4) for first‑order equations, and
+    explicit Runge‑Kutta or leapfrog schemes for second‑order equations.
 
 symplectic
     Symplectic geometry toolkit for Hamiltonian mechanics with arbitrary 

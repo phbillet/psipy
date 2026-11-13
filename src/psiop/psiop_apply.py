@@ -710,7 +710,7 @@ def kohn_nirenberg_nonperiodic(
     domain using direct matrix/quadrature-based transforms.
 
     .. note::
-       This kernel treats 'nonperiodic' (and legacy 'dirichlet'/'neumann') identically: both
+       This kernel treats 'nonperiodic' (and legacy 'nonperiodic'/'neumann') identically: both
        simply mean "do not assume periodicity." The quadrature evaluates
        the KN integral on the given grid without imposing any specific
        boundary condition. Physical BC enforcement (e.g., zero-gradient
@@ -1494,7 +1494,7 @@ def factorize_symbolic(
 #
 # PERIODIC BOUNDARY CONDITIONS ONLY. This backend has only been derived and
 # validated for the FFT/periodic application path (boundary_condition=
-# 'periodic'). It is not applicable to 'dirichlet' and apply_peetre() must
+# 'periodic'). It is not applicable to 'nonperiodic' and apply_peetre() must
 # fall back to the direct path in that case -- do not attempt to extend this
 # silently without re-deriving the non-periodic quadrature.
 #

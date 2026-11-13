@@ -32,9 +32,12 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 ### 🔹 PDE Solving with Spectral Methods
 - Solve **1D & 2D** linear/nonlinear time‑dependent or stationary PDEs.
 - **Automatic parsing** of SymPy equations into linear, nonlinear, source, and pseudo‑differential terms.
-- **Spectral (FFT) discretization** with periodic or Dirichlet boundary conditions.
-- Advanced time‑stepping: default exponential integrator and **ETD‑RK4** (Exponential Time Differencing Runge–Kutta 4).
+- **Spectral (FFT) discretization** with periodic boundary conditions (exact) or nonperiodic heuristic treatment (for localized solutions on large domains).
+- Advanced time‑stepping:
+  - **First‑order equations**: Exponential Euler and **ETD‑RK4** (Kassam–Trefethen exponential integrator, unconditionally stable for the linear part).
+  - **Second‑order equations**: Explicit RK4 applied to the first‑order system (subject to CFL restrictions) or leapfrog for pseudo‑differential operators.
 - Stationary problems solved via asymptotic inversion of elliptic ΨDOs.
+- Support for **pseudo‑differential operators** (fractional Laplacians, non‑local terms) via Kohn–Nirenberg quantization.
 
 ### 🔹 Asymptotic Evaluation of Oscillatory Integrals
 - Automatic detection of integration method (stationary phase, Laplace, saddle point) from the phase function.
@@ -106,7 +109,7 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 | `propagator`        | Van Vleck–Pauli–Morette semiclassical propagator. Assembles the full semiclassical wavefunction from a classical ray fan on any 1D/2D Riemannian metric. Integrates rays symplectically, computes Jacobi determinants and Maslov indices, and applies pointwise Airy (fold) and Pearcey (cusp) caustic corrections onto a regular output grid. |
 | `psiop`             | Symbolic and numerical framework for pseudo‑differential operators. Defines operators, performs symbolic calculus, and applies them via FFT/Kohn‑Nirenberg. |
 | `riemannian`        | Riemannian geometry in 1D/2D: metric, geodesics, curvature, Laplace–Beltrami, exponential map, and visualisation. |
-| `solver`            | Spectral PDE solver with automatic term classification, support for ΨDOs, and ETD‑RK4 time stepping. Solves both time‑dependent and stationary equations. |
+| `solver`            | Spectral PDE solver with automatic term classification, support for ΨDOs, and ETD‑RK4, RK4 and leapfrog time stepping. Solves both time‑dependent and stationary equations. |
 | `symplectic`        | Unified toolkit for Hamiltonian mechanics: symplectic integration (Euler/Verlet), Poisson brackets, fixed-point stability, and advanced integrability/chaos diagnostics. |
 | `wkb`               | Multidimensional WKB approximation with ray tracing, amplitude transport, and uniform caustic corrections. |
 

@@ -95,7 +95,7 @@ class TestApplyBoundary:
         assert solver._bc_warned is False
 
     def test_dirichlet_1d_zeros_node0_only(self):
-        solver = _stationary_solver(1, 'dirichlet')
+        solver = _stationary_solver(1, 'nonperiodic')
         u = np.arange(1.0, 17.0)
         ref = u.copy()
         with pytest.warns(RuntimeWarning):
@@ -105,7 +105,7 @@ class TestApplyBoundary:
         np.testing.assert_array_equal(u[1:], ref[1:])
 
     def test_dirichlet_2d_zeros_row0_and_col0_only(self):
-        solver = _stationary_solver(2, 'dirichlet')
+        solver = _stationary_solver(2, 'nonperiodic')
         u = np.ones((16, 16))
         with pytest.warns(RuntimeWarning):
             solver._apply_boundary(u)
@@ -139,13 +139,13 @@ class TestApplyBoundary:
         assert u[0] == 3.0 and u[-1] == 3.0
 
     def test_invalid_bc_raises(self):
-        solver = _stationary_solver(1, 'dirichlet')
+        solver = _stationary_solver(1, 'nonperiodic')
         solver.boundary_condition = 'robin'
         with pytest.raises(ValueError, match="robin"):
             solver._apply_boundary(np.zeros(16))
 
     def test_complex_field_supported(self):
-        solver = _stationary_solver(1, 'dirichlet')
+        solver = _stationary_solver(1, 'nonperiodic')
         u = (1.0 + 1.0j) * np.ones(16)
         with pytest.warns(RuntimeWarning):
             solver._apply_boundary(u)
@@ -159,14 +159,14 @@ class TestApplyBoundary:
 class TestBoundaryGuard:
 
     def test_default_tolerance(self):
-        solver = _diffusion_1d('dirichlet', lambda x: _gaussian(x),
+        solver = _diffusion_1d('nonperiodic', lambda x: _gaussian(x),
                                Lx=40.0, Nx=128)
         assert solver.boundary_tol == pytest.approx(1e-8)
 
     def test_localized_data_no_warning_dirichlet(self):
         cm = _no_runtime_warning()
         try:
-            solver = _diffusion_1d('dirichlet', lambda x: _gaussian(x),
+            solver = _diffusion_1d('nonperiodic', lambda x: _gaussian(x),
                                    Lx=40.0, Nx=256)
             solver.solve()
         finally:
@@ -187,12 +187,12 @@ class TestBoundaryGuard:
     def test_nonzero_boundary_warns_at_setup(self):
         """sin(x+0.3) is non-zero at the left edge: clipping must be flagged."""
         with pytest.warns(RuntimeWarning, match="boundary"):
-            solver = _diffusion_1d('dirichlet', lambda x: np.sin(x + 0.3))
+            solver = _diffusion_1d('nonperiodic', lambda x: np.sin(x + 0.3))
         assert solver._bc_warned is True
         assert solver._bc_max_correction > solver.boundary_tol
 
     def test_warning_emitted_only_once(self):
-        solver = _stationary_solver(1, 'dirichlet')
+        solver = _stationary_solver(1, 'nonperiodic')
         with warnings.catch_warnings(record=True) as rec:
             warnings.simplefilter("always")
             for _ in range(5):
@@ -201,7 +201,7 @@ class TestBoundaryGuard:
         assert n == 1
 
     def test_max_correction_is_monotone(self):
-        solver = _stationary_solver(1, 'dirichlet')
+        solver = _stationary_solver(1, 'nonperiodic')
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
             big = np.zeros(16)
@@ -221,7 +221,7 @@ class TestBoundaryGuard:
         whole field must not change the reported value."""
         results = []
         for amp in (1.0, 1e6):
-            solver = _stationary_solver(1, 'dirichlet')
+            solver = _stationary_solver(1, 'nonperiodic')
             u = np.zeros(16)
             u[0] = 1e-4 * amp
             u[8] = amp
@@ -235,7 +235,7 @@ class TestBoundaryGuard:
     def test_large_tol_suppresses_warning(self):
         cm = _no_runtime_warning()
         try:
-            solver = _diffusion_1d('dirichlet', lambda x: np.sin(x + 0.3),
+            solver = _diffusion_1d('nonperiodic', lambda x: np.sin(x + 0.3),
                                    boundary_tol=10.0)
         finally:
             cm.__exit__(None, None, None)
@@ -248,7 +248,7 @@ class TestBoundaryGuard:
         ic = lambda x: _gaussian(x, w=1.0)
         L = 2 * np.sqrt(-np.log(1e-6))         # edge at |x| = L/2 -> u ~ 1e-6
         with pytest.warns(RuntimeWarning):
-            _diffusion_1d('dirichlet', ic, Lx=L, Nx=128)
+            _diffusion_1d('nonperiodic', ic, Lx=L, Nx=128)
 
     def test_periodic_never_warns(self):
         cm = _no_runtime_warning()
@@ -266,7 +266,7 @@ class TestBoundaryGuard:
 
 class TestLargeBoxEquivalence:
 
-    @pytest.mark.parametrize("bc", ["dirichlet", "neumann"])
+    @pytest.mark.parametrize("bc", ["periodic", "nonperiodic"])
     def test_clipping_equals_periodic_for_gaussian(self, bc):
         ic = lambda x: _gaussian(x, w=1.0)
         kw = dict(Lx=40.0, Nx=256, Lt=1.0, Nt=200)
@@ -288,7 +288,7 @@ class TestLargeBoxEquivalence:
         """u_t = -(xi^2+1)u  =>  u(x,t) = e^{-t} * heat-kernel(Gaussian)."""
         w, T = 1.0, 0.5
         kw = dict(Lx=40.0, Nx=512, Lt=T, Nt=200)
-        sol = _diffusion_1d('dirichlet', lambda x: _gaussian(x, w=w), **kw)
+        sol = _diffusion_1d('nonperiodic', lambda x: _gaussian(x, w=w), **kw)
         sol.solve()
         # exp(-(x/w)^2) evolved by u_t = u_xx : width^2 -> w^2 + 4T
         w2 = w**2 + 4 * T
@@ -333,13 +333,6 @@ class TestNonperiodicMode:
             solver._apply_boundary(u)
         # node 0 carries both walls (endpoint=False grid); the last node is free
         assert u[0] == 0 and u[-1] == 1
-
-    @pytest.mark.parametrize("legacy,clip", [('dirichlet', 'zero'), ('neumann', 'copy')])
-    def test_legacy_alias_warns_and_maps(self, legacy, clip):
-        with pytest.warns(DeprecationWarning, match="nonperiodic"):
-            solver = _diffusion_1d(legacy, lambda x: _gaussian(x), Lx=40.0, Nx=128)
-        assert solver.boundary_condition == 'nonperiodic'
-        assert solver._bc_clip == clip
 
     def test_unknown_bc_rejected_at_setup(self):
         with pytest.raises(ValueError, match="robin"):

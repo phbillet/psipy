@@ -505,7 +505,7 @@ or extracted automatically from symbolic equations (auto mode).</p>
 <dd><p>Apply the pseudo-differential operator to the input field u.</p>
 <p>Dispatches based on:
 - Whether the symbol is spatially dependent (x / y).
-- The boundary condition (‘periodic’ or ‘dirichlet’).
+- The boundary condition (‘periodic’ or ‘nonperiodic’).
 - The quantization convention stored in <code class="docutils literal notranslate"><span class="pre">self.quantization</span></code>.</p>
 <section id="supported-quantizations">
 <h2>Supported quantizations<a class="headerlink" href="#supported-quantizations" title="Link to this heading"></a></h2>
@@ -552,7 +552,7 @@ kernel is needed.</p>
 <dd class="field-odd"><p>Boundary condition type.</p>
 <ul>
 <li><p>‘periodic’: uses FFT-based Kohn–Nirenberg quantization.</p></li>
-<li><p>‘dirichlet’ / ‘neumann’: both route to the same non-periodic
+<li><p>‘nonperiodic’ / ‘neumann’: both route to the same non-periodic
 direct quadrature kernel (<code class="docutils literal notranslate"><span class="pre">kohn_nirenberg_nonperiodic</span></code>).
 The quadrature itself does NOT enforce a specific boundary
 condition — it simply evaluates the KN integral on the given
@@ -566,7 +566,7 @@ solver package.</p>
 </ul>
 </dd>
 <dt class="field-even">type boundary_condition<span class="colon">:</span></dt>
-<dd class="field-even"><p>{‘periodic’, ‘dirichlet’, ‘neumann’}, default=’periodic’</p>
+<dd class="field-even"><p>{‘periodic’, ‘nonperiodic’, ‘neumann’}, default=’periodic’</p>
 </dd>
 <dt class="field-odd">param y_grid<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Spatial grid in y direction (2D only).</p>
@@ -672,7 +672,7 @@ to a more accurate method if this is exceeded.</p>
 <dd class="field-even"><p>ndarray</p>
 </dd>
 <dt class="field-odd">raises ValueError<span class="colon">:</span></dt>
-<dd class="field-odd"><p>If boundary_condition is not ‘periodic’ or ‘nonperiodic’ or ‘dirichlet’ or ‘neumann’.</p>
+<dd class="field-odd"><p>If boundary_condition is not ‘periodic’ or ‘nonperiodic’ or ‘nonperiodic’ or ‘neumann’.</p>
 </dd>
 </dl>
 </section>
@@ -3027,7 +3027,7 @@ applying the pseudo-differential operator.</p>
 domain using direct matrix/quadrature-based transforms.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This kernel treats ‘nonperiodic’ (and legacy ‘dirichlet’/’neumann’) identically: both
+<p>This kernel treats ‘nonperiodic’ (and legacy ‘nonperiodic’/’neumann’) identically: both
 simply mean “do not assume periodicity.” The quadrature evaluates
 the KN integral on the given grid without imposing any specific
 boundary condition. Physical BC enforcement (e.g., zero-gradient
