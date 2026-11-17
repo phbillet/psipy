@@ -5,9 +5,11 @@ pde_db.py -- notebooks -> SQLite database of PDE cases -> benchmark runs stored 
   build     extract every PDESolver example/test from the notebooks into SQLite (idempotent)
   list      list cases
   run       execute cases (sweep of FFT workers), store times, errors, warnings, logs, failures
-  report    scaling / error table (times, speed-up vs 1 worker, errors)
+  report    scaling / error table (times, speed-up vs the smallest tested worker count, errors)
   failures  list runs that did not finish properly, with the stage and the exception
   show      full detail of one run (per-time errors, warnings, traceback, logs, saved fields)
+  workers   show this machine's cores and suggest a ladder of FFT worker counts
+  profile   (re)compute the interior-error profile from fields stored in the database
   sql       run any read-only SELECT on the database
 
 Examples
@@ -17,20 +19,22 @@ Examples
   python pde_db.py report --notebook p2d
   python pde_db.py failures
   python pde_db.py show 17 --logs
+  python pde_db.py run --solver-dir . --ids np1d-05 --margins 0 0.1 0.2 0.3      # error on nested interior boxes
+  python pde_db.py profile --margins 0 0.05 0.1 0.2 0.3                          # later, from stored fields
   python pde_db.py sql "SELECT case_id, fft_workers, time_solve_s FROM v_latest_ok ORDER BY 3 DESC LIMIT 10"
 
 Security: `build` EXECUTES the notebook cells (with a recording stub in place of PDESolver) and `run`
 rebuilds callables with eval/exec from code strings stored in the database. Use your own files only.
 
-Tables: cases, notebooks, runs, run_repeats, run_errors, run_warnings, run_logs, run_blobs, meta
-Views : v_latest_ok, v_scaling, v_failures
+Tables: cases, notebooks, runs, run_repeats, run_errors, run_error_profile, run_warnings, run_logs, run_blobs, meta
+Views : v_latest_ok (latest solver version only), v_scaling, v_failures, v_dashboard, v_warmup, v_version_compare
 """
 import argparse, ast, base64, builtins, csv, datetime as dt, hashlib, importlib, importlib.util, io, json, math
 import os, platform, re, signal, sqlite3, statistics, subprocess, sys, tempfile, time, tokenize
 import traceback, types, uuid, warnings, zlib
 from collections import Counter
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 6
 
 # =============================================================================================
 # 1. SQLite schema
@@ -67,7 +71,7 @@ CREATE TABLE IF NOT EXISTS runs (
     returncode INTEGER, signal TEXT, timeout_s REAL,
     fft_backend TEXT, solver_diagnostics TEXT,
     solver_sha256 TEXT, psiop_sha256 TEXT, python TEXT, numpy TEXT, scipy TEXT, sympy TEXT,
-    platform TEXT, hostname TEXT, cpu_count INTEGER, environment TEXT, note TEXT);
+    platform TEXT, hostname TEXT, cpu_count INTEGER, environment TEXT, note TEXT, margins TEXT);
 CREATE INDEX IF NOT EXISTS ix_runs_case ON runs(case_id, fft_workers);
 CREATE TABLE IF NOT EXISTS run_repeats (          -- every repetition, warm-up included, partial if it failed
     run_id INTEGER REFERENCES runs(run_id), rep INTEGER, is_warmup INTEGER,
@@ -77,27 +81,91 @@ CREATE TABLE IF NOT EXISTS run_errors (           -- one row per tested time
     error REAL, threshold REAL, passed INTEGER, ratio_to_threshold REAL,
     rel_l2 REAL, abs_l2 REAL, linf REAL,
     max_abs_u_num REAL, max_abs_u_exact REAL, n_nonfinite_u_num INTEGER, message TEXT);
+CREATE TABLE IF NOT EXISTS run_error_profile (   -- error on the interior box |x| <= (1-margin)*L/2 (margin 0 = whole domain)
+    run_id INTEGER REFERENCES runs(run_id), t_eval REAL, actual_t REAL, component TEXT, margin REAL,
+    n_points_used INTEGER, ref_l2 REAL, abs_l2 REAL, rel_l2 REAL, linf REAL,
+    energy_share REAL);                           -- share of the squared error lying inside the box (1 = all of it)
+CREATE INDEX IF NOT EXISTS ix_profile_run ON run_error_profile(run_id, margin);
 CREATE TABLE IF NOT EXISTS run_warnings (
     run_id INTEGER REFERENCES runs(run_id), category TEXT, message TEXT, filename TEXT, lineno INTEGER, count INTEGER);
 CREATE TABLE IF NOT EXISTS run_logs (             -- stdout / stderr of the worker process (zlib)
     run_id INTEGER REFERENCES runs(run_id), stream TEXT, nbytes INTEGER, truncated INTEGER, data BLOB);
 CREATE TABLE IF NOT EXISTS run_blobs (            -- numerical fields / energy history (zlib-compressed .npy)
     run_id INTEGER REFERENCES runs(run_id), name TEXT, t_eval REAL, dtype TEXT, shape TEXT, data BLOB);
-CREATE VIEW IF NOT EXISTS v_latest_ok AS
-    SELECT * FROM runs WHERE status='ok' AND run_id IN
-      (SELECT MAX(run_id) FROM runs WHERE status='ok' GROUP BY case_id, fft_workers);
-CREATE VIEW IF NOT EXISTS v_scaling AS
-    SELECT l.case_id, c.name, c.dim, c.n_points, l.fft_workers, l.time_init_s, l.time_setup_s,
-           l.time_solve_s, l.cpu_over_wall,
+DROP VIEW IF EXISTS v_scaling;
+DROP VIEW IF EXISTS v_latest_ok;
+DROP VIEW IF EXISTS v_failures;
+-- latest ok run per (case, workers), restricted to the solver version (solver.py + psiop.py hashes) of the
+-- most recent ok run of that case, so that speed-ups never mix timings of different code versions
+CREATE VIEW v_latest_ok AS
+    WITH ok AS (
+        SELECT run_id, case_id, fft_workers, solver_sha256, psiop_sha256,
+               FIRST_VALUE(solver_sha256) OVER w AS cur_solver, FIRST_VALUE(psiop_sha256) OVER w AS cur_psiop
+        FROM runs WHERE status='ok' WINDOW w AS (PARTITION BY case_id ORDER BY run_id DESC)),
+    cur AS (SELECT * FROM ok WHERE solver_sha256 IS cur_solver AND psiop_sha256 IS cur_psiop),
+    pick AS (SELECT MAX(run_id) AS run_id FROM cur GROUP BY case_id, fft_workers)
+    SELECT r.* FROM runs r JOIN pick USING(run_id);
+-- speedup / efficiency are relative to the SMALLEST worker count tested for the case (base_workers):
+-- speedup = t(base)/t(w) ; efficiency = speedup * base/w  (1.0 = ideal scaling from the baseline)
+CREATE VIEW v_scaling AS
+    SELECT l.case_id, c.name, c.dim, c.n_points, l.fft_workers, b.fft_workers AS base_workers,
+           l.time_init_s, l.time_setup_s, l.time_solve_s, l.cpu_over_wall,
            b.time_solve_s / l.time_solve_s AS speedup,
-           b.time_solve_s / l.time_solve_s / l.fft_workers AS efficiency,
+           b.time_solve_s / l.time_solve_s * b.fft_workers / l.fft_workers AS efficiency,
            l.error_max, l.passed, l.n_warnings, l.run_id
     FROM v_latest_ok l JOIN cases c ON c.case_id = l.case_id
-    LEFT JOIN v_latest_ok b ON b.case_id = l.case_id AND b.fft_workers = 1;
-CREATE VIEW IF NOT EXISTS v_failures AS
+    LEFT JOIN v_latest_ok b ON b.case_id = l.case_id
+         AND b.fft_workers = (SELECT MIN(m.fft_workers) FROM v_latest_ok m WHERE m.case_id = l.case_id);
+CREATE VIEW v_failures AS
     SELECT r.run_id, r.case_id, c.name, r.fft_workers, r.status, r.stage, r.exception_type,
            r.exception_message, r.returncode, r.signal, r.started_at
     FROM runs r JOIN cases c ON c.case_id = r.case_id WHERE r.status <> 'ok';
+
+DROP VIEW IF EXISTS v_error_profile;
+DROP VIEW IF EXISTS v_dashboard;
+DROP VIEW IF EXISTS v_warmup;
+DROP VIEW IF EXISTS v_version_compare;
+-- correctness dashboard: latest ok run of each case. margin = worst error/threshold (inf if the solution is non-finite)
+CREATE VIEW v_dashboard AS
+    SELECT r.run_id, r.case_id, c.name, c.family, c.dim, c.type, c.boundary_condition, c.exact_kind, c.n_points,
+           r.fft_workers, r.started_at,
+           CASE WHEN r.passed IS NULL THEN 'no test' WHEN r.passed = 1 THEN 'PASS' ELSE 'FAIL' END AS status,
+           CASE WHEN r.non_finite = 1 THEN 9e999
+                ELSE (SELECT MAX(e.ratio_to_threshold) FROM run_errors e WHERE e.run_id = r.run_id) END AS margin,
+           r.passed, r.non_finite, r.error_max, r.error_final, r.time_solve_s, r.n_warnings
+    FROM runs r JOIN cases c ON c.case_id = r.case_id
+    WHERE r.status = 'ok' AND r.run_id IN (SELECT MAX(run_id) FROM runs WHERE status = 'ok' GROUP BY case_id);
+-- interior-error profile of the latest ok run of each case that has interior information (margin > 0)
+CREATE VIEW v_error_profile AS
+    SELECT p.*, r.case_id, c.name, c.family, c.dim, c.boundary_condition, c.exact_kind, r.fft_workers
+    FROM run_error_profile p JOIN runs r ON r.run_id = p.run_id JOIN cases c ON c.case_id = r.case_id
+    WHERE r.run_id IN (SELECT MAX(r2.run_id) FROM runs r2 WHERE r2.status = 'ok' AND EXISTS
+                       (SELECT 1 FROM run_error_profile q WHERE q.run_id = r2.run_id AND q.margin > 0)
+                       GROUP BY r2.case_id);
+-- warm-up (first repetition) versus steady state; jitter_range = (max-min)/median of the steady repetitions
+CREATE VIEW v_warmup AS
+    SELECT r.run_id, r.case_id, r.fft_workers, w.t_solve_s AS warm_s, r.time_solve_s AS steady_s,
+           w.t_solve_s / r.time_solve_s AS warm_over_steady,
+           CASE WHEN s.n > 1 THEN (s.mx - s.mn) / r.time_solve_s END AS jitter_range, s.n AS n_steady
+    FROM runs r
+    JOIN run_repeats w ON w.run_id = r.run_id AND w.is_warmup = 1 AND w.completed = 1
+    LEFT JOIN (SELECT run_id, COUNT(*) AS n, MIN(t_solve_s) AS mn, MAX(t_solve_s) AS mx
+               FROM run_repeats WHERE is_warmup = 0 AND completed = 1 GROUP BY run_id) s ON s.run_id = r.run_id
+    WHERE r.status = 'ok' AND r.time_solve_s > 0;
+-- for each (case, workers): the two most recent solver versions (solver.py + psiop.py hashes) side by side
+CREATE VIEW v_version_compare AS
+    WITH per AS (
+        SELECT * FROM runs WHERE status = 'ok' AND run_id IN
+            (SELECT MAX(run_id) FROM runs WHERE status = 'ok' GROUP BY case_id, fft_workers, solver_sha256, psiop_sha256)),
+    ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY case_id, fft_workers ORDER BY run_id DESC) AS rk FROM per)
+    SELECT a.case_id, c.name, a.fft_workers,
+           b.solver_sha256 AS before_solver, a.solver_sha256 AS after_solver,
+           b.psiop_sha256 AS before_psiop, a.psiop_sha256 AS after_psiop,
+           b.time_solve_s AS before_s, a.time_solve_s AS after_s, b.time_solve_s / a.time_solve_s AS speedup,
+           b.error_max AS before_err, a.error_max AS after_err,
+           CASE WHEN b.error_max > 0 THEN a.error_max / b.error_max END AS err_ratio
+    FROM ranked a JOIN ranked b ON a.case_id = b.case_id AND a.fft_workers = b.fft_workers AND a.rk = 1 AND b.rk = 2
+    JOIN cases c ON c.case_id = a.case_id;
 """
 
 def connect(path, create=False, readonly=False):
@@ -109,6 +177,8 @@ def connect(path, create=False, readonly=False):
         con = sqlite3.connect(path)
         con.execute("PRAGMA foreign_keys=ON")
         con.executescript(SCHEMA)
+        if "margins" not in {r[1] for r in con.execute("PRAGMA table_info(runs)")}:
+            con.execute("ALTER TABLE runs ADD COLUMN margins TEXT")       # migration of older databases
         con.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
     con.row_factory = sqlite3.Row
     return con
@@ -557,7 +627,42 @@ def build_equation(case, S):
         raise ValueError("equation did not parse to sympy.Eq")
     return eq
 
-def compute_errors(solver, case, u_exact, u_stat, want_fields):
+def interior_mask(dom, shape, m):
+    """Boolean mask of the box |x| <= (1-m)*Lx/2 (and |y| <= (1-m)*Ly/2 in 2D). Grid as in PDESolver:
+    x_i = -L/2 + i*L/N (endpoint=False), arrays indexed 'ij'. m = fraction of the half-width removed on each side."""
+    import numpy as np
+    def axis(L, N):
+        x = -L / 2 + np.arange(N) * (L / N)
+        return np.abs(x) <= (1 - m) * L / 2 + 1e-12 * L
+    mx = axis(dom["Lx"], dom["Nx"])
+    if len(shape) == 1:
+        if shape[0] != len(mx):
+            raise ValueError(f"grid {shape} does not match domain Nx={dom['Nx']}")
+        return mx
+    my = axis(dom["Ly"], dom["Ny"])
+    if shape != (len(mx), len(my)):
+        raise ValueError(f"grid {shape} does not match domain ({dom['Nx']}, {dom['Ny']})")
+    return mx[:, None] & my[None, :]
+
+def profile_rows(u_num, u_ex, comp, dom, margins):
+    """Error of the tested component on nested interior boxes (one dict per margin)."""
+    import numpy as np
+    f = {"real": np.real, "imag": np.imag, "abs": np.abs}[comp]
+    diff, ref = f(u_num) - f(u_ex), f(u_ex)
+    total = float(np.sum(np.abs(diff) ** 2))
+    fin = lambda v: v if v is None or math.isfinite(v) else None
+    rows = []
+    for m in margins:
+        mk = interior_mask(dom, np.shape(diff), m)
+        d, r = diff[mk], ref[mk]
+        a2, r2 = float(np.linalg.norm(d)), float(np.linalg.norm(r))
+        rows.append({"margin": float(m), "n_points_used": int(mk.sum()), "ref_l2": fin(r2), "abs_l2": fin(a2),
+                     "rel_l2": fin(a2 / r2) if r2 > 0 else None,
+                     "linf": fin(float(np.max(np.abs(d)))) if d.size else None,
+                     "energy_share": fin(float(np.sum(np.abs(d) ** 2)) / total) if total > 0 else None})
+    return rows
+
+def compute_errors(solver, case, u_exact, u_stat, want_fields, margins=(0.0,)):
     """Same selection/norm rule as PDESolver.test(); never asserts; adds diagnostics. Returns (rows, fields)."""
     import numpy as np
     t = case["test"]
@@ -592,6 +697,7 @@ def compute_errors(solver, case, u_exact, u_stat, want_fields):
                        n_nonfinite_u_num=int(np.sum(~np.isfinite(u_num))))
             row["passed"] = int(math.isfinite(err) and err < th)
             row["ratio_to_threshold"] = err / th if math.isfinite(err) and th else None
+            row["profile"] = profile_rows(u_num, u_ex, comp, case["domain"], margins)
             if want_fields:
                 fields += [("u_num", row["t_eval"], np.asarray(u_num)), ("u_exact", row["t_eval"], np.asarray(u_ex))]
         except Exception as e:                       # a single time failing must not lose the others
@@ -695,7 +801,9 @@ def worker(a):
         if u_ex is not None and case.get("test"):
             stage("compute_errors")
             want = a.store_fields != "none"
-            rows, fields = compute_errors(solver, case, u_ex, u_stat, want)
+            margins = json.loads(a.margins) if a.margins else [0.0]
+            rows, fields = compute_errors(solver, case, u_ex, u_stat, want, margins)
+            res["margins"] = margins
             if a.store_fields == "final":
                 fields = fields[-2:]
             for name, te, arr in fields:
@@ -740,6 +848,65 @@ def unpack(blob):
 # =============================================================================================
 # 4. run : parent side
 # =============================================================================================
+def cpu_topology():
+    """Logical CPUs, CPUs this process may use (affinity/cgroup), physical cores if detectable."""
+    info = {"logical": os.cpu_count(), "available": None, "physical": None}
+    try:
+        info["available"] = len(os.sched_getaffinity(0))
+    except AttributeError:
+        info["available"] = info["logical"]
+    try:
+        import psutil
+        info["physical"] = psutil.cpu_count(logical=False)
+    except Exception:
+        pass
+    if not info["physical"]:
+        try:
+            if sys.platform.startswith("linux"):
+                pairs, pid = set(), None
+                for line in open("/proc/cpuinfo"):
+                    if line.startswith("physical id"):
+                        pid = line.split(":")[1].strip()
+                    elif line.startswith("core id"):
+                        pairs.add((pid, line.split(":")[1].strip()))
+                info["physical"] = len(pairs) or None
+            elif sys.platform == "darwin":
+                info["physical"] = int(subprocess.run(["sysctl", "-n", "hw.physicalcpu"], capture_output=True, text=True).stdout)
+        except Exception:
+            pass
+    return info
+
+def suggest_ladder(base, top):
+    """base, doubling steps, midpoints, and top: e.g. base=4, top=8 -> [4, 6, 8]."""
+    pts = {base, top}
+    k = base
+    while k * 2 <= top:
+        k *= 2; pts.add(k)
+    pts = sorted(pts)
+    for lo, hi in zip(pts, pts[1:]):
+        if hi - lo >= 2:
+            pts.append((lo + hi) // 2)
+    return sorted(set(pts))
+
+def cmd_workers(a):
+    t = cpu_topology()
+    top = a.max or t["physical"] or t["available"]
+    print(f"logical CPUs: {t['logical']} | usable by this process: {t['available']} | physical cores: {t['physical'] or 'unknown'}")
+    print(f"suggested ladder (base {a.base}, top {top}): {' '.join(map(str, suggest_ladder(a.base, top)))}")
+    print("rules of thumb: stay <= physical cores (hyper-threads rarely help FFTs; above that you measure oversubscription);"
+          "\n  add your production setting; add one odd value (e.g. 5) only to probe load imbalance;"
+          "\n  use --repeats >= 3 on an otherwise idle machine; speed-ups are relative to the smallest value you test.")
+
+def parse_workers(vals):
+    out = []
+    for v in vals:
+        if v == "auto":
+            t = cpu_topology()
+            out += suggest_ladder(4 if (t["physical"] or t["available"]) >= 8 else 1, t["physical"] or t["available"])
+        else:
+            out.append(int(v))
+    return sorted(set(out))
+
 def file_sha(path):
     try:
         return hashlib.sha256(open(path, "rb").read()).hexdigest()[:16]
@@ -750,7 +917,8 @@ def environment(solver_dir):
     import numpy, scipy, sympy
     return {"python": platform.python_version(), "numpy": numpy.__version__, "scipy": scipy.__version__,
             "sympy": sympy.__version__, "platform": platform.platform(), "hostname": platform.node(),
-            "cpu_count": os.cpu_count(), "machine": platform.machine(),
+            "cpu_count": os.cpu_count(), "cpus_available": cpu_topology()["available"],
+            "physical_cores": cpu_topology()["physical"], "machine": platform.machine(),
             "solver_sha256": file_sha(os.path.join(solver_dir, "solver.py")),
             "psiop_sha256": file_sha(os.path.join(solver_dir, "psiop.py")),
             "thread_env": {k: os.environ.get(k) for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")}}
@@ -769,7 +937,7 @@ def execute(case, workers, a, env_info):
     out, prog, fo, fe = (os.path.join(tmp, n) for n in ("out.json", "progress.json", "stdout.txt", "stderr.txt"))
     cmd = [sys.executable, os.path.abspath(__file__), "_worker", "--solver-dir", a.solver_dir,
            "--workers", str(workers), "--repeats", str(a.repeats), "--out", out, "--progress", prog,
-           "--store-fields", a.store_fields, "--max-field-mb", str(a.max_field_mb),
+           "--store-fields", a.store_fields, "--max-field-mb", str(a.max_field_mb), "--margins", json.dumps(a.margins),
            "--case-json", json.dumps(case)] + (["--no-warmup"] if a.no_warmup else [])
     env = dict(os.environ)
     if a.blas_threads != "default":
@@ -824,7 +992,8 @@ def store_run(con, case_id, r):
     flat = dict(case_id=case_id, started_at=r.get("started_at"), finished_at=r.get("finished_at"),
                 wall_clock_total_s=r.get("wall_clock_total_s"), status=r.get("status"), stage=r.get("stage"),
                 fft_workers=r.get("fft_workers"), blas_threads=r.get("blas_threads"), repeats=r.get("repeats"),
-                warmup_excluded=r.get("warmup_excluded"))
+                warmup_excluded=r.get("warmup_excluded"),
+                margins=jdump(r["margins"]) if r.get("margins") else None)
     for k in ("time_init_s", "time_setup_s", "time_solve_s", "time_total_s", "cpu_time_solve_s", "cpu_over_wall",
               "time_solve_min_s", "error_max", "error_final", "passed", "non_finite", "n_warnings", "peak_rss_mb",
               "exception_type", "exception_message", "traceback", "returncode", "signal", "timeout_s", "fft_backend", "note"):
@@ -843,6 +1012,11 @@ def store_run(con, case_id, r):
                     (rid, e["t_eval"], e["actual_t"], e["component"], e["norm"], e["error"], e["threshold"], e["passed"],
                      e.get("ratio_to_threshold"), e.get("rel_l2"), e.get("abs_l2"), e.get("linf"), e.get("max_abs_u_num"),
                      e.get("max_abs_u_exact"), e.get("n_nonfinite_u_num"), e.get("message")))
+    for e in jsonable(r.get("errors", [])):
+        for pr in e.get("profile", []):
+            con.execute("INSERT INTO run_error_profile VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (rid, e["t_eval"], e["actual_t"], e["component"], pr["margin"], pr["n_points_used"],
+                         pr["ref_l2"], pr["abs_l2"], pr["rel_l2"], pr["linf"], pr["energy_share"]))
     for w in r.get("warnings", []):
         con.execute("INSERT INTO run_warnings VALUES (?,?,?,?,?,?)",
                     (rid, w["category"], w["message"], w["filename"], w["lineno"], w["count"]))
@@ -881,7 +1055,16 @@ def select_cases(con, a):
 def cmd_run(a):
     con = connect(a.db)
     cases = select_cases(con, a)
+    a.workers = parse_workers(a.workers)
+    a.margins = sorted({0.0, *map(float, a.margins)})
+    if not all(0 <= m < 1 for m in a.margins):
+        sys.exit("--margins must be fractions in [0, 1)")
     env_info = environment(a.solver_dir)
+    for lim, label in ((env_info["cpus_available"], "usable CPUs"), (env_info["physical_cores"], "physical cores")):
+        if lim and max(a.workers) > lim:
+            print(f"WARNING: workers up to {max(a.workers)} exceed the {lim} {label}: oversubscribed timings are not a scaling measure")
+    if min(a.workers) > 1:
+        print(f"note: smallest worker count is {min(a.workers)}: speed-ups/efficiencies will be relative to it")
     todo = []
     for c in cases:
         for w in a.workers:
@@ -927,7 +1110,7 @@ def table(rows, cols=None):
         print("  ".join(fmt(r[k]).ljust(wid[k]) for k in cols))
 
 def cmd_list(a):
-    con = connect(a.db, readonly=True)
+    con = connect(a.db)
     w, p = case_filter(a)
     rows = con.execute(f"""SELECT case_id, dim, substr(type,1,4) AS type, temporal_order AS ord, formulation, boundary_condition AS bc,
         COALESCE(Nx,'') || COALESCE('x'||Ny,'') AS grid, Nt, exact_kind AS exact,
@@ -936,11 +1119,11 @@ def cmd_list(a):
     table(rows)
 
 def cmd_report(a):
-    con = connect(a.db, readonly=True)
+    con = connect(a.db)
     w, p = case_filter(a)
     ids = [r[0] for r in con.execute(f"SELECT case_id FROM cases{w}", p)]
     rows = [r for r in con.execute("SELECT * FROM v_scaling ORDER BY case_id, fft_workers") if r["case_id"] in ids]
-    cols = ["case_id", "name", "dim", "n_points", "fft_workers", "time_init_s", "time_setup_s", "time_solve_s",
+    cols = ["case_id", "name", "dim", "n_points", "fft_workers", "base_workers", "time_init_s", "time_setup_s", "time_solve_s",
             "cpu_over_wall", "speedup", "efficiency", "error_max", "passed", "n_warnings"]
     rows = [{k: (r[k][:40] if k == "name" else r[k]) for k in cols} for r in rows]
     table(rows)
@@ -953,7 +1136,7 @@ def cmd_report(a):
         print(f"CSV written: {a.csv}")
 
 def cmd_failures(a):
-    con = connect(a.db, readonly=True)
+    con = connect(a.db)
     q = "SELECT * FROM v_failures" + (" WHERE run_id IN (SELECT MAX(run_id) FROM runs GROUP BY case_id, fft_workers)" if a.last else "")
     rows = con.execute(q + " ORDER BY run_id").fetchall()
     table([{k: r[k] for k in ("run_id", "case_id", "fft_workers", "status", "stage", "exception_type", "exception_message", "signal")}
@@ -961,7 +1144,7 @@ def cmd_failures(a):
     print("\nuse `show RUN_ID --logs` for traceback and logs")
 
 def cmd_show(a):
-    con = connect(a.db, readonly=True)
+    con = connect(a.db)
     r = con.execute("SELECT r.*, c.name, c.equation FROM runs r JOIN cases c USING(case_id) WHERE run_id=?", (a.run_id,)).fetchone()
     if not r:
         sys.exit("no such run")
@@ -976,6 +1159,9 @@ def cmd_show(a):
     table([dict(x) for x in con.execute("SELECT rep, is_warmup, t_init_s, t_setup_s, t_solve_s, cpu_solve_s, completed FROM run_repeats WHERE run_id=?", (a.run_id,))])
     print("\nerrors per time:")
     table([dict(x) for x in con.execute("SELECT t_eval, actual_t, component, error, threshold, passed, ratio_to_threshold AS ratio, linf, max_abs_u_num, n_nonfinite_u_num AS n_nan, message FROM run_errors WHERE run_id=?", (a.run_id,))])
+    pr = con.execute("SELECT t_eval, margin, n_points_used AS n_used, rel_l2, linf, energy_share FROM run_error_profile WHERE run_id=? ORDER BY t_eval, margin", (a.run_id,)).fetchall()
+    if pr:
+        print("\ninterior profile (margin 0 = whole domain):"); table([dict(x) for x in pr])
     ws = con.execute("SELECT category, count, message FROM run_warnings WHERE run_id=?", (a.run_id,)).fetchall()
     if ws:
         print("\nwarnings:"); table([dict(x) for x in ws])
@@ -993,8 +1179,49 @@ def cmd_show(a):
         np.savez_compressed(a.save_fields, **arrs)
         print(f"\nsaved {len(arrs)} array(s) -> {a.save_fields}: {', '.join(arrs)}")
 
+def cmd_profile(a):
+    """Compute the interior profile from the fields already stored (run --store-fields final|all)."""
+    con = connect(a.db)
+    margins = sorted({0.0, *map(float, a.margins)})
+    if not all(0 <= m < 1 for m in margins):
+        sys.exit("--margins must be fractions in [0, 1)")
+    w, p = case_filter(a)
+    cases = {r["case_id"]: json.loads(r["definition"]) for r in con.execute(f"SELECT case_id, definition FROM cases{w}", p)}
+    runs = con.execute("""SELECT run_id, case_id FROM runs r WHERE status = 'ok' AND EXISTS
+                          (SELECT 1 FROM run_blobs b WHERE b.run_id = r.run_id AND b.name = 'u_num') ORDER BY run_id""").fetchall()
+    runs = [r for r in runs if r["case_id"] in cases]
+    if not a.all_runs:
+        runs = list({r["case_id"]: r for r in runs}.values())          # latest run with stored fields per case
+    n_t = 0
+    for r in runs:
+        dom = cases[r["case_id"]]["domain"]
+        blobs = {}
+        for b in con.execute("SELECT name, t_eval, data FROM run_blobs WHERE run_id=? AND name IN ('u_num','u_exact')", (r["run_id"],)):
+            blobs[(b["name"], b["t_eval"])] = b["data"]
+        for t in sorted({te for (nm, te) in blobs if nm == "u_num" and ("u_exact", te) in blobs}, key=lambda x: (x is None, x)):
+            meta = con.execute("SELECT component, actual_t FROM run_errors WHERE run_id=? AND t_eval IS ?", (r["run_id"], t)).fetchone()
+            if not meta:
+                continue
+            rows = profile_rows(unpack(blobs[("u_num", t)]), unpack(blobs[("u_exact", t)]), meta["component"], dom, margins)
+            con.execute(f"DELETE FROM run_error_profile WHERE run_id=? AND t_eval IS ? AND margin IN ({','.join('?' * len(margins))})",
+                        (r["run_id"], t, *margins))
+            for pr in rows:
+                con.execute("INSERT INTO run_error_profile VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                            (r["run_id"], t, meta["actual_t"], meta["component"], pr["margin"], pr["n_points_used"],
+                             pr["ref_l2"], pr["abs_l2"], pr["rel_l2"], pr["linf"], pr["energy_share"]))
+            n_t += 1
+    con.commit()
+    missing = con.execute(f"""SELECT COUNT(*) FROM cases{w + (' AND' if w else ' WHERE')} has_exact = 1 AND case_id IN
+        (SELECT case_id FROM runs WHERE status='ok') AND case_id NOT IN
+        (SELECT case_id FROM runs r WHERE EXISTS (SELECT 1 FROM run_blobs b WHERE b.run_id = r.run_id AND b.name = 'u_num'))""", p).fetchone()[0]
+    print(f"profile computed for {len(runs)} run(s), {n_t} tested time(s), margins {margins}")
+    if missing:
+        print(f"{missing} case(s) with an exact solution have no stored fields: run them with --store-fields final|all "
+              "(and --margins ... to compute the profile directly)")
+
 def cmd_sql(a):
-    con = connect(a.db, readonly=True)
+    con = connect(a.db)
+    con.execute("PRAGMA query_only=ON")
     if not re.match(r"\s*(select|with|pragma)", a.query, re.I):
         sys.exit("read-only: only SELECT/WITH/PRAGMA")
     table([dict(r) for r in con.execute(a.query)])
@@ -1018,10 +1245,11 @@ def main():
     p = sub.add_parser("list"); filters(p); p.set_defaults(f=cmd_list)
     p = sub.add_parser("run"); filters(p)
     p.add_argument("--solver-dir", default=".", help="folder with solver.py, psiop.py, imports.py")
-    p.add_argument("--workers", nargs="+", type=int, default=[1]); p.add_argument("--repeats", type=int, default=3)
+    p.add_argument("--workers", nargs="+", default=["1"], help="e.g. 4 5 8, or 'auto' (ladder from this machine's cores)"); p.add_argument("--repeats", type=int, default=3)
     p.add_argument("--no-warmup", action="store_true"); p.add_argument("--timeout", type=float, default=1800)
     p.add_argument("--blas-threads", choices=("match", "1", "default"), default="match")
     p.add_argument("--store-fields", choices=("none", "final", "all"), default="none", help="keep u_num/u_exact arrays in the DB")
+    p.add_argument("--margins", nargs="+", default=["0"], help="interior boxes: fraction of the half-width removed on each side; 0 (whole domain, default) is always computed")
     p.add_argument("--max-field-mb", type=float, default=20); p.add_argument("--max-log-kb", type=int, default=2048)
     p.add_argument("--skip-done", action="store_true", help="skip (case, workers) already ok with the same solver.py")
     p.add_argument("--only-failed", action="store_true", help="re-run only (case, workers) whose last run is not ok")
@@ -1030,12 +1258,15 @@ def main():
     p = sub.add_parser("failures"); p.add_argument("--last", action="store_true", help="only the latest run of each (case, workers)"); p.set_defaults(f=cmd_failures)
     p = sub.add_parser("show"); p.add_argument("run_id", type=int); p.add_argument("--logs", action="store_true")
     p.add_argument("--save-fields", metavar="FILE.npz"); p.set_defaults(f=cmd_show)
+    p = sub.add_parser("workers"); p.add_argument("--base", type=int, default=4); p.add_argument("--max", type=int); p.set_defaults(f=cmd_workers)
+    p = sub.add_parser("profile"); filters(p); p.add_argument("--margins", nargs="+", required=True, type=float)
+    p.add_argument("--all-runs", action="store_true", help="every run with stored fields, not only the latest per case"); p.set_defaults(f=cmd_profile)
     p = sub.add_parser("sql"); p.add_argument("query"); p.set_defaults(f=cmd_sql)
     w = sub.add_parser("_worker")
     for n in ("--solver-dir", "--out", "--progress", "--case-json", "--store-fields"):
         w.add_argument(n)
     w.add_argument("--workers", type=int); w.add_argument("--repeats", type=int); w.add_argument("--max-field-mb", type=float)
-    w.add_argument("--no-warmup", action="store_true"); w.set_defaults(f=worker)
+    w.add_argument("--margins"); w.add_argument("--no-warmup", action="store_true"); w.set_defaults(f=worker)
     a = ap.parse_args()
     a.f(a)
 
