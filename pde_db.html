@@ -126,9 +126,8 @@
              
   <section id="module-pde_db">
 <span id="pde-db"></span><h1>pde_db<a class="headerlink" href="#module-pde_db" title="Link to this heading"></a></h1>
-<p>pde_db.py – notebooks -&gt; SQLite database of PDE cases -&gt; benchmark runs stored in the same database.</p>
-<blockquote>
-<div><p>build     extract every PDESolver example/test from the notebooks into SQLite (idempotent)
+<p>pde_db.py – notebooks -&gt; SQLite database of PDE cases -&gt; benchmark runs stored in the same database.
+build     extract every PDESolver example/test from the notebooks into SQLite (idempotent)
 list      list cases
 run       execute cases (sweep of FFT workers), store times, errors, warnings, logs, failures
 report    scaling / error table (times, speed-up vs the smallest tested worker count, errors)
@@ -136,10 +135,9 @@ failures  list runs that did not finish properly, with the stage and the excepti
 show      full detail of one run (per-time errors, warnings, traceback, logs, saved fields)
 workers   show this machine’s cores and suggest a ladder of FFT worker counts
 profile   (re)compute the interior-error profile from fields stored in the database
-sql       run any read-only SELECT on the database</p>
-</div></blockquote>
-<dl class="simple">
-<dt>Examples</dt><dd><p>python pde_db.py build  –notebooks pdesolver_*.ipynb –db pde.sqlite
+sql       run any read-only SELECT on the database
+Examples
+python pde_db.py build  –notebooks pdesolver_*.ipynb –db pde.sqlite
 python pde_db.py run    –solver-dir ~/mysolver –ids p1d-07 p2d-04 –workers 1 2 4 8 –repeats 3
 python pde_db.py run    –solver-dir ~/mysolver –dim 2 –max-points 2e8 –timeout 900 –skip-done
 python pde_db.py report –notebook p2d
@@ -147,12 +145,10 @@ python pde_db.py failures
 python pde_db.py show 17 –logs
 python pde_db.py run –solver-dir . –ids np1d-05 –margins 0 0.1 0.2 0.3      # error on nested interior boxes
 python pde_db.py profile –margins 0 0.05 0.1 0.2 0.3                          # later, from stored fields
-python pde_db.py sql “SELECT case_id, fft_workers, time_solve_s FROM v_latest_ok ORDER BY 3 DESC LIMIT 10”</p>
-</dd>
-</dl>
-<p>Security: <cite>build</cite> EXECUTES the notebook cells (with a recording stub in place of PDESolver) and <cite>run</cite>
-rebuilds callables with eval/exec from code strings stored in the database. Use your own files only.</p>
-<p>Tables: cases, notebooks, runs, run_repeats, run_errors, run_error_profile, run_warnings, run_logs, run_blobs, meta
+python pde_db.py sql “SELECT case_id, fft_workers, time_solve_s FROM v_latest_ok ORDER BY 3 DESC LIMIT 10”
+Security: <cite>build</cite> EXECUTES the notebook cells (with a recording stub in place of PDESolver) and <cite>run</cite>
+rebuilds callables with eval/exec from code strings stored in the database. Use your own files only.
+Tables: cases, notebooks, runs, run_repeats, run_errors, run_error_profile, run_warnings, run_logs, run_blobs, meta
 Views : v_latest_ok (latest solver version only), v_scaling, v_failures, v_dashboard, v_warmup, v_version_compare</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="pde_db.build_equation">
