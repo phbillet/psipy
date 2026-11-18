@@ -1,31 +1,27 @@
 #!/usr/bin/env python3
 """
 pde_db.py -- notebooks -> SQLite database of PDE cases -> benchmark runs stored in the same database.
-
-  build     extract every PDESolver example/test from the notebooks into SQLite (idempotent)
-  list      list cases
-  run       execute cases (sweep of FFT workers), store times, errors, warnings, logs, failures
-  report    scaling / error table (times, speed-up vs the smallest tested worker count, errors)
-  failures  list runs that did not finish properly, with the stage and the exception
-  show      full detail of one run (per-time errors, warnings, traceback, logs, saved fields)
-  workers   show this machine's cores and suggest a ladder of FFT worker counts
-  profile   (re)compute the interior-error profile from fields stored in the database
-  sql       run any read-only SELECT on the database
-
+build     extract every PDESolver example/test from the notebooks into SQLite (idempotent)
+list      list cases
+run       execute cases (sweep of FFT workers), store times, errors, warnings, logs, failures
+report    scaling / error table (times, speed-up vs the smallest tested worker count, errors)
+failures  list runs that did not finish properly, with the stage and the exception
+show      full detail of one run (per-time errors, warnings, traceback, logs, saved fields)
+workers   show this machine's cores and suggest a ladder of FFT worker counts
+profile   (re)compute the interior-error profile from fields stored in the database
+sql       run any read-only SELECT on the database
 Examples
-  python pde_db.py build  --notebooks pdesolver_*.ipynb --db pde.sqlite
-  python pde_db.py run    --solver-dir ~/mysolver --ids p1d-07 p2d-04 --workers 1 2 4 8 --repeats 3
-  python pde_db.py run    --solver-dir ~/mysolver --dim 2 --max-points 2e8 --timeout 900 --skip-done
-  python pde_db.py report --notebook p2d
-  python pde_db.py failures
-  python pde_db.py show 17 --logs
-  python pde_db.py run --solver-dir . --ids np1d-05 --margins 0 0.1 0.2 0.3      # error on nested interior boxes
-  python pde_db.py profile --margins 0 0.05 0.1 0.2 0.3                          # later, from stored fields
-  python pde_db.py sql "SELECT case_id, fft_workers, time_solve_s FROM v_latest_ok ORDER BY 3 DESC LIMIT 10"
-
+python pde_db.py build  --notebooks pdesolver_*.ipynb --db pde.sqlite
+python pde_db.py run    --solver-dir ~/mysolver --ids p1d-07 p2d-04 --workers 1 2 4 8 --repeats 3
+python pde_db.py run    --solver-dir ~/mysolver --dim 2 --max-points 2e8 --timeout 900 --skip-done
+python pde_db.py report --notebook p2d
+python pde_db.py failures
+python pde_db.py show 17 --logs
+python pde_db.py run --solver-dir . --ids np1d-05 --margins 0 0.1 0.2 0.3      # error on nested interior boxes
+python pde_db.py profile --margins 0 0.05 0.1 0.2 0.3                          # later, from stored fields
+python pde_db.py sql "SELECT case_id, fft_workers, time_solve_s FROM v_latest_ok ORDER BY 3 DESC LIMIT 10"
 Security: `build` EXECUTES the notebook cells (with a recording stub in place of PDESolver) and `run`
 rebuilds callables with eval/exec from code strings stored in the database. Use your own files only.
-
 Tables: cases, notebooks, runs, run_repeats, run_errors, run_error_profile, run_warnings, run_logs, run_blobs, meta
 Views : v_latest_ok (latest solver version only), v_scaling, v_failures, v_dashboard, v_warmup, v_version_compare
 """
@@ -41,132 +37,150 @@ SCHEMA_VERSION = 6
 # =============================================================================================
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+
 CREATE TABLE IF NOT EXISTS notebooks (
-    notebook TEXT PRIMARY KEY, sha256 TEXT, prefix TEXT, n_cases INTEGER, extracted_at TEXT);
+notebook TEXT PRIMARY KEY, sha256 TEXT, prefix TEXT, n_cases INTEGER, extracted_at TEXT);
+
 CREATE TABLE IF NOT EXISTS cases (
-    case_id TEXT PRIMARY KEY, fingerprint TEXT UNIQUE, active INTEGER DEFAULT 1,
-    name TEXT, family TEXT, notebook TEXT, cell INTEGER,
-    dim INTEGER, type TEXT, temporal_order INTEGER, formulation TEXT, unknown TEXT,
-    equation TEXT, boundary_condition TEXT,
-    Lx REAL, Ly REAL, Nx INTEGER, Ny INTEGER, Lt REAL, Nt INTEGER, n_points REAL,
-    time_scheme TEXT, effective_time_scheme TEXT, dealiasing_ratio REAL, compute_energy INTEGER,
-    stationary_order INTEGER, seed INTEGER,
-    has_initial_velocity INTEGER, has_exact INTEGER, exact_kind TEXT,
-    test_norm TEXT, n_tests INTEGER, notes TEXT, comments TEXT,
-    source_code TEXT,           -- original notebook cell
-    definition TEXT,            -- full JSON description used by the runner
-    added_at TEXT, updated_at TEXT);
+case_id TEXT PRIMARY KEY, fingerprint TEXT UNIQUE, active INTEGER DEFAULT 1,
+name TEXT, family TEXT, notebook TEXT, cell INTEGER,
+dim INTEGER, type TEXT, temporal_order INTEGER, formulation TEXT, unknown TEXT,
+equation TEXT, boundary_condition TEXT,
+Lx REAL, Ly REAL, Nx INTEGER, Ny INTEGER, Lt REAL, Nt INTEGER, n_points REAL,
+time_scheme TEXT, effective_time_scheme TEXT, dealiasing_ratio REAL, compute_energy INTEGER,
+stationary_order INTEGER, seed INTEGER,
+has_initial_velocity INTEGER, has_exact INTEGER, exact_kind TEXT,
+test_norm TEXT, n_tests INTEGER, notes TEXT, comments TEXT,
+source_code TEXT,           -- original notebook cell
+definition TEXT,            -- full JSON description used by the runner
+added_at TEXT, updated_at TEXT);
+
 CREATE TABLE IF NOT EXISTS runs (
-    run_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    case_id TEXT NOT NULL REFERENCES cases(case_id),
-    started_at TEXT, finished_at TEXT, wall_clock_total_s REAL,
-    status TEXT,                -- ok | failed | timeout | crashed
-    stage TEXT,                 -- last stage reached (import_solver, build_callables, build_equation, init, setup, solve, compute_errors, done)
-    fft_workers INTEGER, blas_threads TEXT, repeats INTEGER, warmup_excluded INTEGER,
-    time_init_s REAL, time_setup_s REAL, time_solve_s REAL, time_total_s REAL,
-    cpu_time_solve_s REAL, cpu_over_wall REAL, time_solve_min_s REAL,
-    error_max REAL, error_final REAL, passed INTEGER, non_finite INTEGER,
-    n_warnings INTEGER, peak_rss_mb REAL,
-    exception_type TEXT, exception_message TEXT, traceback TEXT,
-    returncode INTEGER, signal TEXT, timeout_s REAL,
-    fft_backend TEXT, solver_diagnostics TEXT,
-    solver_sha256 TEXT, psiop_sha256 TEXT, python TEXT, numpy TEXT, scipy TEXT, sympy TEXT,
-    platform TEXT, hostname TEXT, cpu_count INTEGER, environment TEXT, note TEXT, margins TEXT);
+run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+case_id TEXT NOT NULL REFERENCES cases(case_id),
+started_at TEXT, finished_at TEXT, wall_clock_total_s REAL,
+status TEXT,                -- ok | failed | timeout | crashed
+stage TEXT,                 -- last stage reached (import_solver, build_callables, build_equation, init, setup, solve, compute_errors, done)
+fft_workers INTEGER, blas_threads TEXT, repeats INTEGER, warmup_excluded INTEGER,
+time_init_s REAL, time_setup_s REAL, time_solve_s REAL, time_total_s REAL,
+cpu_time_solve_s REAL, cpu_over_wall REAL, time_solve_min_s REAL,
+error_max REAL, error_final REAL, passed INTEGER, non_finite INTEGER,
+n_warnings INTEGER, peak_rss_mb REAL,
+exception_type TEXT, exception_message TEXT, traceback TEXT,
+returncode INTEGER, signal TEXT, timeout_s REAL,
+fft_backend TEXT, solver_diagnostics TEXT,
+solver_sha256 TEXT, psiop_sha256 TEXT, python TEXT, numpy TEXT, scipy TEXT, sympy TEXT,
+platform TEXT, hostname TEXT, cpu_count INTEGER, environment TEXT, note TEXT, margins TEXT);
 CREATE INDEX IF NOT EXISTS ix_runs_case ON runs(case_id, fft_workers);
+
 CREATE TABLE IF NOT EXISTS run_repeats (          -- every repetition, warm-up included, partial if it failed
-    run_id INTEGER REFERENCES runs(run_id), rep INTEGER, is_warmup INTEGER,
-    t_init_s REAL, t_setup_s REAL, t_solve_s REAL, cpu_solve_s REAL, completed INTEGER);
+run_id INTEGER REFERENCES runs(run_id), rep INTEGER, is_warmup INTEGER,
+t_init_s REAL, t_setup_s REAL, t_solve_s REAL, cpu_solve_s REAL, completed INTEGER);
+
 CREATE TABLE IF NOT EXISTS run_errors (           -- one row per tested time
-    run_id INTEGER REFERENCES runs(run_id), t_eval REAL, actual_t REAL, component TEXT, norm TEXT,
-    error REAL, threshold REAL, passed INTEGER, ratio_to_threshold REAL,
-    rel_l2 REAL, abs_l2 REAL, linf REAL,
-    max_abs_u_num REAL, max_abs_u_exact REAL, n_nonfinite_u_num INTEGER, message TEXT);
+run_id INTEGER REFERENCES runs(run_id), t_eval REAL, actual_t REAL, component TEXT, norm TEXT,
+error REAL, threshold REAL, passed INTEGER, ratio_to_threshold REAL,
+rel_l2 REAL, abs_l2 REAL, linf REAL,
+max_abs_u_num REAL, max_abs_u_exact REAL, n_nonfinite_u_num INTEGER, message TEXT);
+
 CREATE TABLE IF NOT EXISTS run_error_profile (   -- error on the interior box |x| <= (1-margin)*L/2 (margin 0 = whole domain)
-    run_id INTEGER REFERENCES runs(run_id), t_eval REAL, actual_t REAL, component TEXT, margin REAL,
-    n_points_used INTEGER, ref_l2 REAL, abs_l2 REAL, rel_l2 REAL, linf REAL,
-    energy_share REAL);                           -- share of the squared error lying inside the box (1 = all of it)
+run_id INTEGER REFERENCES runs(run_id), t_eval REAL, actual_t REAL, component TEXT, margin REAL,
+n_points_used INTEGER, ref_l2 REAL, abs_l2 REAL, rel_l2 REAL, linf REAL,
+energy_share REAL);                           -- share of the squared error lying inside the box (1 = all of it)
 CREATE INDEX IF NOT EXISTS ix_profile_run ON run_error_profile(run_id, margin);
+
 CREATE TABLE IF NOT EXISTS run_warnings (
-    run_id INTEGER REFERENCES runs(run_id), category TEXT, message TEXT, filename TEXT, lineno INTEGER, count INTEGER);
+run_id INTEGER REFERENCES runs(run_id), category TEXT, message TEXT, filename TEXT, lineno INTEGER, count INTEGER);
+
 CREATE TABLE IF NOT EXISTS run_logs (             -- stdout / stderr of the worker process (zlib)
-    run_id INTEGER REFERENCES runs(run_id), stream TEXT, nbytes INTEGER, truncated INTEGER, data BLOB);
+run_id INTEGER REFERENCES runs(run_id), stream TEXT, nbytes INTEGER, truncated INTEGER, data BLOB);
+
 CREATE TABLE IF NOT EXISTS run_blobs (            -- numerical fields / energy history (zlib-compressed .npy)
-    run_id INTEGER REFERENCES runs(run_id), name TEXT, t_eval REAL, dtype TEXT, shape TEXT, data BLOB);
+run_id INTEGER REFERENCES runs(run_id), name TEXT, t_eval REAL, dtype TEXT, shape TEXT, data BLOB);
+
 DROP VIEW IF EXISTS v_scaling;
 DROP VIEW IF EXISTS v_latest_ok;
 DROP VIEW IF EXISTS v_failures;
+
 -- latest ok run per (case, workers), restricted to the solver version (solver.py + psiop.py hashes) of the
 -- most recent ok run of that case, so that speed-ups never mix timings of different code versions
 CREATE VIEW v_latest_ok AS
-    WITH ok AS (
-        SELECT run_id, case_id, fft_workers, solver_sha256, psiop_sha256,
-               FIRST_VALUE(solver_sha256) OVER w AS cur_solver, FIRST_VALUE(psiop_sha256) OVER w AS cur_psiop
-        FROM runs WHERE status='ok' WINDOW w AS (PARTITION BY case_id ORDER BY run_id DESC)),
-    cur AS (SELECT * FROM ok WHERE solver_sha256 IS cur_solver AND psiop_sha256 IS cur_psiop),
-    pick AS (SELECT MAX(run_id) AS run_id FROM cur GROUP BY case_id, fft_workers)
-    SELECT r.* FROM runs r JOIN pick USING(run_id);
+WITH ok AS (
+SELECT run_id, case_id, fft_workers, solver_sha256, psiop_sha256,
+FIRST_VALUE(solver_sha256) OVER w AS cur_solver, FIRST_VALUE(psiop_sha256) OVER w AS cur_psiop
+FROM runs WHERE status='ok' WINDOW w AS (PARTITION BY case_id ORDER BY run_id DESC)),
+cur AS (SELECT * FROM ok WHERE solver_sha256 IS cur_solver AND psiop_sha256 IS cur_psiop),
+pick AS (SELECT MAX(run_id) AS run_id FROM cur GROUP BY case_id, fft_workers)
+SELECT r.* FROM runs r JOIN pick USING(run_id);
+
 -- speedup / efficiency are relative to the SMALLEST worker count tested for the case (base_workers):
 -- speedup = t(base)/t(w) ; efficiency = speedup * base/w  (1.0 = ideal scaling from the baseline)
 CREATE VIEW v_scaling AS
-    SELECT l.case_id, c.name, c.dim, c.n_points, l.fft_workers, b.fft_workers AS base_workers,
-           l.time_init_s, l.time_setup_s, l.time_solve_s, l.cpu_over_wall,
-           b.time_solve_s / l.time_solve_s AS speedup,
-           b.time_solve_s / l.time_solve_s * b.fft_workers / l.fft_workers AS efficiency,
-           l.error_max, l.passed, l.n_warnings, l.run_id
-    FROM v_latest_ok l JOIN cases c ON c.case_id = l.case_id
-    LEFT JOIN v_latest_ok b ON b.case_id = l.case_id
-         AND b.fft_workers = (SELECT MIN(m.fft_workers) FROM v_latest_ok m WHERE m.case_id = l.case_id);
+SELECT l.case_id, c.name, c.dim, c.n_points, l.fft_workers, b.fft_workers AS base_workers,
+l.time_init_s, l.time_setup_s, l.time_solve_s, l.cpu_over_wall,
+b.time_solve_s / l.time_solve_s AS speedup,
+b.time_solve_s / l.time_solve_s * b.fft_workers / l.fft_workers AS efficiency,
+l.error_max, l.passed, l.n_warnings, l.run_id
+FROM v_latest_ok l JOIN cases c ON c.case_id = l.case_id
+LEFT JOIN v_latest_ok b ON b.case_id = l.case_id
+AND b.fft_workers = (SELECT MIN(m.fft_workers) FROM v_latest_ok m WHERE m.case_id = l.case_id);
+
 CREATE VIEW v_failures AS
-    SELECT r.run_id, r.case_id, c.name, r.fft_workers, r.status, r.stage, r.exception_type,
-           r.exception_message, r.returncode, r.signal, r.started_at
-    FROM runs r JOIN cases c ON c.case_id = r.case_id WHERE r.status <> 'ok';
+SELECT r.run_id, r.case_id, c.name, r.fft_workers, r.status, r.stage, r.exception_type,
+r.exception_message, r.returncode, r.signal, r.started_at
+FROM runs r JOIN cases c ON c.case_id = r.case_id WHERE r.status <> 'ok';
 
 DROP VIEW IF EXISTS v_error_profile;
 DROP VIEW IF EXISTS v_dashboard;
 DROP VIEW IF EXISTS v_warmup;
 DROP VIEW IF EXISTS v_version_compare;
+
 -- correctness dashboard: latest ok run of each case. margin = worst error/threshold (inf if the solution is non-finite)
 CREATE VIEW v_dashboard AS
-    SELECT r.run_id, r.case_id, c.name, c.family, c.dim, c.type, c.boundary_condition, c.exact_kind, c.n_points,
-           r.fft_workers, r.started_at,
-           CASE WHEN r.passed IS NULL THEN 'no test' WHEN r.passed = 1 THEN 'PASS' ELSE 'FAIL' END AS status,
-           CASE WHEN r.non_finite = 1 THEN 9e999
-                ELSE (SELECT MAX(e.ratio_to_threshold) FROM run_errors e WHERE e.run_id = r.run_id) END AS margin,
-           r.passed, r.non_finite, r.error_max, r.error_final, r.time_solve_s, r.n_warnings
-    FROM runs r JOIN cases c ON c.case_id = r.case_id
-    WHERE r.status = 'ok' AND r.run_id IN (SELECT MAX(run_id) FROM runs WHERE status = 'ok' GROUP BY case_id);
+SELECT r.run_id, r.case_id, c.name, c.family, c.dim, c.type, c.boundary_condition, c.exact_kind, c.n_points,
+r.fft_workers, r.started_at,
+CASE WHEN r.passed IS NULL THEN 'no test' WHEN r.passed = 1 THEN 'PASS' ELSE 'FAIL' END AS status,
+CASE WHEN r.non_finite = 1 THEN 9e999
+ELSE (SELECT MAX(e.ratio_to_threshold) FROM run_errors e WHERE e.run_id = r.run_id) END AS margin,
+r.passed, r.non_finite, r.error_max, r.error_final, r.time_solve_s, r.n_warnings
+FROM runs r JOIN cases c ON c.case_id = r.case_id
+WHERE r.status = 'ok' AND r.run_id IN (SELECT MAX(run_id) FROM runs WHERE status = 'ok' GROUP BY case_id);
+
 -- interior-error profile of the latest ok run of each case that has interior information (margin > 0)
 CREATE VIEW v_error_profile AS
-    SELECT p.*, r.case_id, c.name, c.family, c.dim, c.boundary_condition, c.exact_kind, r.fft_workers
-    FROM run_error_profile p JOIN runs r ON r.run_id = p.run_id JOIN cases c ON c.case_id = r.case_id
-    WHERE r.run_id IN (SELECT MAX(r2.run_id) FROM runs r2 WHERE r2.status = 'ok' AND EXISTS
-                       (SELECT 1 FROM run_error_profile q WHERE q.run_id = r2.run_id AND q.margin > 0)
-                       GROUP BY r2.case_id);
+SELECT p.*, r.case_id, c.name, c.family, c.dim, c.boundary_condition, c.exact_kind, r.fft_workers
+FROM run_error_profile p JOIN runs r ON r.run_id = p.run_id JOIN cases c ON c.case_id = r.case_id
+WHERE r.run_id IN (SELECT MAX(r2.run_id) FROM runs r2 WHERE r2.status = 'ok' AND EXISTS
+(SELECT 1 FROM run_error_profile q WHERE q.run_id = r2.run_id AND q.margin > 0)
+GROUP BY r2.case_id);
+
 -- warm-up (first repetition) versus steady state; jitter_range = (max-min)/median of the steady repetitions
 CREATE VIEW v_warmup AS
-    SELECT r.run_id, r.case_id, r.fft_workers, w.t_solve_s AS warm_s, r.time_solve_s AS steady_s,
-           w.t_solve_s / r.time_solve_s AS warm_over_steady,
-           CASE WHEN s.n > 1 THEN (s.mx - s.mn) / r.time_solve_s END AS jitter_range, s.n AS n_steady
-    FROM runs r
-    JOIN run_repeats w ON w.run_id = r.run_id AND w.is_warmup = 1 AND w.completed = 1
-    LEFT JOIN (SELECT run_id, COUNT(*) AS n, MIN(t_solve_s) AS mn, MAX(t_solve_s) AS mx
-               FROM run_repeats WHERE is_warmup = 0 AND completed = 1 GROUP BY run_id) s ON s.run_id = r.run_id
-    WHERE r.status = 'ok' AND r.time_solve_s > 0;
+SELECT r.run_id, r.case_id, r.fft_workers, w.t_solve_s AS warm_s, r.time_solve_s AS steady_s,
+w.t_solve_s / r.time_solve_s AS warm_over_steady,
+CASE WHEN s.n > 1 THEN (s.mx - s.mn) / r.time_solve_s END AS jitter_range, s.n AS n_steady
+FROM runs r
+JOIN run_repeats w ON w.run_id = r.run_id AND w.is_warmup = 1 AND w.completed = 1
+LEFT JOIN (SELECT run_id, COUNT(*) AS n, MIN(t_solve_s) AS mn, MAX(t_solve_s) AS mx
+FROM run_repeats WHERE is_warmup = 0 AND completed = 1 GROUP BY run_id) s ON s.run_id = r.run_id
+WHERE r.status = 'ok' AND r.time_solve_s > 0;
+
 -- for each (case, workers): the two most recent solver versions (solver.py + psiop.py hashes) side by side
 CREATE VIEW v_version_compare AS
-    WITH per AS (
-        SELECT * FROM runs WHERE status = 'ok' AND run_id IN
-            (SELECT MAX(run_id) FROM runs WHERE status = 'ok' GROUP BY case_id, fft_workers, solver_sha256, psiop_sha256)),
-    ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY case_id, fft_workers ORDER BY run_id DESC) AS rk FROM per)
-    SELECT a.case_id, c.name, a.fft_workers,
-           b.solver_sha256 AS before_solver, a.solver_sha256 AS after_solver,
-           b.psiop_sha256 AS before_psiop, a.psiop_sha256 AS after_psiop,
-           b.time_solve_s AS before_s, a.time_solve_s AS after_s, b.time_solve_s / a.time_solve_s AS speedup,
-           b.error_max AS before_err, a.error_max AS after_err,
-           CASE WHEN b.error_max > 0 THEN a.error_max / b.error_max END AS err_ratio
-    FROM ranked a JOIN ranked b ON a.case_id = b.case_id AND a.fft_workers = b.fft_workers AND a.rk = 1 AND b.rk = 2
-    JOIN cases c ON c.case_id = a.case_id;
+WITH per AS (
+SELECT * FROM runs WHERE status = 'ok' AND run_id IN
+(SELECT MAX(run_id) FROM runs WHERE status = 'ok' GROUP BY case_id, fft_workers, solver_sha256, psiop_sha256)),
+ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY case_id, fft_workers ORDER BY run_id DESC) AS rk FROM per)
+SELECT a.case_id, c.name, a.fft_workers,
+b.solver_sha256 AS before_solver, a.solver_sha256 AS after_solver,
+b.psiop_sha256 AS before_psiop, a.psiop_sha256 AS after_psiop,
+b.time_solve_s AS before_s, a.time_solve_s AS after_s, b.time_solve_s / a.time_solve_s AS speedup,
+b.error_max AS before_err, a.error_max AS after_err,
+CASE WHEN b.error_max > 0 THEN a.error_max / b.error_max END AS err_ratio
+FROM ranked a JOIN ranked b ON a.case_id = b.case_id AND a.fft_workers = b.fft_workers AND a.rk = 1 AND b.rk = 2
+JOIN cases c ON c.case_id = a.case_id;
 """
+
 
 def connect(path, create=False, readonly=False):
     if not create and not os.path.exists(path):
@@ -175,19 +189,22 @@ def connect(path, create=False, readonly=False):
         con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     else:
         con = sqlite3.connect(path)
-        con.execute("PRAGMA foreign_keys=ON")
-        con.executescript(SCHEMA)
-        if "margins" not in {r[1] for r in con.execute("PRAGMA table_info(runs)")}:
-            con.execute("ALTER TABLE runs ADD COLUMN margins TEXT")       # migration of older databases
-        con.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+    con.execute("PRAGMA foreign_keys=ON")
+    con.executescript(SCHEMA)
+    if "margins" not in {r[1] for r in con.execute("PRAGMA table_info(runs)")}:
+        con.execute("ALTER TABLE runs ADD COLUMN margins TEXT")       # migration of older databases
+    con.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
     con.row_factory = sqlite3.Row
     return con
+
 
 def now():
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
+
 def jdump(o):
     return json.dumps(o, ensure_ascii=False, allow_nan=False, default=str)
+
 
 def jsonable(o):
     if isinstance(o, float):
@@ -198,9 +215,11 @@ def jsonable(o):
         return [jsonable(v) for v in o]
     return o
 
+
 # =============================================================================================
 # 2. build : notebooks -> cases (cells are executed against a recording stub of PDESolver)
 # =============================================================================================
+
 # Manual annotations (read from the notebooks): (notebook file, cell) -> (exact_kind, note)
 ANNOTATIONS = {
     ("pdesolver_tester_periodic_2d.ipynb", 20): ("approximate", "Author states this is a heuristic approximation valid for short times; no closed-form solution exists."),
@@ -211,6 +230,7 @@ ANNOTATIONS = {
     ("pdesolver_tester_periodic_2d.ipynb", 6): ("exact", "Stationary psiOp depending on x,y solved by order-1 asymptotic inverse: loose threshold in notebook."),
 }
 
+
 def default_prefix(fname):
     b = os.path.basename(fname).lower()
     m = re.search(r"(non)?periodic_(\d)d", b)
@@ -220,6 +240,7 @@ def default_prefix(fname):
         return "ex"
     return re.sub(r"\W+", "", os.path.splitext(b)[0])[:6] or "nb"
 
+
 def _extraction_tools():
     """Imports and stubs needed only by `build` (kept local so that `run` does not need them)."""
     import numpy as np
@@ -228,6 +249,7 @@ def _extraction_tools():
     from scipy.special import eval_hermite, airy, eval_legendre
     return np, sp, MagicMock, eval_hermite, airy, eval_legendre
 
+
 def extract_notebook(path):
     """Return the list of case dicts found in one notebook."""
     np, sp, MagicMock, eval_hermite, airy, eval_legendre = _extraction_tools()
@@ -235,6 +257,7 @@ def extract_notebook(path):
 
     class psiOp(sp.Function):
         pass
+
     class Op(sp.Function):
         pass
 
@@ -246,19 +269,25 @@ def extract_notebook(path):
                                          dealiasing_ratio=dealiasing_ratio, compute_energy=compute_energy,
                                          setup=None, tests=[], stationary_order=None, extra_attrs={})
             records.append(self._rec)
+
         def setup(self, **kw):
             self._rec["setup"] = kw
             self._rec["setup_ns"] = dict(cur["ns"])
+
         def solve(self):
             return []
+
         def solve_stationary_psiOp(self, order=3):
             self._rec["stationary_order"] = order
             return np.zeros(1)
+
         def test(self, u_exact, t_eval=None, norm="relative", threshold=1e-2, component="real"):
             self._rec["tests"].append(dict(u_exact=u_exact, t_eval=t_eval, norm=norm, threshold=threshold,
                                            component=component, ns=dict(cur["ns"])))
+
         def __setattr__(self, k, v):
             self._rec["extra_attrs"][k] = v
+
         def __getattr__(self, k):
             if k in ("X", "Y", "psi_ops"):
                 return MagicMock()
@@ -267,6 +296,7 @@ def extract_notebook(path):
     plt = MagicMock()
     plt.subplots.return_value = (MagicMock(), MagicMock())
     plt.subplots.return_value[1].plot.return_value = (MagicMock(),)
+
     ns = {k: v for k, v in sp.__dict__.items() if not k.startswith("_")}
     ns.update(dict(np=np, plt=plt, PDESolver=StubSolver, psiOp=psiOp, Op=Op, HTML=MagicMock(),
                    display=MagicMock(), FuncAnimation=MagicMock(), eval_hermite=eval_hermite, airy=airy,
@@ -381,6 +411,7 @@ def extract_notebook(path):
     nb = json.load(open(path, encoding="utf-8"))
     fname = os.path.basename(path)
     cases, headings = [], {}
+
     real_import = builtins.__import__
 
     def fake_import(name, *a, **k):
@@ -501,11 +532,13 @@ def extract_notebook(path):
             cases.append(case)
     return cases
 
+
 def fingerprint(c):
     keys = ("equation", "symbols", "domain", "boundary_condition", "solver", "setup_options",
             "stationary_order", "initial_condition", "initial_velocity", "exact_solution", "extra_attributes", "seed")
     blob = json.dumps({k: c.get(k) for k in keys}, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()
+
 
 def case_row(c):
     d, s, t = c["domain"], c["solver"], c.get("test") or {}
@@ -522,6 +555,7 @@ def case_row(c):
         exact_kind=(c.get("exact_solution") or {}).get("kind"), test_norm=t.get("norm"),
         n_tests=len(t.get("t_eval", [])), notes=c.get("notes"), comments=jdump(c.get("notebook_comments", [])),
         source_code=c["source_code"])
+
 
 def cmd_build(a):
     con = connect(a.db, create=True)
@@ -553,27 +587,30 @@ def cmd_build(a):
             row.update(definition=jdump(jsonable(definition)), fingerprint=fp, updated_at=now(), active=1)
             if new:
                 row.update(case_id=cid, added_at=now())
-                cols = ",".join(row); ph = ",".join(":" + k for k in row)
-                con.execute(f"INSERT INTO cases ({cols}) VALUES ({ph})", row); total_new += 1
-            else:
-                sets = ",".join(f"{k}=:{k}" for k in row)
-                row["case_id"] = cid
-                con.execute(f"UPDATE cases SET {sets} WHERE case_id=:case_id", row); total_upd += 1
+            cols = ",".join(row); ph = ",".join(":" + k for k in row)
+            con.execute(f"INSERT INTO cases ({cols}) VALUES ({ph})", row); total_new += 1
+        else:
+            sets = ",".join(f"{k}=:{k}" for k in row)
+            row["case_id"] = cid
+            con.execute(f"UPDATE cases SET {sets} WHERE case_id=:case_id", row); total_upd += 1
             seen_ids.add(cid)
         # cases of this notebook that disappeared stay in the DB (their runs are kept) but become inactive
         con.execute(f"UPDATE cases SET active=0 WHERE notebook=? AND case_id NOT IN ({','.join('?' * len(seen_ids)) or 'NULL'})",
                     (fname, *seen_ids))
         con.execute("INSERT OR REPLACE INTO notebooks VALUES (?,?,?,?,?)", (fname, sha, prefix, len(cases), now()))
-        con.commit()
+    con.commit()
     n = con.execute("SELECT COUNT(*), SUM(active) FROM cases").fetchone()
     print(f"done: {total_new} new, {total_upd} updated; database holds {n[0]} cases ({n[1]} active) -> {a.db}")
+
 
 # =============================================================================================
 # 3. worker (runs in a subprocess): one case, one FFT worker count
 # =============================================================================================
+
 def _import_name(path):
     mod, _, attr = path.rpartition(".")
     return getattr(importlib.import_module(mod), attr)
+
 
 def _collect_imports(spec, acc):
     if spec:
@@ -581,6 +618,7 @@ def _collect_imports(spec, acc):
         for h in spec.get("helpers", {}).values():
             _collect_imports(h, acc)
     return acc
+
 
 def _load_constants(spec, ns, seed):
     import numpy as np
@@ -596,6 +634,7 @@ def _load_constants(spec, ns, seed):
     for h in spec.get("helpers", {}).values():
         _load_constants(h, ns, seed)
 
+
 def make_callable(spec, seed=None):
     import numpy as np
     import scipy.special as sps
@@ -609,12 +648,14 @@ def make_callable(spec, seed=None):
         for h in s.get("helpers", {}).values():
             run_helpers(h)
             exec(h["code"], ns)
+
     run_helpers(spec)
     code = spec["code"].strip()
     if code.startswith("lambda"):
         return eval(code, ns)
     exec(code, ns)
     return ns[re.match(r"def\s+(\w+)", code).group(1)]
+
 
 def build_equation(case, S):
     import sympy as sp
@@ -627,13 +668,16 @@ def build_equation(case, S):
         raise ValueError("equation did not parse to sympy.Eq")
     return eq
 
+
 def interior_mask(dom, shape, m):
     """Boolean mask of the box |x| <= (1-m)*Lx/2 (and |y| <= (1-m)*Ly/2 in 2D). Grid as in PDESolver:
     x_i = -L/2 + i*L/N (endpoint=False), arrays indexed 'ij'. m = fraction of the half-width removed on each side."""
     import numpy as np
+
     def axis(L, N):
         x = -L / 2 + np.arange(N) * (L / N)
         return np.abs(x) <= (1 - m) * L / 2 + 1e-12 * L
+
     mx = axis(dom["Lx"], dom["Nx"])
     if len(shape) == 1:
         if shape[0] != len(mx):
@@ -643,6 +687,7 @@ def interior_mask(dom, shape, m):
     if shape != (len(mx), len(my)):
         raise ValueError(f"grid {shape} does not match domain ({dom['Nx']}, {dom['Ny']})")
     return mx[:, None] & my[None, :]
+
 
 def profile_rows(u_num, u_ex, comp, dom, margins):
     """Error of the tested component on nested interior boxes (one dict per margin)."""
@@ -661,6 +706,7 @@ def profile_rows(u_num, u_ex, comp, dom, margins):
                      "linf": fin(float(np.max(np.abs(d)))) if d.size else None,
                      "energy_share": fin(float(np.sum(np.abs(d) ** 2)) / total) if total > 0 else None})
     return rows
+
 
 def compute_errors(solver, case, u_exact, u_stat, want_fields, margins=(0.0,)):
     """Same selection/norm rule as PDESolver.test(); never asserts; adds diagnostics. Returns (rows, fields)."""
@@ -705,11 +751,13 @@ def compute_errors(solver, case, u_exact, u_stat, want_fields, margins=(0.0,)):
         rows.append(row)
     return rows, fields
 
+
 def _write_json(path, obj):
     tmp = path + ".tmp"
     with open(tmp, "w") as f:
         json.dump(jsonable(obj), f, default=str)
     os.replace(tmp, path)
+
 
 def worker(a):
     import faulthandler
@@ -740,13 +788,34 @@ def worker(a):
         ic = make_callable(case["initial_condition"], seed) if case.get("initial_condition") else None
         iv = make_callable(case["initial_velocity"], seed) if case.get("initial_velocity") else None
         u_ex = make_callable(case["exact_solution"]["python"], seed) if case.get("exact_solution") else None
+
+        # ── Override Lt / Nt if requested ──────────────────────────────────────────
+        override_notes = []
+        if case["type"] != "stationary":
+            dom = case["domain"]
+            if a.Lt is not None and "Lt" in dom:
+                old_Lt = dom["Lt"]
+                dom["Lt"] = a.Lt
+                override_notes.append(f"Lt={a.Lt} (was {old_Lt})")
+                # rescale t_eval so tests sample the same *fraction* of [0, Lt]
+                if old_Lt and a.Lt != old_Lt and case.get("test"):
+                    ratio = a.Lt / old_Lt
+                    te = case["test"]["t_eval"]
+                    case["test"]["t_eval"] = [
+                        t * ratio if t is not None else t for t in te
+                    ]
+            if a.Nt is not None and "Nt" in dom:
+                old_Nt = dom["Nt"]
+                dom["Nt"] = a.Nt
+                override_notes.append(f"Nt={a.Nt} (was {old_Nt})")
+        # ── END override ───────────────────────────────────────────────────────────
+
         sv, dom = case["solver"], case["domain"]
         setup_kw = {k: dom[k] for k in ("Lx", "Ly", "Nx", "Ny", "Lt", "Nt") if k in dom}
         setup_kw.update(boundary_condition=case["boundary_condition"], initial_condition=ic, plot=False,
                         **case.get("setup_options", {}))
         if iv is not None:
             setup_kw["initial_velocity"] = iv
-
         n_rep = a.repeats + (0 if a.no_warmup else 1)
         solver = u_stat = None
         for rep in range(n_rep):
@@ -775,9 +844,8 @@ def worker(a):
                     r["completed"] = 1
                 finally:
                     wlist.extend(w)
-                    sys.stdout.flush()
-            snapshot()
-
+                sys.stdout.flush()
+                snapshot()
         good = [r for r in reps if r["completed"] and not r["is_warmup"]]
         med = {k: statistics.median(r[k] for r in good) for k in ("t_init_s", "t_setup_s", "t_solve_s", "cpu_solve_s")}
         res.update(status="ok", reps=reps, time_init_s=med["t_init_s"], time_setup_s=med["t_setup_s"],
@@ -817,6 +885,18 @@ def worker(a):
             res["note"] = "no exact solution: time only"
         res["blobs"] = [(n, t, str(x.dtype), list(x.shape), base64.b64encode(_pack(x)).decode("ascii")) for n, t, x in blobs]
         res["fft_backend"] = "pyfftw" if (case["dim"] == 2 and importlib.util.find_spec("pyfftw")) else "scipy.fft"
+
+        # ── Append override info and user note to the run's note ──
+        note_parts = []
+        if override_notes:
+            note_parts.append("override: " + ", ".join(override_notes))
+        if a.note:
+            note_parts.append(a.note)
+        existing_note = res.get("note") or ""
+        if note_parts:
+            res["note"] = (existing_note + " | " if existing_note else "") + " | ".join(note_parts)
+        # ── END note ──
+
         res["stage"] = "done"
     except BaseException as e:                       # includes SystemExit from the solver
         res.update(status="failed", exception_type=type(e).__name__, exception_message=str(e)[:2000],
@@ -832,22 +912,27 @@ def worker(a):
         pass
     _write_json(a.out, res)
 
+
 def _pack(arr):
     bio = io.BytesIO()
     np_save(bio, arr)
     return zlib.compress(bio.getvalue(), 6)
 
+
 def np_save(f, arr):
     import numpy as np
     np.save(f, arr, allow_pickle=False)
+
 
 def unpack(blob):
     import numpy as np
     return np.load(io.BytesIO(zlib.decompress(blob)), allow_pickle=False)
 
+
 # =============================================================================================
 # 4. run : parent side
 # =============================================================================================
+
 def cpu_topology():
     """Logical CPUs, CPUs this process may use (affinity/cgroup), physical cores if detectable."""
     info = {"logical": os.cpu_count(), "available": None, "physical": None}
@@ -876,6 +961,7 @@ def cpu_topology():
             pass
     return info
 
+
 def suggest_ladder(base, top):
     """base, doubling steps, midpoints, and top: e.g. base=4, top=8 -> [4, 6, 8]."""
     pts = {base, top}
@@ -888,14 +974,16 @@ def suggest_ladder(base, top):
             pts.append((lo + hi) // 2)
     return sorted(set(pts))
 
+
 def cmd_workers(a):
     t = cpu_topology()
     top = a.max or t["physical"] or t["available"]
     print(f"logical CPUs: {t['logical']} | usable by this process: {t['available']} | physical cores: {t['physical'] or 'unknown'}")
     print(f"suggested ladder (base {a.base}, top {top}): {' '.join(map(str, suggest_ladder(a.base, top)))}")
-    print("rules of thumb: stay <= physical cores (hyper-threads rarely help FFTs; above that you measure oversubscription);"
-          "\n  add your production setting; add one odd value (e.g. 5) only to probe load imbalance;"
-          "\n  use --repeats >= 3 on an otherwise idle machine; speed-ups are relative to the smallest value you test.")
+    print("rules of thumb: stay <= physical cores (hyper-threads rarely help FFTs; above that you measure oversubscription);\n"
+          "add your production setting; add one odd value (e.g. 5) only to probe load imbalance;\n"
+          "use --repeats >= 3 on an otherwise idle machine; speed-ups are relative to the smallest value you test.")
+
 
 def parse_workers(vals):
     out = []
@@ -907,11 +995,13 @@ def parse_workers(vals):
             out.append(int(v))
     return sorted(set(out))
 
+
 def file_sha(path):
     try:
         return hashlib.sha256(open(path, "rb").read()).hexdigest()[:16]
     except OSError:
         return None
+
 
 def environment(solver_dir):
     import numpy, scipy, sympy
@@ -923,6 +1013,7 @@ def environment(solver_dir):
             "psiop_sha256": file_sha(os.path.join(solver_dir, "psiop.py")),
             "thread_env": {k: os.environ.get(k) for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")}}
 
+
 def _read_log(path, cap):
     try:
         data = open(path, "rb").read()
@@ -931,6 +1022,7 @@ def _read_log(path, cap):
     n = len(data)
     return (data[-cap:], n, 1) if n > cap else (data, n, 0)
 
+
 def execute(case, workers, a, env_info):
     """Run one (case, workers) in a subprocess; always return a complete record, whatever happens."""
     tmp = tempfile.mkdtemp(prefix="pdedb_")
@@ -938,7 +1030,11 @@ def execute(case, workers, a, env_info):
     cmd = [sys.executable, os.path.abspath(__file__), "_worker", "--solver-dir", a.solver_dir,
            "--workers", str(workers), "--repeats", str(a.repeats), "--out", out, "--progress", prog,
            "--store-fields", a.store_fields, "--max-field-mb", str(a.max_field_mb), "--margins", json.dumps(a.margins),
-           "--case-json", json.dumps(case)] + (["--no-warmup"] if a.no_warmup else [])
+           "--case-json", json.dumps(case)] \
+          + (["--no-warmup"] if a.no_warmup else []) \
+          + (["--Lt", str(a.Lt)] if a.Lt is not None else []) \
+          + (["--Nt", str(a.Nt)] if a.Nt is not None else []) \
+          + (["--note", a.note] if a.note else [])
     env = dict(os.environ)
     if a.blas_threads != "default":
         for v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
@@ -987,6 +1083,7 @@ def execute(case, workers, a, env_info):
     except OSError: pass
     return rec
 
+
 def store_run(con, case_id, r):
     env = r.get("environment", {})
     flat = dict(case_id=case_id, started_at=r.get("started_at"), finished_at=r.get("finished_at"),
@@ -1000,7 +1097,7 @@ def store_run(con, case_id, r):
         flat[k] = r.get(k)
     flat.update(solver_diagnostics=jdump(jsonable(r["solver_diagnostics"])) if r.get("solver_diagnostics") else None,
                 environment=jdump(env), **{k: env.get(k) for k in ("solver_sha256", "psiop_sha256", "python", "numpy",
-                                                                 "scipy", "sympy", "platform", "hostname", "cpu_count")})
+                                                                    "scipy", "sympy", "platform", "hostname", "cpu_count")})
     flat = jsonable(flat)
     cur = con.execute(f"INSERT INTO runs ({','.join(flat)}) VALUES ({','.join('?' * len(flat))})", list(flat.values()))
     rid = cur.lastrowid
@@ -1027,6 +1124,7 @@ def store_run(con, case_id, r):
     con.commit()
     return rid
 
+
 def case_filter(a):
     cl, p = [], []
     if not getattr(a, "all_cases", False):
@@ -1048,9 +1146,11 @@ def case_filter(a):
         cl.append("n_points <= ?"); p.append(a.max_points)
     return (" WHERE " + " AND ".join(cl)) if cl else "", p
 
+
 def select_cases(con, a):
     w, p = case_filter(a)
     return con.execute(f"SELECT case_id, name, definition, n_points FROM cases{w} ORDER BY case_id", p).fetchall()
+
 
 def cmd_run(a):
     con = connect(a.db)
@@ -1065,6 +1165,12 @@ def cmd_run(a):
             print(f"WARNING: workers up to {max(a.workers)} exceed the {lim} {label}: oversubscribed timings are not a scaling measure")
     if min(a.workers) > 1:
         print(f"note: smallest worker count is {min(a.workers)}: speed-ups/efficiencies will be relative to it")
+
+    # ── Expand Lt / Nt sweep values ──
+    lt_values = a.Lt if a.Lt is not None else [None]
+    nt_values = a.Nt if a.Nt is not None else [None]
+    # ── END ──
+
     todo = []
     for c in cases:
         for w in a.workers:
@@ -1075,13 +1181,25 @@ def cmd_run(a):
                 continue
             if a.only_failed and (last is None or last["status"] == "ok"):
                 continue
-            todo.append((c, w))
-    print(f"{len(todo)} runs ({len(cases)} cases, workers {a.workers}); solver sha {env_info['solver_sha256']}")
+            # ── One entry per (Lt, Nt) combination ──
+            for lt_val in lt_values:
+                for nt_val in nt_values:
+                    todo.append((c, w, lt_val, nt_val))
+            # ── END ──
+    print(f"{len(todo)} runs ({len(cases)} cases, workers {a.workers}, "
+          f"Lt={a.Lt or 'notebook'}, Nt={a.Nt or 'notebook'}); solver sha {env_info['solver_sha256']}")
     if a.dry_run:
-        for c, w in todo:
-            print(f"  {c['case_id']:8s} workers={w:<3d} {c['name'][:60]}")
+        for c, w, lt_val, nt_val in todo:
+            ov = ""
+            if lt_val is not None: ov += f" Lt={lt_val}"
+            if nt_val is not None: ov += f" Nt={nt_val}"
+            print(f"  {c['case_id']:8s} workers={w:<3d}{ov}  {c['name'][:60]}")
         return
-    for i, (c, w) in enumerate(todo, 1):
+    for i, (c, w, lt_val, nt_val) in enumerate(todo, 1):
+        # ── Set single values for this run ──
+        a.Lt = lt_val
+        a.Nt = nt_val
+        # ── END ──
         rec = execute(json.loads(c["definition"]), w, a, env_info)
         rid = store_run(con, c["case_id"], rec)
         if rec["status"] == "ok":
@@ -1092,31 +1210,37 @@ def cmd_run(a):
             msg = f"stage={rec.get('stage')} " + (rec.get("exception_type") and f"{rec['exception_type']}: {rec['exception_message'][:90]}" or rec.get("note", ""))
         print(f"[{i}/{len(todo)}] run {rid:<5d} {c['case_id']:8s} w={w:<3d} {rec['status']:8s} {msg}")
 
+
 # =============================================================================================
 # 5. reports
 # =============================================================================================
+
 def table(rows, cols=None):
     if not rows:
         print("(no rows)"); return
     cols = cols or list(rows[0].keys())
+
     def fmt(v):
         if v is None: return "-"
         if isinstance(v, float):
             return f"{v:.2e}" if v and (abs(v) < 1e-3 or abs(v) >= 1e5) else f"{v:.3f}"
         return str(v).replace("\n", " ")[:70]
+
     wid = {k: max(len(k), *(len(fmt(r[k])) for r in rows)) for k in cols}
     print("  ".join(k.ljust(wid[k]) for k in cols))
     for r in rows:
         print("  ".join(fmt(r[k]).ljust(wid[k]) for k in cols))
 
+
 def cmd_list(a):
     con = connect(a.db)
     w, p = case_filter(a)
     rows = con.execute(f"""SELECT case_id, dim, substr(type,1,4) AS type, temporal_order AS ord, formulation, boundary_condition AS bc,
-        COALESCE(Nx,'') || COALESCE('x'||Ny,'') AS grid, Nt, exact_kind AS exact,
-        (SELECT COUNT(*) FROM runs r WHERE r.case_id=cases.case_id) AS runs, substr(name,1,48) AS name
-        FROM cases{w} ORDER BY case_id""", p).fetchall()
+COALESCE(Nx,'') || COALESCE('x'||Ny,'') AS grid, Nt, exact_kind AS exact,
+(SELECT COUNT(*) FROM runs r WHERE r.case_id=cases.case_id) AS runs, substr(name,1,48) AS name
+FROM cases{w} ORDER BY case_id""", p).fetchall()
     table(rows)
+
 
 def cmd_report(a):
     con = connect(a.db)
@@ -1135,6 +1259,7 @@ def cmd_report(a):
             wr = csv.DictWriter(f, fieldnames=cols); wr.writeheader(); wr.writerows(rows)
         print(f"CSV written: {a.csv}")
 
+
 def cmd_failures(a):
     con = connect(a.db)
     q = "SELECT * FROM v_failures" + (" WHERE run_id IN (SELECT MAX(run_id) FROM runs GROUP BY case_id, fft_workers)" if a.last else "")
@@ -1143,13 +1268,14 @@ def cmd_failures(a):
            for r in rows])
     print("\nuse `show RUN_ID --logs` for traceback and logs")
 
+
 def cmd_show(a):
     con = connect(a.db)
     r = con.execute("SELECT r.*, c.name, c.equation FROM runs r JOIN cases c USING(case_id) WHERE run_id=?", (a.run_id,)).fetchone()
     if not r:
         sys.exit("no such run")
     skip = {"environment", "traceback", "name", "equation", "solver_diagnostics"}
-    print(f"RUN {r['run_id']}  {r['case_id']}  {r['name']}\n  {r['equation']}")
+    print(f"RUN {r['run_id']}  {r['case_id']}  {r['name']}\n{r['equation']}")
     for k in r.keys():
         if k not in skip and r[k] is not None:
             print(f"  {k:22s} {r[k]}")
@@ -1179,6 +1305,7 @@ def cmd_show(a):
         np.savez_compressed(a.save_fields, **arrs)
         print(f"\nsaved {len(arrs)} array(s) -> {a.save_fields}: {', '.join(arrs)}")
 
+
 def cmd_profile(a):
     """Compute the interior profile from the fields already stored (run --store-fields final|all)."""
     con = connect(a.db)
@@ -1188,7 +1315,7 @@ def cmd_profile(a):
     w, p = case_filter(a)
     cases = {r["case_id"]: json.loads(r["definition"]) for r in con.execute(f"SELECT case_id, definition FROM cases{w}", p)}
     runs = con.execute("""SELECT run_id, case_id FROM runs r WHERE status = 'ok' AND EXISTS
-                          (SELECT 1 FROM run_blobs b WHERE b.run_id = r.run_id AND b.name = 'u_num') ORDER BY run_id""").fetchall()
+(SELECT 1 FROM run_blobs b WHERE b.run_id = r.run_id AND b.name = 'u_num') ORDER BY run_id""").fetchall()
     runs = [r for r in runs if r["case_id"] in cases]
     if not a.all_runs:
         runs = list({r["case_id"]: r for r in runs}.values())          # latest run with stored fields per case
@@ -1212,12 +1339,13 @@ def cmd_profile(a):
             n_t += 1
     con.commit()
     missing = con.execute(f"""SELECT COUNT(*) FROM cases{w + (' AND' if w else ' WHERE')} has_exact = 1 AND case_id IN
-        (SELECT case_id FROM runs WHERE status='ok') AND case_id NOT IN
-        (SELECT case_id FROM runs r WHERE EXISTS (SELECT 1 FROM run_blobs b WHERE b.run_id = r.run_id AND b.name = 'u_num'))""", p).fetchone()[0]
+(SELECT case_id FROM runs WHERE status='ok') AND case_id NOT IN
+(SELECT case_id FROM runs r WHERE EXISTS (SELECT 1 FROM run_blobs b WHERE b.run_id = r.run_id AND b.name = 'u_num'))""", p).fetchone()[0]
     print(f"profile computed for {len(runs)} run(s), {n_t} tested time(s), margins {margins}")
     if missing:
         print(f"{missing} case(s) with an exact solution have no stored fields: run them with --store-fields final|all "
               "(and --margins ... to compute the profile directly)")
+
 
 def cmd_sql(a):
     con = connect(a.db)
@@ -1226,9 +1354,11 @@ def cmd_sql(a):
         sys.exit("read-only: only SELECT/WITH/PRAGMA")
     table([dict(r) for r in con.execute(a.query)])
 
+
 # =============================================================================================
 # 6. CLI
 # =============================================================================================
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", default="pde.sqlite")
@@ -1243,6 +1373,7 @@ def main():
 
     p = sub.add_parser("build"); p.add_argument("--notebooks", nargs="+", required=True); p.set_defaults(f=cmd_build)
     p = sub.add_parser("list"); filters(p); p.set_defaults(f=cmd_list)
+
     p = sub.add_parser("run"); filters(p)
     p.add_argument("--solver-dir", default=".", help="folder with solver.py, psiop.py, imports.py")
     p.add_argument("--workers", nargs="+", default=["1"], help="e.g. 4 5 8, or 'auto' (ladder from this machine's cores)"); p.add_argument("--repeats", type=int, default=3)
@@ -1253,7 +1384,16 @@ def main():
     p.add_argument("--max-field-mb", type=float, default=20); p.add_argument("--max-log-kb", type=int, default=2048)
     p.add_argument("--skip-done", action="store_true", help="skip (case, workers) already ok with the same solver.py")
     p.add_argument("--only-failed", action="store_true", help="re-run only (case, workers) whose last run is not ok")
-    p.add_argument("--dry-run", action="store_true"); p.set_defaults(f=cmd_run)
+    p.add_argument("--dry-run", action="store_true")
+    # ── NEW: Lt / Nt override and note ──
+    p.add_argument("--Lt", nargs="+", type=float, default=None,
+                   help="override Lt (one or more values, rescales t_eval proportionally)")
+    p.add_argument("--Nt", nargs="+", type=int, default=None,
+                   help="override Nt (one or more values)")
+    p.add_argument("--note", default=None, help="free-text note stored with each run")
+    # ── END NEW ──
+    p.set_defaults(f=cmd_run)
+
     p = sub.add_parser("report"); filters(p); p.add_argument("--csv"); p.set_defaults(f=cmd_report)
     p = sub.add_parser("failures"); p.add_argument("--last", action="store_true", help="only the latest run of each (case, workers)"); p.set_defaults(f=cmd_failures)
     p = sub.add_parser("show"); p.add_argument("run_id", type=int); p.add_argument("--logs", action="store_true")
@@ -1262,13 +1402,22 @@ def main():
     p = sub.add_parser("profile"); filters(p); p.add_argument("--margins", nargs="+", required=True, type=float)
     p.add_argument("--all-runs", action="store_true", help="every run with stored fields, not only the latest per case"); p.set_defaults(f=cmd_profile)
     p = sub.add_parser("sql"); p.add_argument("query"); p.set_defaults(f=cmd_sql)
+
     w = sub.add_parser("_worker")
     for n in ("--solver-dir", "--out", "--progress", "--case-json", "--store-fields"):
         w.add_argument(n)
     w.add_argument("--workers", type=int); w.add_argument("--repeats", type=int); w.add_argument("--max-field-mb", type=float)
-    w.add_argument("--margins"); w.add_argument("--no-warmup", action="store_true"); w.set_defaults(f=worker)
+    w.add_argument("--margins"); w.add_argument("--no-warmup", action="store_true")
+    # ── NEW: Lt / Nt override and note (received from execute()) ──
+    w.add_argument("--Lt", type=float, default=None)
+    w.add_argument("--Nt", type=int, default=None)
+    w.add_argument("--note", default=None)
+    # ── END NEW ──
+    w.set_defaults(f=worker)
+
     a = ap.parse_args()
     a.f(a)
+
 
 if __name__ == "__main__":
     main()

@@ -415,12 +415,14 @@ def card(case_id):
     if sel.empty:
         print("no such case"); return
     c = sel.iloc[0]; d = c.defn
-    display(Markdown(f"### {c.case_id} — {c.name}"))
+
+    # ── header ──
+    display(Markdown(f"### {c.case_id} — {c['name']}"))
     display(pd.Series({
         "type": c.type, "dim": c.dim, "temporal_order": c.temporal_order,
         "formulation": c.formulation, "bc": c.boundary_condition,
         "grid": f"{c.Nx}" + (f"x{int(c.Ny)}" if pd.notna(c.Ny) else ""),
-        "Lt / Nt": "-" if pd.isna(c.Nt) else f"{c.Lt} / {int(c.Nt)}",
+        "Lt / Nt (notebook)": "-" if pd.isna(c.Nt) else f"{c.Lt} / {int(c.Nt)}",
         "scheme": c.effective_time_scheme or c.time_scheme,
         "dealiasing": c.dealiasing_ratio, "stationary_order": c.stationary_order,
         "exact": c.exact_kind, "source": f"{c.notebook} cell {c.cell}"}).to_frame("value"))
@@ -430,28 +432,126 @@ def card(case_id):
         src = (spec.get("python", spec) or {}).get("code") if isinstance(spec, dict) else None
         if src:
             display(Markdown(f"**{lab}**\\n```python\\n{src}\\n```"))
+
+    # ── all runs for this case (the key new feature) ──
+    all_runs = R[R.case_id == case_id].copy()
+    if len(all_runs) == 0:
+        print("no runs stored for this case"); return
+
+    # extract actual dt from solver_diagnostics, actual Lt from run_errors
+    def _run_params(run_id):
+        diag = {}
+        s = all_runs.loc[all_runs.run_id == run_id, "solver_diagnostics"]
+        if len(s) and s.iloc[0]:
+            try: diag = json.loads(s.iloc[0])
+            except: pass
+        dt = diag.get("dt")
+        errs = E[E.run_id == run_id].dropna(subset=["actual_t"])
+        lt_actual = float(errs.actual_t.max()) if len(errs) else None
+        nt_actual = round(lt_actual / dt) if (dt and lt_actual) else None
+        return dt, lt_actual, nt_actual
+
+    all_runs["dt"] = all_runs["run_id"].map(lambda rid: _run_params(rid)[0])
+    all_runs["Lt_actual"] = all_runs["run_id"].map(lambda rid: _run_params(rid)[1])
+    all_runs["Nt_actual"] = all_runs["run_id"].map(lambda rid: _run_params(rid)[2])
+
+    # ── runs table ──
+    display(Markdown(f"### All runs ({len(all_runs)})"))
+    cols = ["run_id", "fft_workers", "Lt_actual", "Nt_actual", "dt",
+            "time_solve_s", "error_max", "passed", "non_finite", "status", "note"]
+    tbl = all_runs[[k for k in cols if k in all_runs.columns]].copy()
+    tbl["note"] = tbl["note"].fillna("").str.slice(0, 60)
+    with pd.option_context("display.float_format", "{:.3g}".format):
+        display(tbl.sort_values("run_id"))
+
+    # ── convergence study (error vs dt) ──
+    conv = all_runs[(all_runs.status == "ok") & all_runs.dt.notna() & all_runs.error_max.notna()].copy()
+    conv = conv.drop_duplicates(subset=["dt"], keep="last").sort_values("dt")
+    if len(conv) >= 3:
+        fig, ax = plt.subplots(figsize=(7, 4))
+        ax.loglog(conv.dt, conv.error_max, "o-", color="tab:red", label="measured error_max")
+        # reference slope: expected temporal order
+        order = c.temporal_order or 1
+        ref_dt = conv.dt.values
+        ref_err = conv.error_max.iloc[-1] * (ref_dt / ref_dt[-1]) ** order
+        ax.loglog(ref_dt, ref_err, "k--", alpha=.5, label=f"O(dt^{order}) reference")
+        ax.set_xlabel("dt = Lt / Nt")
+        ax.set_ylabel("error_max")
+        ax.set_title(f"Temporal convergence ({len(conv)} points, order {order})")
+        ax.legend()
+        plt.tight_layout(); plt.show()
+        # print observed order
+        if len(conv) >= 2:
+            slopes = np.diff(np.log(conv.error_max.values)) / np.diff(np.log(conv.dt.values))
+            display(Markdown(f"**Observed convergence order:** {np.median(slopes):.2f} "
+                             f"(expected: {order})"))
+
+    # ── panels ──
     r = LO[LO.case_id == case_id]
-    fig, axs = plt.subplots(1, 2, figsize=(11, 3.4))
+    P = pd.read_sql("SELECT * FROM v_error_profile WHERE case_id = ?", con, params=[case_id])
+    n_panels = 3
+    fig, axs = plt.subplots(1, n_panels, figsize=(5 * n_panels, 3.6))
+
     if len(r):
         g = E[E.run_id.isin(r.sort_values("run_id").tail(1).run_id)].sort_values("actual_t")
-        g = g.dropna(subset=["actual_t"])          # stationary runs have actual_t = NULL
+        g = g.dropna(subset=["actual_t"])
         if len(g):
             axs[0].plot(g.actual_t, g.error.clip(lower=1e-16), "o-")
-            axs[0].axhline(g.threshold.iloc[0], color="r", ls="--"); axs[0].set_yscale("log")
+            axs[0].axhline(g.threshold.iloc[0], color="r", ls="--")
+            axs[0].set_yscale("log")
         else:
             axs[0].text(.5, .5, "stationary: single test", ha="center", va="center",
                         transform=axs[0].transAxes)
-        # ---- right panel: solve time vs workers (the block that was missing) ----
+
+        # ---- right panel: solve time vs workers ----
         tt = r.groupby("fft_workers").time_solve_s.median()
-        axs[1].plot(tt.index, tt.values, "o-", color="C0", label="median, latest ok run")
+        axs[2].plot(tt.index, tt.values, "o-", color="C0", label="median, latest ok run")
         rr = (RR[(RR.is_warmup == 0) & (RR.completed == 1) & RR.run_id.isin(r.run_id)]
               .merge(r[["run_id", "fft_workers"]], on="run_id"))
-        for w, gg in rr.groupby("fft_workers"):    # individual repeats as a grey cloud
-            axs[1].scatter([w] * len(gg), gg.t_solve_s, s=8, color="gray", alpha=.6)
-        axs[1].set_xlabel("fft_workers"); axs[1].set_ylabel("solve time (s)")
-        axs[1].legend(fontsize=7)
-    axs[0].set_title("error vs t"); axs[1].set_title("solve time vs workers")
+        for w, gg in rr.groupby("fft_workers"):
+            axs[2].scatter([w] * len(gg), gg.t_solve_s, s=8, color="gray", alpha=.6)
+        axs[2].set_xlabel("fft_workers"); axs[2].set_ylabel("solve time (s)")
+        axs[2].legend(fontsize=7)
+    else:
+        axs[0].text(.5, .5, "no ok run in v_latest_ok", ha="center", va="center",
+                    transform=axs[0].transAxes)
+
+    # ---- middle panel: interior profile ----
+    if P.margin.nunique() > 1:
+        for te, gp in P.groupby(P.t_eval.fillna(-1)):
+            gp = gp.sort_values("margin")
+            axs[1].plot(100 * gp.margin, gp.rel_l2.clip(lower=1e-16), "o-", ms=3, lw=1,
+                        label="stationary" if te == -1 else f"t={te:g}")
+        axs[1].set_yscale("log"); axs[1].set_xlabel("margin removed (%)")
+        axs[1].set_ylabel("relative L2 error"); axs[1].legend(fontsize=6, ncol=2)
+    else:
+        axs[1].text(.5, .5, "no interior margins stored\\n(run with --margins)",
+                    ha="center", va="center", fontsize=8, transform=axs[1].transAxes)
+
+    axs[0].set_title("error vs t (latest ok run)")
+    axs[1].set_title("error vs interior box")
+    axs[2].set_title("solve time vs workers")
     plt.tight_layout(); plt.show()
+
+    # ── interior verdict ──
+    if P.margin.nunique() > 1:
+        key = P.t_eval.fillna(-1)
+        lt = P[key == key.max()].sort_values("margin")
+        tab = lt[["margin", "n_points_used", "rel_l2", "linf", "energy_share"]].set_index("margin")
+        tab["conc_index"] = (lt.set_index("margin").energy_share
+                             / (1 - lt.set_index("margin").index.to_series()) ** int(c.dim))
+        r0, r1, k1 = tab.rel_l2.iloc[0], tab.rel_l2.iloc[-1], tab.conc_index.iloc[-1]
+        if pd.isna(r0) or pd.isna(r1): verdict = "undefined (zero reference norm or non-finite)"
+        elif r0 < 1e-12:               verdict = "round-off level"
+        elif r1 / r0 < 0.1:            verdict = f"boundary-dominated (inner error = {r1 / r0:.1e} x global)"
+        elif k1 > 1.5:                 verdict = "concentrated in the centre"
+        else:                          verdict = "roughly uniform"
+        display(Markdown(f"**interior error** (run {int(lt.run_id.iloc[0])}): **{verdict}**. "
+                         "`conc_index` = error share / area share: 1 uniform, <1 boundary, >1 centre."))
+        with pd.option_context("display.float_format", "{:.3g}".format):
+            display(tab)
+
+    # ── energy, warnings, notes ──
     if len(r):
         eh = blobs(int(r.run_id.max())).get("energy_history")
         if eh is not None and eh.size > 1:
@@ -460,14 +560,14 @@ def card(case_id):
         w = W[W.run_id.isin(r.run_id)]
         if len(w):
             display(w[["category", "message", "count"]].head(5))
-    if c.notes:
+    if pd.notna(c.notes) and c.notes:
         display(Markdown(f"**note:** {c.notes}"))
 
 def fields(run_id):
     \"\"\"u_num / u_exact arrays, only present if runs used --store-fields final|all.\"\"\"
     return {k: v for k, v in blobs(run_id).items() if k.startswith(("u_num", "u_exact"))}
 
-card("np2d-04")
+card("p1d-07")
 """)
 
 code("""

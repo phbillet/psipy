@@ -296,9 +296,9 @@ def test_temporal_convergence(pde_case):
 
 
 # -----------------------------------------------------------------------
-# ETD-RK4 accuracy test (heat equation)
+# RK4 accuracy test (heat equation)
 # -----------------------------------------------------------------------
-def test_etdrk4_accuracy():
+def test_rk4_accuracy():
     u  = Function('u')(t, x)
     eq = Eq(diff(u, t), diff(u, x, 2))
 
@@ -307,7 +307,7 @@ def test_etdrk4_accuracy():
     Lx, Lt  = 2 * np.pi, 1.0
     Nx, Nt  = 256, 100
 
-    solver = PDESolver(eq, time_scheme='ETD-RK4')
+    solver = PDESolver(eq, time_scheme='RK4')
     solver.setup(
         Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
         initial_condition=initial,
@@ -320,8 +320,8 @@ def test_etdrk4_accuracy():
     dx    = Lx / Nx
     u_ex  = exact(solver.x_grid, Lt)
     err   = l2_error(u_num, u_ex, dx)
-    print(f"ETD-RK4 final error = {err:.4e}")
-    assert err < 1e-2, f"ETD-RK4 error too large: {err:.4e}"
+    print(f"RK4 final error = {err:.4e}")
+    assert err < 1e-2, f"RK4 error too large: {err:.4e}"
 
 
 # -----------------------------------------------------------------------
