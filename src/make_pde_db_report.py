@@ -154,8 +154,6 @@ Edit `GOOD_REL_L2` to change what "good" means.
 """)
 
 code("""
-GOOD_REL_L2 = 1e-3   # "good result" = finite solution and worst relative L2 error <= this
-
 q = pd.read_sql('''
     WITH last AS (SELECT * FROM runs WHERE run_id IN (SELECT MAX(run_id) FROM runs GROUP BY case_id)),
          worst AS (SELECT run_id, MAX(rel_l2) AS worst_rel_l2 FROM run_errors GROUP BY run_id)
@@ -167,39 +165,58 @@ q["family"] = q.groupby(q.family.str.lower()).family.transform("first").str.slic
 
 def verdict(r):
     if pd.isna(r.status):                return "not run"
-    if r.status != "ok":                 return "run failed"
-    if not r.has_exact:                  return "no exact solution"
-    if r.non_finite == 1:                return "inaccurate"
-    if pd.isna(r.worst_rel_l2):          return "good" if r.passed == 1 else "inaccurate"
-    return "good" if r.worst_rel_l2 <= GOOD_REL_L2 else "inaccurate"
+    if r.status != "ok":                 return "crashed"
+    if not r.has_exact:                  return "no exact sol."
+    if r.non_finite == 1:                return "blown up"
+    
+    err = r.worst_rel_l2
+    if pd.isna(err):                     return "unknown"
+    
+    # Tiered classification tailored for spectral methods
+    if err <= 1e-6:   return "spectral (≤1e-6)"
+    if err <= 1e-3:   return "good (≤1e-3)"
+    if err <= 1e-1:   return "approximate (≤1e-1)"
+    return "poor (>1e-1)"
+
 q["verdict"] = q.apply(verdict, axis=1)
 n_not_run = int((q.verdict == "not run").sum())
-q = q[q.verdict != "not run"]
+q = q[~q.verdict.isin(["not run", "unknown"])]
 
-order = ["good", "inaccurate", "run failed", "no exact solution"]
-colors = {"good": "tab:green", "inaccurate": "tab:red", "run failed": "black", "no exact solution": "lightgrey"}
+order = [
+    "spectral (≤1e-6)", "good (≤1e-3)", "approximate (≤1e-1)", 
+    "poor (>1e-1)", "crashed", "blown up", "no exact sol."
+]
+colors = {
+    "spectral (≤1e-6)": "darkgreen",
+    "good (≤1e-3)":     "tab:green",
+    "approximate (≤1e-1)": "tab:orange",
+    "poor (>1e-1)":     "tab:red",
+    "crashed":          "black",
+    "blown up":         "darkred",
+    "no exact sol.":    "lightgrey"
+}
+
 if len(q):
     tab = q.groupby(["family", "verdict"]).size().unstack(fill_value=0).reindex(columns=order, fill_value=0)
-    tab = tab.loc[(tab["good"] / tab.sum(axis=1)).sort_values(kind="stable").index]     # best equations on top
-    fig, ax = plt.subplots(figsize=(9, 0.4 * len(tab) + 1.8))
+    # Sort by the proportion of "spectral" + "good" cases
+    score = (tab.get("spectral (≤1e-6)", 0) + tab.get("good (≤1e-3)", 0)) / tab.sum(axis=1)
+    tab = tab.loc[score.sort_values(kind="stable", ascending=False).index]
+    
+    fig, ax = plt.subplots(figsize=(10, 0.4 * len(tab) + 2))
     left = np.zeros(len(tab))
     for v in order:
+        if v not in tab.columns: continue
         ax.barh(tab.index, tab[v], left=left, color=colors[v], edgecolor="grey", linewidth=.4, label=v)
         for y, (l, n) in enumerate(zip(left, tab[v])):
             if n:
                 ax.text(l + n / 2, y, int(n), ha="center", va="center", fontsize=8,
-                        color="black" if v == "no exact solution" else "white")
+                        color="white" if v not in ["approximate (≤1e-1)", "no exact sol."] else "black")
         left += tab[v].values
     ax.xaxis.get_major_locator().set_params(integer=True)
-    ax.set_xlabel(f"number of cases   (good = finite solution and worst relative L2 error <= {GOOD_REL_L2:g})")
-    ax.set_title("Result per equation (latest run of each case)", fontsize=10)
-    ax.legend(loc="lower right", fontsize=8)
+    ax.set_xlabel("number of cases")
+    ax.set_title("Solver Accuracy Tiers (latest run per case)", fontsize=11)
+    ax.legend(loc="lower right", fontsize=8, ncol=2)
     plt.tight_layout(); plt.show()
-    full = tab[(tab.good > 0) & (tab[["inaccurate", "run failed"]].sum(axis=1) == 0)].index.tolist()
-    print("equations where every tested case is good:", ", ".join(full) or "none")
-else:
-    print("no run stored yet")
-print(f"{n_not_run} case(s) never run (not shown) | " + str(q.verdict.value_counts().to_dict()))
 """)
 
 md("""
