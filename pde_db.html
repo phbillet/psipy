@@ -69,6 +69,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.connect"><code class="docutils literal notranslate"><span class="pre">connect()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.cpu_topology"><code class="docutils literal notranslate"><span class="pre">cpu_topology()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.default_prefix"><code class="docutils literal notranslate"><span class="pre">default_prefix()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pde_db.eff_token"><code class="docutils literal notranslate"><span class="pre">eff_token()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.environment"><code class="docutils literal notranslate"><span class="pre">environment()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.execute"><code class="docutils literal notranslate"><span class="pre">execute()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.extract_notebook"><code class="docutils literal notranslate"><span class="pre">extract_notebook()</span></code></a></li>
@@ -88,6 +89,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.suggest_ladder"><code class="docutils literal notranslate"><span class="pre">suggest_ladder()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.table"><code class="docutils literal notranslate"><span class="pre">table()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.unpack"><code class="docutils literal notranslate"><span class="pre">unpack()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pde_db.variant_plan"><code class="docutils literal notranslate"><span class="pre">variant_plan()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pde_db.worker"><code class="docutils literal notranslate"><span class="pre">worker()</span></code></a></li>
 </ul>
 </li>
@@ -145,11 +147,15 @@ python pde_db.py failures
 python pde_db.py show 17 –logs
 python pde_db.py run –solver-dir . –ids np1d-05 –margins 0 0.1 0.2 0.3      # error on nested interior boxes
 python pde_db.py profile –margins 0 0.05 0.1 0.2 0.3                          # later, from stored fields
+python pde_db.py run –solver-dir . –nonlinear –time-schemes default RK4 –nt-factors 0.5 1 2 4   # time-stepping study
+python pde_db.py run –solver-dir . –ids p1d-21 –Lt 5 10 20 –Nt 1000 –note “horizon study”   # absolute Lt / Nt sweeps
 python pde_db.py sql “SELECT case_id, fft_workers, time_solve_s FROM v_latest_ok ORDER BY 3 DESC LIMIT 10”
 Security: <cite>build</cite> EXECUTES the notebook cells (with a recording stub in place of PDESolver) and <cite>run</cite>
 rebuilds callables with eval/exec from code strings stored in the database. Use your own files only.
 Tables: cases, notebooks, runs, run_repeats, run_errors, run_error_profile, run_warnings, run_logs, run_blobs, meta
-Views : v_latest_ok (latest solver version only), v_scaling, v_failures, v_dashboard, v_warmup, v_version_compare</p>
+Views : v_latest_ok (latest solver version only), v_scaling, v_failures, v_dashboard, v_warmup, v_version_compare, v_variants
+Runs with a time-scheme override, a different Nt or a different Lt are flagged is_variant=1: the baseline views ignore
+them, v_variants shows them (columns time_scheme, effective_scheme, nt, lt, dt, user_note).</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="pde_db.build_equation">
 <span class="sig-prename descclassname"><span class="pre">pde_db.</span></span><span class="sig-name descname"><span class="pre">build_equation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">case</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pde_db.html#build_equation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pde_db.build_equation" title="Link to this definition"></a></dt>
@@ -234,13 +240,19 @@ Views : v_latest_ok (latest solver version only), v_scaling, v_failures, v_dashb
 <dd></dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="pde_db.eff_token">
+<span class="sig-prename descclassname"><span class="pre">pde_db.</span></span><span class="sig-name descname"><span class="pre">eff_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">defn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheme</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pde_db.html#eff_token"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pde_db.eff_token" title="Link to this definition"></a></dt>
+<dd><p>What PDESolver.solve() really does: only the exact string ‘RK4’ selects (ETD-)RK4; psiOp cases ignore it.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="pde_db.environment">
 <span class="sig-prename descclassname"><span class="pre">pde_db.</span></span><span class="sig-name descname"><span class="pre">environment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solver_dir</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pde_db.html#environment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pde_db.environment" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="pde_db.execute">
-<span class="sig-prename descclassname"><span class="pre">pde_db.</span></span><span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">case</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env_info</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pde_db.html#execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pde_db.execute" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">pde_db.</span></span><span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">case</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env_info</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plan</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pde_db.html#execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pde_db.execute" title="Link to this definition"></a></dt>
 <dd><p>Run one (case, workers) in a subprocess; always return a complete record, whatever happens.</p>
 </dd></dl>
 
@@ -333,6 +345,14 @@ x_i = -L/2 + i*L/N (endpoint=False), arrays indexed ‘ij’. m = fraction of th
 <dt class="sig sig-object py" id="pde_db.unpack">
 <span class="sig-prename descclassname"><span class="pre">pde_db.</span></span><span class="sig-name descname"><span class="pre">unpack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pde_db.html#unpack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pde_db.unpack" title="Link to this definition"></a></dt>
 <dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pde_db.variant_plan">
+<span class="sig-prename descclassname"><span class="pre">pde_db.</span></span><span class="sig-name descname"><span class="pre">variant_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">defn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schemes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">factors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pde_db.html#variant_plan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pde_db.variant_plan" title="Link to this definition"></a></dt>
+<dd><p>Runs to make for one case: (time scheme, Lt, Nt) combinations, de-duplicated by EFFECTIVE behaviour.
+Nt values = absolute –Nt values + factor * notebook Nt for –nt-factors (default: the notebook’s Nt).
+A combination equal to the notebook’s own scheme, Nt and Lt is the baseline (is_variant = 0).</p>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="pde_db.worker">
