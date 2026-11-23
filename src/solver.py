@@ -173,7 +173,7 @@ class PDESolver:
         self,
         equation: Eq,
         time_scheme: str = 'default',
-        dealiasing_ratio: float = 2/3,
+        dealiasing_ratio: Optional[float] = None,
         compute_energy: bool = True
     ) -> None:
         """
@@ -205,9 +205,14 @@ class PDESolver:
                 - 'default' for exponential
                 - time-stepping or 'RK4' for fourth-order exponential
                 - time differencing Runge–Kutta.
-        dealiasing_ratio : float
-            Fraction of high-frequency modes to zero out
-            during dealiasing (e.g., 2/3 for standard truncation).
+        dealiasing_ratio : float or None, optional (default None)
+            Fraction of the Nyquist wavenumber retained by the sharp
+            dealiasing cut-off. If None, it is chosen from the polynomial
+            degree p of the nonlinear terms: 2/(p+1), i.e. 2/3 for
+            quadratic terms and 1/2 for cubic ones (and 2/3 when the
+            problem is linear or the nonlinearity is not polynomial).
+            If a value is given that is too large for the detected degree,
+            a warning is emitted.
         compute_energy : bool, optional (default True)
             Turn it off if setup is too long, there is maybe a problem during
             computation of the square root of the operator.
@@ -345,6 +350,39 @@ class PDESolver:
                     "The temporal part of the equation must be a single monomial "
                     "(e.g., a*du/dt or a*d2u/dt2). Mixed time derivatives "
                     "(like a*d2u/dt2 + b*du/dt) are not supported."
+                )
+            # The linear symbol L(k) (and the psi symbols) are already divided
+            # by the coefficient `a` of the time derivative; N and f must be
+            # too:  a*du/dt = L'u + N' + f'   <=>   du/dt = L'u/a + N'/a + f'/a.
+            if time_derivs:
+                a_time = self.linear_terms[time_derivs[0]]
+                if a_time != 1:
+                    self.nonlinear_terms = [n / a_time for n in self.nonlinear_terms]
+                    self.source_terms = [s_ / a_time for s_ in self.source_terms]
+
+        # Dealiasing ratio: 2/(p+1) for a polynomial nonlinearity of degree p
+        # (2/3 rule for quadratic terms, 1/2 rule for cubic terms, ...).
+        self._nl_degree = self._nonlinear_degree()
+        p_nl = self._nl_degree
+        if dealiasing_ratio is None:
+            if p_nl is not None and p_nl >= 3:
+                self.dealiasing_ratio = 2.0 / (p_nl + 1)
+                print(f"ℹ️  Polynomial nonlinearity of degree {p_nl}: "
+                      f"dealiasing_ratio set to 2/{p_nl + 1} = {self.dealiasing_ratio:.3f}")
+            else:
+                self.dealiasing_ratio = 2.0 / 3.0
+                if p_nl is None:
+                    print("ℹ️  Non-polynomial nonlinearity: dealiasing_ratio kept at 2/3 "
+                          "(aliasing cannot be excluded, check resolution).")
+        else:
+            self.dealiasing_ratio = dealiasing_ratio
+            if (p_nl is not None and p_nl >= 3
+                    and dealiasing_ratio > 2.0 / (p_nl + 1) + 1e-12):
+                warnings.warn(
+                    f"Nonlinearity of degree {p_nl}: dealiasing_ratio="
+                    f"{dealiasing_ratio:.3f} > 2/{p_nl + 1} = {2.0 / (p_nl + 1):.3f}; "
+                    "aliasing errors may pollute the retained modes.",
+                    RuntimeWarning,
                 )
 
         # Compute linear operator
@@ -544,13 +582,24 @@ class PDESolver:
             if derivs:
                 deriv = derivs.pop()
                 coeff = term / deriv
-                linear_terms[deriv] = linear_terms.get(deriv, 0) + coeff
                 print(f"  Derivative found: {deriv}")
-                print("  --> Classified as linear")
+                if coeff.free_symbols & (set(self.spatial_vars) | {self.t}):
+                    if any(var == self.t for var, _ in deriv.variable_count):
+                        raise ValueError(f"A variable coefficient in front of a time derivative is not supported: {term}")
+                    nonlinear_terms.append(-term)
+                    print("  --> Classified as variable-coefficient (pointwise) term")
+                else:
+                    linear_terms[deriv] = linear_terms.get(deriv, 0) + coeff
+                    print("  --> Classified as linear")
             elif self.u in term.atoms(Function):
-                coeff = term.as_coefficients_dict().get(self.u, 1)
-                linear_terms[self.u] = linear_terms.get(self.u, 0) + coeff
-                print("  --> Classified as linear")
+                coeff = simplify(term / self.u)
+                if coeff.free_symbols & (set(self.spatial_vars) | {self.t}):
+                    # variable coefficient: evaluate pointwise, like a nonlinear term
+                    nonlinear_terms.append(-term)
+                    print("  --> Classified as variable-coefficient (pointwise) term")
+                else:
+                    linear_terms[self.u] = linear_terms.get(self.u, 0) + coeff
+                    print("  --> Classified as linear")
             else:
                 source_terms.append(-term)
                 print("  --> Classified as source term")
@@ -1031,6 +1080,12 @@ class PDESolver:
                 raise ValueError("In 2D, Ly and Ny must be provided.")
             self._setup_2D(Lx, Ly, Nx, Ny)
 
+        # Pre-compile the nonlinear terms once (avoids lambdify at every call)
+        self._compiled_nl = None
+        self._t_current = 0.0
+        if not self.is_stationary:
+            self._precompile_nonlinear_funcs()
+
         # Initialization of solution and velocities
         if not self.is_stationary:
             self._initialize_conditions(initial_condition, initial_velocity)
@@ -1059,7 +1114,7 @@ class PDESolver:
             print("⚠️ For psiOp, use interactive_symbol_analysis.")
         else:
             if self.L_symbolic == 0:
-                print("⚠️ Linear operator is null.")
+                raise ValueError("Linear operator is null: add a small Laplacian regularization (e.g. nu*u_xx).")
             else:
                 self._check_cfl_condition()
                 self._check_symbol_conditions()
@@ -1139,6 +1194,7 @@ class PDESolver:
         else:
             L_vals = np.array(self.L(self.KX), dtype=np.complex128)
             self.exp_L = np.exp(L_vals * self.dt)
+            self.phi1_L = self._phi1(L_vals * self.dt)
             if self.temporal_order == 2:
                 omega_val = self.omega(self.KX)
                 self._setup_omega_terms(omega_val)
@@ -1222,6 +1278,7 @@ class PDESolver:
         else:
             L_vals = self.L(self.KX, self.KY)
             self.exp_L = np.exp(L_vals * self.dt)
+            self.phi1_L = self._phi1(L_vals * self.dt)
             if self.temporal_order == 2:
                 omega_val = self.omega(self.KX, self.KY)
                 self._setup_omega_terms(omega_val)
@@ -1619,252 +1676,161 @@ class PDESolver:
             )
             self._edge_warned = True
 
-    def _apply_nonlinear(self, u: np.ndarray, is_v: bool = False) -> np.ndarray:
+    @staticmethod
+    def _phi1(z: Union[np.ndarray, complex]) -> np.ndarray:
         """
-        Apply nonlinear terms to the solution using spectral differentiation with dealiasing.
-
-        This method evaluates all nonlinear contributions present in the PDE at the current
-        time step. Spatial derivatives appearing in nonlinear expressions are approximated
-        spectrally via FFT up to third order in 1D and second order (including cross
-        derivatives) in 2D. A dealiasing mask is applied to u before any nonlinear product
-        is formed, preventing aliasing errors from energy accumulation at high wavenumbers.
-
-        If no nonlinear terms are registered (self.nonlinear_terms is empty), the method
-        returns a zero array immediately.
-
-        **Derivative bank:**
-
-            1D:
-                u_x   = IFFT(i·kₓ         · û)     — ∂ₓu   (first derivative)
-                u_xx  = IFFT((i·kₓ)²      · û)     — ∂ₓₓu  (second derivative)
-                u_xxx = IFFT((i·kₓ)³      · û)     — ∂ₓₓₓu (third derivative)
-
-            2D:
-                u_x   = IFFT(i·kₓ          · û)    — ∂ₓu
-                u_y   = IFFT(i·kᵧ          · û)    — ∂ᵧu
-                u_xx  = IFFT((i·kₓ)²       · û)    — ∂ₓₓu
-                u_yy  = IFFT((i·kᵧ)²       · û)    — ∂ᵧᵧu
-                u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)    — ∂ₓᵧu  (mixed cross derivative)
-
-        All derivatives are computed from the same dealiased û, requiring only pointwise
-        wavenumber multiplications followed by IFFTs — no additional FFT of u is needed.
-
-        **SymPy Derivative normalisation:**
-            SymPy represents derivatives in several equivalent forms depending on version
-            and context:
-                Derivative(u(t, x), x)       → first order,  implicit
-                Derivative(u(t, x), (x, 2))  → second order, tuple form
-                Derivative(u(t, x), x, x)    → second order, repeated form
-            The internal helper _get_diff_order() normalises all forms to (variable, order)
-            by name-based variable matching, making the substitution robust across SymPy
-            versions and independently constructed symbol objects.
-
-        **1D procedure:**
-            1. Transform u to Fourier space and apply the dealiasing mask in-place.
-            2. Compute the full derivative bank from û.
-            3. For each symbolic nonlinear term:
-               - Scan all Derivative atoms and substitute them with the corresponding
-                 spectral symbol ('u_x', 'u_xx', 'u_xxx') via _get_diff_order().
-               - Lambdify the resulting expression over (t, x, u, u_x, u_xx, u_xxx).
-               - Evaluate numerically on the physical grid and accumulate.
-
-        **2D procedure:**
-            1. Transform u to Fourier space and apply the dealiasing mask in-place.
-            2. Compute the full derivative bank (∂ₓ, ∂ᵧ, ∂ₓₓ, ∂ᵧᵧ, ∂ₓᵧ) from û.
-            3. For each symbolic nonlinear term:
-               - Substitute Derivative atoms:
-                   ∂ₓu  → 'u_x',  ∂ᵧu  → 'u_y'
-                   ∂ₓₓu → 'u_xx', ∂ᵧᵧu → 'u_yy', ∂ₓᵧu → 'u_xy'
-               - Lambdify over (t, x, y, u, u_x, u_y, u_xx, u_yy, u_xy).
-               - Evaluate numerically on the physical grid and accumulate.
-            4. When two or more independent terms are present, evaluations are
-               parallelised via ThreadPoolExecutor. For a single term the thread
-               pool overhead is avoided and evaluation is performed directly.
-
-        **Velocity field variant:**
-            When is_v=True, self.v_prev is passed as the pointwise field value u_sym
-            in each lambdified expression instead of u. Spectral derivatives are still
-            computed from the argument u, so the caller is responsible for passing the
-            correct array for derivative computation.
-
-        **Aliasing note for high-order terms:**
-            Nonlinear terms involving second or third derivatives (e.g. u·u_xx, u_x·u_xx)
-            have a wider effective wavenumber support than first-order terms. The dealiasing
-            mask on u is necessary but may not be sufficient in strongly nonlinear regimes;
-            consider tightening self.dealiasing_ratio for such problems.
-
-        **Return scaling:**
-            The accumulated nonlinear contribution is multiplied by self.dt before
-            returning, so the caller can add it directly to the time-stepping update
-            without an extra scaling step.
-
-        Parameters
-        ----------
-        u : numpy.ndarray
-            Current solution array on the spatial grid. Shape is (Nx,) in 1D or
-            (Ny, Nx) in 2D. Used for spectral derivative computation and, when
-            is_v=False, as the pointwise field value in nonlinear expressions.
-        is_v : bool, optional (default False)
-            If True, evaluates nonlinear expressions using self.v_prev as the
-            pointwise field value instead of u. Intended for coupled PDE systems
-            where nonlinear terms involve a separate velocity field v.
-
-        Returns
-        -------
-        numpy.ndarray, dtype complex128
-            Array of shape matching u representing the total nonlinear contribution
-            scaled by Δt:  Δt · N(uₙ).
-            Returns a zero array of the same shape and dtype if no nonlinear terms
-            are present.
-
-        Raises
-        ------
-        ValueError
-            If self.dim is neither 1 nor 2.
-            If a 1D term contains a mixed derivative.
-            If a Derivative atom references an unsupported variable or order.
+        Entire function φ₁(z) = (eᶻ − 1)/z, evaluated without 0/0 or
+        cancellation near z = 0 (Taylor expansion 1 + z/2 + z²/6 for |z| < 1e-8).
+        Works for scalars and arrays; always returns complex128.
         """
+        z = np.asarray(z, dtype=np.complex128)
+        small = np.abs(z) < 1e-8
+        z_safe = np.where(small, 1.0, z)
+        return np.where(small, 1.0 + z / 2.0 + z**2 / 6.0, np.expm1(z_safe) / z_safe)
+
+    def _nonlinear_degree(self) -> Optional[int]:
+        """
+        Polynomial degree of the nonlinear terms with respect to u and its
+        derivatives (u and every ∂u are replaced by one generic variable).
+
+        Returns 0 if there is no nonlinear term, and None if at least one term
+        is not polynomial (sin(u), Abs(u), 1/(1+u), ...).
+        """
+        from sympy import Dummy, Poly
         if not self.nonlinear_terms:
-            return np.zeros_like(u, dtype=np.complex128)
+            return 0
+        s = Dummy('s')
+        degree = 0
+        for term in self.nonlinear_terms:
+            rep_map = {d: s for d in term.atoms(Derivative)}
+            rep_map[self.u] = s
+            try:
+                degree = max(degree, Poly(term.xreplace(rep_map), s).degree())
+            except Exception:
+                return None
+        return degree
 
-        nonlinear_term = np.zeros_like(u, dtype=np.complex128)
+    @staticmethod
+    def _get_diff_order(deriv: Derivative) -> Optional[Tuple[str, int]]:
+        """
+        Normalise a SymPy Derivative atom to (variable_name, order) or None.
 
+        Handles all known SymPy representations:
+            Derivative(u(t, x), x)        args[1] = Symbol('x')
+            Derivative(u(t, x), (x, 2))   args[1] = sympy.Tuple(Symbol('x'), Integer(2))
+            Derivative(u(t, x), x, x)     args[1] = args[2] = Symbol('x')
+
+        Variable matching is done by name to avoid object-identity issues.
+        Returns None for mixed derivatives.
+        """
         from sympy import Symbol, Tuple as SympyTuple
 
-        def _get_diff_order(deriv: Derivative) -> Optional[Tuple[str, int]]:
-            """
-            Normalise a SymPy Derivative atom to (variable_name, order) or None.
-
-            Handles all known SymPy representations robustly:
-                Derivative(u(t, x), x)        args[1] = Symbol('x')
-                Derivative(u(t, x), (x, 1))   args[1] = sympy.Tuple(Symbol('x'), Integer(1))
-                Derivative(u(t, x), (x, 2))   args[1] = sympy.Tuple(Symbol('x'), Integer(2))
-                Derivative(u(t, x), x, x)     args[1] = Symbol('x'), args[2] = Symbol('x')
-
-            Variable matching is done by name string to avoid object identity issues
-            across independently constructed SymPy symbols.
-
-            Returns (variable_name: str, order: int), or None for mixed derivatives.
-            """
-            variable_name = None
-            order = 0
-
-            for arg in deriv.args[1:]:
-                # Tuple form — covers both Python tuple and sympy.Tuple
-                if isinstance(arg, (tuple, list, SympyTuple)):
-                    var_name = str(arg[0])
-                    n = int(arg[1])
-                # Plain symbol — implicit order 1
-                elif isinstance(arg, Symbol):
-                    var_name = arg.name
-                    n = 1
-                else:
-                    continue
-
-                if variable_name is None:
-                    variable_name = var_name
-                elif variable_name != var_name:
-                    return None  # mixed derivative
-                order += n
+        variable_name = None
+        order = 0
+        for arg in deriv.args[1:]:
+            if isinstance(arg, (tuple, list, SympyTuple)):
+                var_name = str(arg[0])
+                n = int(arg[1])
+            elif isinstance(arg, Symbol):
+                var_name = arg.name
+                n = 1
+            else:
+                continue
 
             if variable_name is None:
-                return None
+                variable_name = var_name
+            elif variable_name != var_name:
+                return None  # mixed derivative
+            order += n
 
-            return (variable_name, order)
+        if variable_name is None:
+            return None
+        return (variable_name, order)
+
+    def _precompile_nonlinear_funcs(self) -> None:
+        """
+        Pre-compile (once) the lambdified callables of all nonlinear terms.
+
+        Each Derivative atom of u is replaced by a placeholder symbol
+        (u_x, u_xx, u_xxx in 1D; u_x, u_y, u_xx, u_yy, u_xy in 2D) and the
+        resulting expression is lambdified. `_apply_nonlinear` then only
+        evaluates these callables, instead of rebuilding them at every call
+        (4 times per step with ETD-RK4).
+
+        Sets
+        ----
+        self._compiled_nl : list[callable]
+            1D signature: f(t, x, u, u_x, u_xx, u_xxx)
+            2D signature: f(t, x, y, u, u_x, u_y, u_xx, u_yy, u_xy)
+        """
+        from sympy import Tuple as SympyTuple
+
+        self._compiled_nl = []
+        if self.is_stationary or not self.nonlinear_terms:
+            return
 
         if self.dim == 1:
             x_name = self.x.name
-
-            u_hat = self.fft(u)
-            u_hat *= self.dealiasing_mask
-            u     = self.ifft(u_hat)
-
-            # Derivative bank — all from the same dealiased û
-            u_x   = self.ifft((1j * self.KX)      * u_hat)
-            u_xx  = self.ifft((1j * self.KX) ** 2 * u_hat)
-            u_xxx = self.ifft((1j * self.KX) ** 3 * u_hat)
-
             order_map = {
                 (x_name, 1): symbols('u_x'),
                 (x_name, 2): symbols('u_xx'),
                 (x_name, 3): symbols('u_xxx'),
             }
-
-            field = self.v_prev if is_v else u
+            arg_names = (self.t, self.x, self.u_eq, 'u_x', 'u_xx', 'u_xxx')
 
             for term in self.nonlinear_terms:
-                term_replaced = term
-                if term.has(Derivative):
-                    for deriv in term.atoms(Derivative):
-                        key = _get_diff_order(deriv)
-                        if key is None:
-                            raise ValueError(
-                                f"Mixed derivative found in 1D nonlinear term: {deriv}."
-                            )
-                        if key not in order_map:
-                            raise ValueError(
-                                f"Unsupported derivative in nonlinear term: {deriv}. "
-                                f"Resolved as order {key[1]} w.r.t. '{key[0]}'. "
-                                f"Supported: orders 1, 2, 3 w.r.t. '{x_name}'."
-                            )
-                        term_replaced = term_replaced.subs(deriv, order_map[key])
-
-                term_func = lambdify(
-                    (self.t, self.x, self.u_eq, 'u_x', 'u_xx', 'u_xxx'),
-                    term_replaced, 'numpy'
-                )
-                nonlinear_term += term_func(0, self.X, field, u_x, u_xx, u_xxx)
+                replacement = {}
+                for deriv in term.atoms(Derivative):
+                    key = self._get_diff_order(deriv)
+                    if key is None:
+                        raise ValueError(
+                            f"Mixed derivative found in 1D nonlinear term: {deriv}."
+                        )
+                    if key not in order_map:
+                        raise ValueError(
+                            f"Unsupported derivative in nonlinear term: {deriv}. "
+                            f"Resolved as order {key[1]} w.r.t. '{key[0]}'. "
+                            f"Supported: orders 1, 2, 3 w.r.t. '{x_name}'."
+                        )
+                    replacement[deriv] = order_map[key]
+                term_replaced = term.xreplace(replacement)
+                if term_replaced.atoms(Derivative):
+                    raise ValueError(
+                        f"Incomplete derivative substitution in nonlinear term: {term}"
+                    )
+                self._compiled_nl.append(lambdify(arg_names, term_replaced, 'numpy'))
 
         elif self.dim == 2:
-            x_name = self.x.name
-            y_name = self.y.name
-
-            u_hat = self.fft(u)
-            u_hat *= self.dealiasing_mask
-            u     = self.ifft(u_hat)
-
-            # Derivative bank — all from the same dealiased û
-            u_x  = self.ifft((1j * self.KX)                * u_hat)
-            u_y  = self.ifft((1j * self.KY)                * u_hat)
-            u_xx = self.ifft((1j * self.KX) ** 2           * u_hat)
-            u_yy = self.ifft((1j * self.KY) ** 2           * u_hat)
-            u_xy = self.ifft((1j * self.KX) * (1j*self.KY) * u_hat)
-
+            x_name, y_name = self.x.name, self.y.name
             order_map = {
                 (x_name, 1): symbols('u_x'),
                 (y_name, 1): symbols('u_y'),
                 (x_name, 2): symbols('u_xx'),
                 (y_name, 2): symbols('u_yy'),
             }
+            arg_names = (self.t, self.x, self.y, self.u_eq,
+                         'u_x', 'u_y', 'u_xx', 'u_yy', 'u_xy')
 
-            u_phys = self.v_prev if is_v else u
-            X, Y   = self.X, self.Y
-            t_sym, x_sym, y_sym, u_sym = self.t, self.x, self.y, self.u_eq
-
-            def _eval_nl_term(term: Expr) -> np.ndarray:
-                """Evaluate one nonlinear term; called directly or from a thread pool."""
-                from sympy import Symbol, Tuple as SympyTuple
-
-                # Build a replacement mapping: Derivative atom → placeholder Symbol
+            for term in self.nonlinear_terms:
                 replacement = {}
                 for deriv in term.atoms(Derivative):
-                    key = _get_diff_order(deriv)
-
+                    key = self._get_diff_order(deriv)
                     if key is None:
-                        # Mixed derivative — check which variables are involved
-                        vars_in_deriv = set()
+                        # Mixed derivative: only ∂x∂y (total order 2) is supported
+                        vars_in_deriv, total = set(), 0
                         for arg in deriv.args[1:]:
                             if isinstance(arg, (tuple, list, SympyTuple)):
                                 vars_in_deriv.add(str(arg[0]))
+                                total += int(arg[1])
                             elif hasattr(arg, 'name'):
                                 vars_in_deriv.add(arg.name)
-
-                        if vars_in_deriv == {x_name, y_name}:
+                                total += 1
+                        if vars_in_deriv == {x_name, y_name} and total == 2:
                             replacement[deriv] = symbols('u_xy')
                         else:
                             raise ValueError(
                                 f"Unsupported mixed derivative in nonlinear term: {deriv}. "
-                                f"Variables found: {vars_in_deriv}. "
+                                f"Variables found: {vars_in_deriv}, total order {total}. "
                                 f"Only ∂ₓᵧ is supported as a mixed derivative."
                             )
                     elif key not in order_map:
@@ -1877,39 +1843,135 @@ class PDESolver:
                     else:
                         replacement[deriv] = order_map[key]
 
-                # Apply all replacements at once using xreplace — exact structural match,
-                # no ambiguity, no silent misses unlike subs()
+                # xreplace: exact structural match, no silent misses unlike subs()
                 term_replaced = term.xreplace(replacement)
-
-                # Safety check — if any Derivative survived, substitution was incomplete
-                remaining = term_replaced.atoms(Derivative)
-                if remaining:
+                if term_replaced.atoms(Derivative):
                     raise ValueError(
                         f"Incomplete derivative substitution in nonlinear term.\n"
                         f"Original term: {term}\n"
-                        f"Unresolved derivatives: {remaining}\n"
-                        f"This likely means a derivative involves an unsupported variable or order."
+                        f"Unresolved derivatives: {term_replaced.atoms(Derivative)}"
                     )
-
-                fn = lambdify(
-                    (t_sym, x_sym, y_sym, u_sym, 'u_x', 'u_y', 'u_xx', 'u_yy', 'u_xy'),
-                    term_replaced, 'numpy'
-                )
-                return fn(0, X, Y, u_phys, u_x, u_y, u_xx, u_yy, u_xy)
-
-            if len(self.nonlinear_terms) >= 2:
-                with ThreadPoolExecutor() as executor:
-                    for contrib in executor.map(_eval_nl_term, self.nonlinear_terms):
-                        nonlinear_term += contrib
-            else:
-                for term in self.nonlinear_terms:
-                    nonlinear_term += _eval_nl_term(term)
+                self._compiled_nl.append(lambdify(arg_names, term_replaced, 'numpy'))
         else:
             raise ValueError(
                 f"Unsupported spatial dimension: {self.dim}. Expected 1 or 2."
             )
 
-        return nonlinear_term * self.dt
+    def _apply_nonlinear(
+        self,
+        u: np.ndarray,
+        is_v: bool = False,
+        t: Optional[float] = None
+    ) -> np.ndarray:
+        """
+        Evaluate the nonlinear term N(u) of  ∂ₜu = L u + N(u) + f  (or of the
+        second-order analogue), using spectral differentiation with dealiasing.
+
+        The method returns the **rate N(u)**, NOT the increment Δt·N(u): the
+        time integrators own the time weights (Δt, Δt·φ₁, Δt²/2, ETD-RK4
+        weights, RK4 weights, ...).
+
+        Spatial derivatives appearing in the nonlinear expressions are obtained
+        from the same dealiased spectrum û (mask applied to u before any
+        product is formed), so only pointwise multiplications by (i·k)ⁿ and
+        inverse FFTs are needed.
+
+        **Derivative bank:**
+
+            1D:  u_x, u_xx, u_xxx
+            2D:  u_x, u_y, u_xx, u_yy, u_xy   (u_xy = ∂ₓ∂ᵧu)
+
+        The symbolic terms are lambdified once, in `_precompile_nonlinear_funcs`
+        (called from `setup`; built lazily if needed).
+
+        **Aliasing note:**
+            The mask on the input is sufficient for quadratic terms with the
+            2/3 rule. For a polynomial of degree p, ratio 2/(p+1) is needed;
+            `dealiasing_ratio=None` selects it automatically in `__init__`.
+
+        **Velocity field variant:**
+            When is_v=True, self.v_prev is used as the pointwise field value
+            in the lambdified expressions; spectral derivatives are still
+            computed from the argument u.
+
+        Parameters
+        ----------
+        u : numpy.ndarray
+            Current solution on the spatial grid, (Nx,) in 1D or (Nx, Ny) in 2D.
+        is_v : bool, optional (default False)
+            If True, the pointwise field value is self.v_prev instead of u.
+        t : float or None, optional
+            Time at which N is evaluated (matters for explicit time
+            dependence of N). If None, `self._t_current` is used (updated
+            by `solve` at every step, 0.0 before).
+
+        Returns
+        -------
+        numpy.ndarray, dtype complex128
+            N(u) on the grid (same shape as u); zeros if there is no
+            nonlinear term.
+
+        Raises
+        ------
+        ValueError
+            If self.dim is neither 1 nor 2, or on unsupported derivatives
+            (raised at pre-compilation).
+        """
+        if not self.nonlinear_terms:
+            return np.zeros_like(u, dtype=np.complex128)
+
+        if getattr(self, '_compiled_nl', None) is None:
+            self._precompile_nonlinear_funcs()
+        if t is None:
+            t = getattr(self, '_t_current', 0.0)
+
+        nonlinear_term = np.zeros_like(u, dtype=np.complex128)
+
+        if self.dim == 1:
+            u_hat = self.fft(u)
+            u_hat *= self.dealiasing_mask
+            u = self.ifft(u_hat)
+
+            # Derivative bank - all from the same dealiased û
+            u_x   = self.ifft((1j * self.KX)      * u_hat)
+            u_xx  = self.ifft((1j * self.KX) ** 2 * u_hat)
+            u_xxx = self.ifft((1j * self.KX) ** 3 * u_hat)
+
+            field = self.v_prev if is_v else u
+            for fn in self._compiled_nl:
+                nonlinear_term += fn(t, self.X, field, u_x, u_xx, u_xxx)
+
+        elif self.dim == 2:
+            u_hat = self.fft(u)
+            u_hat *= self.dealiasing_mask
+            u = self.ifft(u_hat)
+
+            # Derivative bank - all from the same dealiased û
+            u_x  = self.ifft((1j * self.KX)                * u_hat)
+            u_y  = self.ifft((1j * self.KY)                * u_hat)
+            u_xx = self.ifft((1j * self.KX) ** 2           * u_hat)
+            u_yy = self.ifft((1j * self.KY) ** 2           * u_hat)
+            u_xy = self.ifft((1j * self.KX) * (1j * self.KY) * u_hat)
+
+            u_phys = self.v_prev if is_v else u
+            X, Y = self.X, self.Y
+
+            def _eval_nl_term(fn):
+                return fn(t, X, Y, u_phys, u_x, u_y, u_xx, u_yy, u_xy)
+
+            if len(self._compiled_nl) >= 2:
+                with ThreadPoolExecutor() as executor:
+                    for contrib in executor.map(_eval_nl_term, self._compiled_nl):
+                        nonlinear_term += contrib
+            else:
+                for fn in self._compiled_nl:
+                    nonlinear_term += _eval_nl_term(fn)
+        else:
+            raise ValueError(
+                f"Unsupported spatial dimension: {self.dim}. Expected 1 or 2."
+            )
+
+        return nonlinear_term
 
     def _prepare_symbol_tables(self) -> None:
         """
@@ -2146,7 +2208,7 @@ class PDESolver:
             u_hat *= self.dealiasing_mask
             u_symb = self.ifft(u_hat)
             u_nl = self._apply_nonlinear(self.u_prev)
-            u_new = u_symb + u_nl + source
+            u_new = u_symb + self.dt * (u_nl + source)
         else:
             if self.boundary_condition == 'nonperiodic' and not self.is_spatial:
                 # General case with ETD1
@@ -2155,8 +2217,8 @@ class PDESolver:
                 # Calculation of exp(dt * L) and phi1(dt * L)
                 L_vals = self.combined_symbol  # Uses the updated symbol
                 exp_L = np.exp(-self.dt * L_vals)
-                phi1_L = (exp_L - 1.0) / (self.dt * L_vals)
-                phi1_L[np.isnan(phi1_L)] = 1.0  # Handling division by zero
+                # The linear part is -σ: φ₁(z) with z = -dt·σ
+                phi1_L = self._phi1(-self.dt * L_vals)
 
                 # Fourier transform
                 u_hat = self.fft(self.u_prev)
@@ -2270,6 +2332,7 @@ class PDESolver:
 
         for step in range(self.Nt):
             t_val = step * self.dt
+            self._t_current = t_val          # used by _apply_nonlinear
             source_contribution = self._eval_source(t_val)
             if self.temporal_order == 2:
                 # Pass current time and source contribution
@@ -2282,12 +2345,14 @@ class PDESolver:
                 elif hasattr(self, 'time_scheme') and self.time_scheme == 'RK4':
                     u_new = self._step_ETD_RK4_order1(self.u_prev, t_val)
                 else:
+                    # Exponential Euler:
+                    #   uⁿ⁺¹ = e^{LΔt} uⁿ + Δt φ₁(LΔt) (N(uⁿ) + fⁿ)
                     u_hat = self.fft(self.u_prev)
-                    u_hat *= self.exp_L
-                    u_hat *= self.dealiasing_mask
-                    u_lin = self.ifft(u_hat)
-                    u_nl = self._apply_nonlinear(u_lin)
-                    u_new = u_lin + u_nl + source_contribution
+                    u_nl = self._apply_nonlinear(self.u_prev)
+                    rhs_hat = self.fft(u_nl + source_contribution)
+                    u_new_hat = self.exp_L * u_hat + self.dt * self.phi1_L * rhs_hat
+                    u_new_hat *= self.dealiasing_mask
+                    u_new = self.ifft(u_new_hat)
 
                 # ── SPONGE DAMPING ──
                 if self.sponge_profile is not None:
@@ -2306,12 +2371,11 @@ class PDESolver:
                     else:
                         u_hat = self.fft(self.u_prev)
                         v_hat = self.fft(self.v_prev)
-                        u_new_hat = self.cos_omega_dt * u_hat + self.sin_omega_dt * self.inv_omega * v_hat
+                        u_new_hat = self.cos_omega_dt * u_hat + self.inv_omega_sin * v_hat
                         v_new_hat = -self.omega_val * self.sin_omega_dt * u_hat + self.cos_omega_dt * v_hat
                         u_new = self.ifft(u_new_hat)
                         v_new = self.ifft(v_new_hat)
                         u_nl = self._apply_nonlinear(self.u_prev, is_v=False)
-                        v_nl = self._apply_nonlinear(self.v_prev, is_v=True)
                         u_new += (u_nl + source_contribution) * self.dt ** 2 / 2
                         v_new += (u_nl + source_contribution) * self.dt
 
@@ -2728,16 +2792,16 @@ class PDESolver:
         s0 = self._eval_source(t)
         sh = self._eval_source(t + 0.5 * dt)
         s1 = self._eval_source(t + dt)
-        nl = lambda v: self._apply_nonlinear(v) / dt        # _apply_nonlinear returns dt*N(v)
+        nl = lambda v, tau: self._apply_nonlinear(v, t=tau)   # N(v) at time tau
 
         u_hat = fft(u)
-        Nu = fft(nl(u) + s0)
+        Nu = fft(nl(u, t) + s0)
         a  = ifft(E2 * u_hat + Q * Nu)
-        Na = fft(nl(a) + sh)
+        Na = fft(nl(a, t + 0.5 * dt) + sh)
         b  = ifft(E2 * u_hat + Q * Na)
-        Nb = fft(nl(b) + sh)
+        Nb = fft(nl(b, t + 0.5 * dt) + sh)
         c  = ifft(E2 * fft(a) + Q * (2 * Nb - Nu))
-        Nc = fft(nl(c) + s1)
+        Nc = fft(nl(c, t + dt) + s1)
         return ifft(E * u_hat + f1 * Nu + 2 * f2 * (Na + Nb) + f3 * Nc)
 
 
@@ -2785,7 +2849,7 @@ class PDESolver:
         
         def rhs(u_val, t_val):
             return (ifft(L_fft * fft(u_val))
-                    + self._apply_nonlinear(u_val, is_v=False) / dt
+                    + self._apply_nonlinear(u_val, is_v=False, t=t_val)
                     + self._eval_source(t_val))
         
         # Stage A (t)

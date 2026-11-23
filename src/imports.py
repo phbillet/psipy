@@ -102,6 +102,8 @@ from scipy.special import (
     kv,
     pbdv,
     sph_harm_y,
+    ellipj, ellipk,
+    ive, airy,
 )
 from scipy.special import legendre as scipy_legendre
 from scipy.stats import kstest, linregress, norm, wasserstein_distance

@@ -150,7 +150,8 @@ with pd.option_context("display.float_format", "{:.2e}".format):
 md("""
 ### Which equations does the solver handle well?
 One bar per equation (the notebook section title), counting its cases by outcome of the latest run.
-Edit `GOOD_REL_L2` to change what "good" means.
+Tiers use the worst relative L2 error over the tested times: spectral (<= 1e-6), good (<= 1e-3), approximate (<= 1e-1), poor (> 1e-1);
+`crashed` = the run did not finish, `blown up` = non-finite solution, `no exact sol.` = timing only. Thresholds are in `verdict()`.
 """)
 
 code("""
@@ -250,6 +251,82 @@ else:
         display(tab.sort_values("interior / global"))
     n_edge = int((tab["interior / global"] < 0.1).sum())
     print(f"{n_edge} / {len(tab)} case(s): removing the outer {m1:.0%} ring cuts the error by more than 10x (boundary-dominated)")
+""")
+
+md("""
+### Time schemes and time-step convergence
+Needs variant runs, e.g. `pde_db.py run --nonlinear --time-schemes default RK4 --nt-factors 0.5 1 2 4 --margins 0 0.2`
+(`--Nt` and `--Lt` sweeps are supported too). Error = relative L2 at the last tested time. `MARGIN` selects the interior box
+(0 = whole domain, needs `--margins`). Orders come from the two smallest time steps above the round-off level;
+order < 0.5 means the error has hit a floor (non-periodic reference, boundary effects, space discretization): try a larger `MARGIN`.
+""")
+
+code("""
+MARGIN = 0.0          # 0 = global error; e.g. 0.2 = interior box (needs runs made with --margins 0 0.2 ...)
+FLOOR = 1e-13         # errors below this are round-off and are not used for orders
+ONLY_BASE_LT = True   # False: also show runs made with --Lt (one series per Lt)
+
+if pd.read_sql("SELECT COUNT(*) n FROM sqlite_master WHERE name = 'v_variants'", con).n[0]:
+    V = pd.read_sql("SELECT * FROM v_variants", con)
+else:
+    print("database not migrated to schema v8: run any `pde_db.py` command once, then reload")
+    V = pd.DataFrame({k: pd.Series([], dtype=float) for k in ["run_id", "nt", "lt", "base_lt", "dt", "time_solve_s", "fft_workers"]})
+    V["case_id"] = V["effective_scheme"] = pd.Series([], dtype=object)
+Q = pd.read_sql('''
+    SELECT p.run_id, p.rel_l2 AS err FROM run_error_profile p
+    WHERE p.margin = ? AND p.t_eval = (SELECT MAX(q.t_eval) FROM run_error_profile q
+                                       WHERE q.run_id = p.run_id AND q.margin = p.margin)''', con, params=[MARGIN])
+V = V.merge(Q, on="run_id", how="left")
+V = V[V.err.notna() & V.nt.notna() & V.effective_scheme.isin(["default", "RK4", "psiOp"])]
+if ONLY_BASE_LT:
+    V = V[np.isclose(V["lt"], V["base_lt"])]
+key = ["case_id", "effective_scheme", "lt"]
+V = V[V.fft_workers == V.groupby(key + ["nt"]).fft_workers.transform("min")]   # same error for any worker count
+V = V.sort_values(key + ["dt"])
+
+if V.empty or V.groupby(key).nt.nunique().max() < 2:
+    print("need at least two Nt per case: run with  --nt-factors 0.5 1 2 4  (and --margins 0 0.2 for MARGIN > 0)")
+else:
+    from matplotlib.lines import Line2D
+    col = {"default": "tab:blue", "RK4": "tab:orange", "psiOp": "tab:gray"}
+    fig, axs = plt.subplots(1, 2, figsize=(13, 4.8))
+    for (cid, sch, lt_), g in V.groupby(key):
+        if g.nt.nunique() < 2: continue
+        axs[0].loglog(g.dt, g.err.clip(lower=1e-16), "o-", ms=3, lw=.9, color=col[sch], alpha=.8)
+        axs[1].loglog(g.time_solve_s, g.err.clip(lower=1e-16), "o-", ms=3, lw=.9, color=col[sch], alpha=.8)
+        axs[0].annotate(cid, (g.dt.iloc[0], g.err.iloc[0]), fontsize=6, xytext=(2, 2), textcoords="offset points")
+    dts = np.array([V.dt.min(), V.dt.max()]); mid = np.sqrt(dts[0] * dts[1]); e0 = V.err[V.err > FLOOR].median()
+    for p_, ls in ((1, ":"), (2, "--"), (4, "-.")):
+        axs[0].loglog(dts, e0 * (dts / mid) ** p_, "k", ls=ls, lw=.8, label=f"slope {p_}")
+    axs[0].set_ylim(V.err.clip(lower=1e-16).min() / 5, V.err.max() * 5)       # keep the axis on the data, not on the slopes
+    axs[0].set_xlabel("time step dt"); axs[0].set_ylabel(f"relative L2 error (margin {MARGIN:g})")
+    axs[0].set_title("convergence in dt"); axs[1].set_title("work-precision (lower left = better)")
+    axs[1].set_xlabel("solve time (s)"); axs[1].set_ylabel("relative L2 error")
+    handles = [Line2D([0], [0], color=v, lw=2, label=k) for k, v in col.items()]
+    axs[0].legend(handles=handles + axs[0].get_legend_handles_labels()[0], fontsize=7)
+    plt.tight_layout(); plt.show()
+
+    rows = []
+    for (cid, sch, lt_), g in V.groupby(key):
+        g = g[g.err > FLOOR].sort_values("dt")
+        if len(g) < 2: continue
+        e1, e2, h1, h2 = g.err.iloc[0], g.err.iloc[1], g.dt.iloc[0], g.dt.iloc[1]
+        order = np.log(e2 / e1) / np.log(h2 / h1)
+        rows.append(dict(case_id=cid, scheme=sch, Lt=lt_, n_dt=len(g), dt_min=h1, err_at_dt_min=e1, order=order, floor=bool(order < 0.5)))
+    if rows:
+        orders = pd.DataFrame(rows).set_index(["case_id", "scheme", "Lt"])
+        with pd.option_context("display.float_format", "{:.3g}".format):
+            display(orders)
+        print(f"{int(orders.floor.sum())} / {len(orders)} series flatten at an error floor (order < 0.5)")
+
+    pv = V[V.effective_scheme.isin(["default", "RK4"])].pivot_table(index=["case_id", "lt", "nt"], columns="effective_scheme",
+                                                                     values=["err", "time_solve_s"])
+    if {"default", "RK4"} <= set(pv["err"].columns):
+        cmp = pd.DataFrame({"err default": pv["err"]["default"], "err RK4": pv["err"]["RK4"],
+                            "RK4 / default error": pv["err"]["RK4"] / pv["err"]["default"],
+                            "RK4 / default time": pv["time_solve_s"]["RK4"] / pv["time_solve_s"]["default"]}).dropna()
+        with pd.option_context("display.float_format", "{:.3g}".format):
+            display(cmp)
 """)
 
 md("""
@@ -375,7 +452,7 @@ if len(W):
              .sort_values("runs", ascending=False).head(10))
 
 # flat diagnostics dicts -> DataFrame, keeping LO's row order and index
-diag = pd.DataFrame([json.loads(s) if s else {} for s in LO.solver_diagnostics])
+diag = pd.DataFrame([json.loads(s) if isinstance(s, str) and s else {} for s in LO.solver_diagnostics])   # NaN-safe
 diag.index = LO.index
 diag["case_id"] = LO.case_id.values
 if "boundary_condition" in LO.columns:          # load cell attached case metadata
@@ -450,58 +527,56 @@ def card(case_id):
         if src:
             display(Markdown(f"**{lab}**\\n```python\\n{src}\\n```"))
 
-    # ── all runs for this case (the key new feature) ──
+    # ── all runs for this case (baseline runs AND variants: time scheme / Nt / Lt sweeps) ──
     all_runs = R[R.case_id == case_id].copy()
     if len(all_runs) == 0:
         print("no runs stored for this case"); return
 
-    # extract actual dt from solver_diagnostics, actual Lt from run_errors
-    def _run_params(run_id):
-        diag = {}
-        s = all_runs.loc[all_runs.run_id == run_id, "solver_diagnostics"]
-        if len(s) and s.iloc[0]:
-            try: diag = json.loads(s.iloc[0])
-            except: pass
-        dt = diag.get("dt")
-        errs = E[E.run_id == run_id].dropna(subset=["actual_t"])
-        lt_actual = float(errs.actual_t.max()) if len(errs) else None
-        nt_actual = round(lt_actual / dt) if (dt and lt_actual) else None
-        return dt, lt_actual, nt_actual
-
-    all_runs["dt"] = all_runs["run_id"].map(lambda rid: _run_params(rid)[0])
-    all_runs["Lt_actual"] = all_runs["run_id"].map(lambda rid: _run_params(rid)[1])
-    all_runs["Nt_actual"] = all_runs["run_id"].map(lambda rid: _run_params(rid)[2])
-
-    # ── runs table ──
-    display(Markdown(f"### All runs ({len(all_runs)})"))
-    cols = ["run_id", "fft_workers", "Lt_actual", "Nt_actual", "dt",
-            "time_solve_s", "error_max", "passed", "non_finite", "status", "note"]
+    display(Markdown(f"### All runs ({len(all_runs)}) — `is_variant = 1`: scheme / Nt / Lt differs from the notebook "
+                     "(ignored by the baseline views)"))
+    cols = ["run_id", "fft_workers", "effective_scheme", "lt", "nt", "dt", "is_variant",
+            "time_solve_s", "error_max", "passed", "non_finite", "status", "user_note", "note"]
     tbl = all_runs[[k for k in cols if k in all_runs.columns]].copy()
-    tbl["note"] = tbl["note"].fillna("").str.slice(0, 60)
+    for k in ("user_note", "note"):
+        if k in tbl.columns: tbl[k] = tbl[k].fillna("").str.slice(0, 40)
     with pd.option_context("display.float_format", "{:.3g}".format):
         display(tbl.sort_values("run_id"))
 
-    # ── convergence study (error vs dt) ──
-    conv = all_runs[(all_runs.status == "ok") & all_runs.dt.notna() & all_runs.error_max.notna()].copy()
-    conv = conv.drop_duplicates(subset=["dt"], keep="last").sort_values("dt")
-    if len(conv) >= 3:
+    # ── time-step convergence: one series per (effective scheme, Lt), never mixing schemes ──
+    series = {}
+    if {"effective_scheme", "lt", "nt", "dt"} <= set(all_runs.columns):
+        conv = all_runs[(all_runs.status == "ok") & all_runs.dt.notna() & all_runs.error_max.notna()
+                        & all_runs.effective_scheme.notna()].copy()
+        conv = conv.sort_values("run_id").drop_duplicates(subset=["effective_scheme", "lt", "nt"], keep="last")
+        series = {k: g.sort_values("dt") for k, g in conv.groupby(["effective_scheme", "lt"]) if len(g) >= 2}
+    else:
+        print("database not migrated to schema v8: run any `pde_db.py` command once to get the time-step columns")
+    if series:
         fig, ax = plt.subplots(figsize=(7, 4))
-        ax.loglog(conv.dt, conv.error_max, "o-", color="tab:red", label="measured error_max")
-        # reference slope: expected temporal order
-        order = c.temporal_order or 1
-        ref_dt = conv.dt.values
-        ref_err = conv.error_max.iloc[-1] * (ref_dt / ref_dt[-1]) ** order
-        ax.loglog(ref_dt, ref_err, "k--", alpha=.5, label=f"O(dt^{order}) reference")
-        ax.set_xlabel("dt = Lt / Nt")
-        ax.set_ylabel("error_max")
-        ax.set_title(f"Temporal convergence ({len(conv)} points, order {order})")
-        ax.legend()
+        col = {"default": "tab:blue", "RK4": "tab:orange", "psiOp": "tab:gray"}
+        rows = []
+        lts = sorted({k[1] for k in series})
+        for (sch, lt_), g in series.items():
+            ax.loglog(g.dt, g.error_max.clip(lower=1e-16), marker="o", ms=3, ls=["-", "--", "-.", ":"][lts.index(lt_) % 4],
+                      color=col.get(sch, "k"), label=f"{sch}, Lt={lt_:g}")
+            h = g[g.error_max > 1e-13]
+            if len(h) >= 2:
+                order = np.log(h.error_max.iloc[1] / h.error_max.iloc[0]) / np.log(h.dt.iloc[1] / h.dt.iloc[0])
+                rows.append(dict(scheme=sch, Lt=lt_, n_dt=len(g), dt_min=h.dt.iloc[0], order=order, floor=bool(order < 0.5)))
+        e0 = conv.error_max[conv.error_max > 1e-13].median()
+        if np.isfinite(e0):
+            lo, hi = conv.dt.min(), conv.dt.max(); mid = np.sqrt(lo * hi)
+            for p_, ls in ((1, ":"), (2, "--"), (4, "-.")):
+                ax.loglog([lo, hi], [e0 * (x / mid) ** p_ for x in (lo, hi)], "k", ls=ls, lw=.8, alpha=.6, label=f"slope {p_}")
+        ax.set_ylim(conv.error_max.clip(lower=1e-16).min() / 5, conv.error_max.max() * 5)
+        ax.set_xlabel("dt = Lt / Nt"); ax.set_ylabel("error_max (all tested times)")
+        ax.set_title("time-step convergence"); ax.legend(fontsize=7)
         plt.tight_layout(); plt.show()
-        # print observed order
-        if len(conv) >= 2:
-            slopes = np.diff(np.log(conv.error_max.values)) / np.diff(np.log(conv.dt.values))
-            display(Markdown(f"**Observed convergence order:** {np.median(slopes):.2f} "
-                             f"(expected: {order})"))
+        if rows:
+            with pd.option_context("display.float_format", "{:.3g}".format):
+                display(pd.DataFrame(rows).set_index(["scheme", "Lt"]))
+            display(Markdown("order = slope between the two smallest dt above round-off. **floor** (order < 0.5): the error no "
+                             "longer depends on dt (reference mismatch, boundary or space discretization) — see the interior profile."))
 
     # ── panels ──
     r = LO[LO.case_id == case_id]

@@ -112,8 +112,10 @@ module docstrings.
    fio_bridge
    geometry
    hamiltonian_catalog
+   make_pde_db_report
    microlocal
    misc
+   pde_db
    physics
    propagator
    psiop
