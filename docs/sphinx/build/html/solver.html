@@ -146,13 +146,12 @@
 <li><p><strong>ETD‑RK4</strong> (fourth order, first‑order equations only): the Kassam–Trefethen Runge–Kutta scheme that uses exponentials of the linear part, achieving high accuracy and unconditional stability for the linear part of stiff problems.</p></li>
 </ul>
 <p>For second‑order equations</p>
-<blockquote>
-<div><p>∂ₜ² u = L u + N(u) + f(x,t),</p>
-</div></blockquote>
-<p>the system is reduced to first order in time (∂ₜu = v, ∂ₜv = L u + N(u) + f), and explicit Runge–Kutta methods are used.  The solver provides:</p>
+<p>∂ₜ² u + γ ∂ₜ u = L u + N(u) + f(x,t),</p>
+<p>where γ ≥ 0 is a constant damping coefficient, the system is reduced to first order in time (∂ₜu = v, ∂ₜv = L u + N(u) + f − γ v). The solver provides:</p>
 <ul class="simple">
-<li><p><strong>Explicit RK4</strong> (fourth order): a standard Runge–Kutta scheme applied to the first‑order system.  This is subject to the CFL condition Δt ∝ Δx^(m/2) where m is the order of the linear operator L.  For stiff operators, this imposes severe time‑step restrictions.  (Note: despite historical naming, this is not an exponential integrator.)</p></li>
-<li><p><strong>Leap‑frog</strong> (second order, for pseudo‑differential operators): an explicit finite‑difference scheme used when <cite>psiOp</cite> is present.</p></li>
+<li><p><strong>Default exponential propagator</strong>: an exact matrix exponential integrator for the damped linear part, valid for under‑, critically, and over‑damped modes (using the sinc function to handle the zero‑frequency limit safely).</p></li>
+<li><p><strong>Explicit RK4 (fourth order)</strong>: a standard Runge‑Kutta scheme applied to the first‑order system (including the −γ v friction term).  This is subject to the CFL condition Δt ∝ Δx^(m/2) where m is the order of the linear operator L.  For stiff operators, this imposes severe time‑step restrictions.  (Note: despite historical naming, this is not an exponential integrator.)</p></li>
+<li><p><strong>Damped Leap‑frog (second order, for pseudo‑differential operators)</strong>: an explicit finite‑difference scheme used when <cite>psiOp</cite> is present, where the friction term γ ∂ₜu is included implicitly in the update formula.</p></li>
 </ul>
 <p><strong>Pseudo‑differential operators.</strong>  When the equation contains <cite>psiOp(p(x,ξ), u)</cite>, the solver builds a <cite>PseudoDifferentialOperator</cite> object (from the companion <cite>psiop</cite> module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.</p>
 <p><strong>Stability.</strong>  The solver checks the CFL condition based on the maximum group velocity derived from the dispersion relation.  It also verifies that the symbol satisfies the necessary conditions for well‑posedness (Re <cite>L(k)</cite> ≤ 0, sufficient high‑frequency dissipation, moderate growth).</p>
@@ -546,7 +545,9 @@ support for pseudo-differential operators (ψOp), source terms, and boundary con
 <li><dl class="simple">
 <dt>Apply time evolution:</dt><dd><ul class="simple">
 <li><p>Order 1: Uses <cite>_step_order1_with_psi</cite>, ETD-RK4, or default linear+nonlinear update.</p></li>
-<li><p>Order 2: Uses <cite>_step_order2_with_psi</cite>, ETD-RK4, or default leapfrog-style update.</p></li>
+<li><p>Order 2: Uses <cite>_step_order2_with_psi</cite> (damped leapfrog), ETD-RK4, or the exact
+damped exponential propagator (damp_pXX matrices) for the linear part when
+time_scheme != ‘RK4’.</p></li>
 </ul>
 </dd>
 </dl>

@@ -740,6 +740,102 @@ class TestTimeDependent1D:
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
                             threshold=3, component='real')
 
+    # -----------------------------------------------------------------------
+    # Damped Wave Equation (1D)
+    # -----------------------------------------------------------------------
+    def test_damped_wave_1d_rk4(self):
+        """Tests the explicit RK4 path (-gamma * v in RHS)."""
+        t, x = symbols('t x')
+        u = Function('u')(t, x)
+        gamma = 0.5
+        c = 1.0
+        eq = Eq(diff(u, t, t) + gamma * diff(u, t), c**2 * diff(u, x, x))
+        solver = PDESolver(eq, time_scheme='RK4')
+        Lx, Nx = 2*np.pi, 256
+        Lt, Nt = 5.0, 500
+        k0 = 1.0
+        omega_0 = c * k0
+        wd = np.sqrt(omega_0**2 - (gamma/2)**2)
+        
+        solver.setup(Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
+                     initial_condition=lambda x: np.sin(k0 * x),
+                     initial_velocity=lambda x: np.zeros_like(x),
+                     plot=False)
+        solver.solve()
+        
+        def u_exact(x, t):
+            return np.sin(k0 * x) * np.exp(-gamma/2 * t) * (np.cos(wd * t) + (gamma / (2 * wd)) * np.sin(wd * t))
+            
+        n_test = 5
+        for i in range(n_test + 1):
+            _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test, threshold=1e-2, component='real')
+
+    def test_damped_wave_1d_default(self):
+        """Tests the default exponential integrator path (damp_p11...damp_p22 matrix)."""
+        t, x = symbols('t x')
+        u = Function('u')(t, x)
+        gamma = 0.5
+        c = 1.0
+        eq = Eq(diff(u, t, t) + gamma * diff(u, t), c**2 * diff(u, x, x))
+        solver = PDESolver(eq, time_scheme='default') # Uses exact damped propagator
+        Lx, Nx = 2*np.pi, 256
+        Lt, Nt = 5.0, 500
+        k0 = 1.0
+        omega_0 = c * k0
+        wd = np.sqrt(omega_0**2 - (gamma/2)**2)
+        
+        solver.setup(Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
+                     initial_condition=lambda x: np.sin(k0 * x),
+                     initial_velocity=lambda x: np.zeros_like(x),
+                     plot=False)
+        solver.solve()
+        
+        def u_exact(x, t):
+            return np.sin(k0 * x) * np.exp(-gamma/2 * t) * (np.cos(wd * t) + (gamma / (2 * wd)) * np.sin(wd * t))
+            
+        n_test = 5
+        for i in range(n_test + 1):
+            _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test, threshold=1e-2, component='real')
+
+    def test_overdamped_wave_1d(self):
+        """Tests the complex math branch in _setup_omega_terms (gamma > 2*omega_0)."""
+        t, x = symbols('t x')
+        u = Function('u')(t, x)
+        gamma = 4.0  # Overdamped regime
+        c = 1.0
+        eq = Eq(diff(u, t, t) + gamma * diff(u, t), c**2 * diff(u, x, x))
+        solver = PDESolver(eq, time_scheme='RK4')
+        Lx, Nx = 2*np.pi, 256
+        Lt, Nt = 5.0, 500
+        k0 = 1.0
+        omega_0 = c * k0
+        
+        r1 = (-gamma + np.sqrt(gamma**2 - 4*omega_0**2)) / 2
+        r2 = (-gamma - np.sqrt(gamma**2 - 4*omega_0**2)) / 2
+        
+        solver.setup(Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
+                     initial_condition=lambda x: np.sin(k0 * x),
+                     initial_velocity=lambda x: np.zeros_like(x),
+                     plot=False)
+        solver.solve()
+        
+        def u_exact(x, t):
+            A = r2 / (r2 - r1)
+            B = 1 - A
+            return np.sin(k0 * x) * (A * np.exp(r1 * t) + B * np.exp(r2 * t))
+            
+        n_test = 5
+        for i in range(n_test + 1):
+            _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test, threshold=1e-2, component='real')
+
+    def test_variable_damping_raises(self):
+        """Ensures spatially varying damping coefficients are rejected."""
+        t, x = symbols('t x')
+        u = Function('u')(t, x)
+        eq = Eq(diff(u, t, t) + x * diff(u, t), diff(u, x, x))
+        with pytest.raises(ValueError, match="variable coefficient"):
+            PDESolver(eq)
+
 
 # ===========================================================================
 # 6.  Time‑dependent solver — 2D problems
@@ -908,7 +1004,33 @@ class TestTimeDependent2D:
         _run_and_assert(solver, u_exact, t_eval=0.5,
                         threshold=1e-5, component='abs')
 
-
+    # -----------------------------------------------------------------------
+    # Damped Wave Equation (2D)
+    # -----------------------------------------------------------------------
+    def test_damped_wave_2d(self):
+        t, x, y = symbols('t x y')
+        u = Function('u')(t, x, y)
+        gamma = 0.6
+        c = 1.0
+        eq = Eq(diff(u, t, t) + gamma * diff(u, t), c**2 * (diff(u, x, x) + diff(u, y, y)))
+        solver = PDESolver(eq, time_scheme='RK4')
+        Lx, Ly = 2*np.pi, 2*np.pi
+        Nx, Ny = 128, 128
+        Lt, Nt = 3.0, 300
+        kx0, ky0 = 1.0, 1.0
+        omega_0 = c * np.sqrt(kx0**2 + ky0**2)
+        wd = np.sqrt(omega_0**2 - (gamma/2)**2)
+        
+        solver.setup(Lx=Lx, Ly=Ly, Nx=Nx, Ny=Ny, Lt=Lt, Nt=Nt,
+                     initial_condition=lambda x, y: np.sin(kx0 * x) * np.sin(ky0 * y),
+                     initial_velocity=lambda x, y: np.zeros_like(x),
+                     plot=False)
+        solver.solve()
+        
+        def u_exact(x, y, t):
+            return np.sin(kx0 * x) * np.sin(ky0 * y) * np.exp(-gamma/2 * t) * (np.cos(wd * t) + (gamma / (2 * wd)) * np.sin(wd * t))
+            
+        _run_and_assert(solver, u_exact, t_eval=Lt/2, threshold=1e-2, component='real')
 # ===========================================================================
 # 7.  Error metrics (solver.test)
 # ===========================================================================
@@ -1293,3 +1415,4 @@ class TestSpongeEdgeCases:
         assert np.all(np.isfinite(solver.frames[-1]))
         final_amp = np.max(np.abs(solver.frames[-1]))
         assert final_amp < 0.5
+

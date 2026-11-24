@@ -58,12 +58,15 @@ the variation‑of‑constants formula motivates exponential integrators.  The s
 
 For second‑order equations
 
-    ∂ₜ² u = L u + N(u) + f(x,t),
+∂ₜ² u + γ ∂ₜ u = L u + N(u) + f(x,t),
 
-the system is reduced to first order in time (∂ₜu = v, ∂ₜv = L u + N(u) + f), and explicit Runge–Kutta methods are used.  The solver provides:
+where γ ≥ 0 is a constant damping coefficient, the system is reduced to first order in time (∂ₜu = v, ∂ₜv = L u + N(u) + f − γ v). The solver provides:
 
-* **Explicit RK4** (fourth order): a standard Runge–Kutta scheme applied to the first‑order system.  This is subject to the CFL condition Δt ∝ Δx^(m/2) where m is the order of the linear operator L.  For stiff operators, this imposes severe time‑step restrictions.  (Note: despite historical naming, this is not an exponential integrator.)
-* **Leap‑frog** (second order, for pseudo‑differential operators): an explicit finite‑difference scheme used when `psiOp` is present.
+* **Default exponential propagator**: an exact matrix exponential integrator for the damped linear part, valid for under‑, critically, and over‑damped modes (using the sinc function to handle the zero‑frequency limit safely).
+
+* **Explicit RK4 (fourth order)**: a standard Runge‑Kutta scheme applied to the first‑order system (including the −γ v friction term).  This is subject to the CFL condition Δt ∝ Δx^(m/2) where m is the order of the linear operator L.  For stiff operators, this imposes severe time‑step restrictions.  (Note: despite historical naming, this is not an exponential integrator.)
+
+* **Damped Leap‑frog (second order, for pseudo‑differential operators)**: an explicit finite‑difference scheme used when `psiOp` is present, where the friction term γ ∂ₜu is included implicitly in the update formula.
 
 **Pseudo‑differential operators.**  When the equation contains `psiOp(p(x,ξ), u)`, the solver builds a `PseudoDifferentialOperator` object (from the companion `psiop` module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.
 
@@ -185,12 +188,12 @@ class PDESolver:
         numerical structures for solving in spectral space.
 
         Supported features:
-
         - 1D and 2D problems
         - Time-dependent and stationary equations
         - Linear and nonlinear terms
         - Pseudo-differential operators via `psiOp`
         - Source terms and boundary conditions
+        - Constant damping (γ ∂ₜu) for second-order equations
 
         The equation is parsed to extract linear, nonlinear, source, and
         pseudo-differential components. Symbolic manipulation is used to derive
@@ -217,23 +220,26 @@ class PDESolver:
             Turn it off if setup is too long, there is maybe a problem during
             computation of the square root of the operator.
 
-        Attributes initialized:
+        Attributes initialized
+        ----------------------
+        - self.u : the unknown function (e.g., u(t, x))
+        - self.dim : spatial dimension (1 or 2)
+        - self.spatial_vars : list of spatial variables (e.g., [x] or [x, y])
+        - self.is_stationary : boolean indicating if the problem is stationary
+        - self.linear_terms : dictionary mapping derivative orders to coefficients
+        - self.nonlinear_terms : list of nonlinear expressions
+        - self.source_terms : list of source functions
+        - self.pseudo_terms : list of pseudo-differential operator expressions
+        - self.has_psi : boolean indicating presence of pseudo-differential operators
+        - self.fft / self.ifft : appropriate FFT routines based on spatial dimension
+        - self.kx, self.ky : symbolic wavenumber variables for Fourier space
+        - self.damping : float, constant damping coefficient γ for second-order equations
 
-        - self.u: the unknown function (e.g., u(t, x))
-        - self.dim: spatial dimension (1 or 2)
-        - self.spatial_vars: list of spatial variables (e.g., [x] or [x, y])
-        - self.is_stationary: boolean indicating if the problem is stationary
-        - self.linear_terms: dictionary mapping derivative orders to coefficients
-        - self.nonlinear_terms: list of nonlinear expressions
-        - self.source_terms: list of source functions
-        - self.pseudo_terms: list of pseudo-differential operator expressions
-        - self.has_psi: boolean indicating presence of pseudo-differential operators
-        - self.fft / self.ifft: appropriate FFT routines based on spatial dimension
-        - self.kx, self.ky: symbolic wavenumber variables for Fourier space
-
-        Raises:
-            ValueError: If the equation does not contain exactly one unknown function,
-                        if unsupported dimensions are detected, or invalid dependencies.
+        Raises
+        ------
+        ValueError
+            If the equation does not contain exactly one unknown function,
+            if unsupported dimensions are detected, or invalid dependencies.
         """
         self.equation = equation
         self.time_scheme = time_scheme # 'default'  or 'RK4'
@@ -340,16 +346,34 @@ class PDESolver:
         elif self.dim == 2:
             self.kx, self.ky = symbols('kx ky')
 
+        self.damping = 0.0   # gamma in  u_tt + gamma*u_t = ...  (second-order equations only)
         if not self.is_stationary:
             time_derivs = [
                 deriv for deriv in self.linear_terms.keys()
                 if isinstance(deriv, Derivative) and self.t in [var for var, _ in deriv.variable_count]
             ]
-            if len(time_derivs) > 1:
+            if len(time_derivs) == 2:
+                # Damped second-order equation:  a*u_tt + b*u_t + ... = 0
+                t_order = lambda d: sum(n for var, n in d.variable_count if var == self.t)
+                d2 = [d for d in time_derivs if t_order(d) == 2]
+                d1 = [d for d in time_derivs if t_order(d) == 1]
+                if len(d2) != 1 or len(d1) != 1:
+                    raise ValueError(
+                        "Supported temporal parts: a*du/dt, a*d2u/dt2 or a*d2u/dt2 + b*du/dt."
+                    )
+                gamma = simplify(self.linear_terms[d1[0]] / self.linear_terms[d2[0]])
+                if gamma.free_symbols:
+                    raise ValueError("The coefficient of du/dt must be constant "
+                                     "(variable damping is not supported).")
+
+                self.damping = float(gamma)
+                # Keep a pure u_tt equation for the dispersion relation; the damping
+                # enters the acceleration in _step_RK4_order2.
+                del self.linear_terms[d1[0]]
+                time_derivs = d2
+            elif len(time_derivs) > 2:
                 raise ValueError(
-                    "The temporal part of the equation must be a single monomial "
-                    "(e.g., a*du/dt or a*d2u/dt2). Mixed time derivatives "
-                    "(like a*d2u/dt2 + b*du/dt) are not supported."
+                    "The temporal part must be a*du/dt, a*d2u/dt2 or a*d2u/dt2 + b*du/dt."
                 )
             # The linear symbol L(k) (and the psi symbols) are already divided
             # by the coefficient `a` of the time derivative; N and f must be
@@ -404,15 +428,12 @@ class PDESolver:
         self,
         equation: Union[Eq, Expr]
     ) -> Tuple[Dict[Any, Expr], List[Expr], List[Tuple[Any, Expr]], List[Expr], List[Tuple[Any, Expr]]]:
-
-
         """
         Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op),
         source terms, and pseudo-differential operators (psiOp).
 
         This method rewrites the input equation in standard form (lhs - rhs = 0),
         expands it, and classifies each term into one of the following categories:
-
         - Linear terms involving derivatives or the unknown function u
         - Nonlinear terms (products with u, powers of u, etc.)
         - Symbolic pseudo-differential operators (Op)
@@ -420,27 +441,34 @@ class PDESolver:
         - Pseudo-differential operators (psiOp)
 
         Parameters
-            equation (sympy.Eq): The partial differential equation to be analyzed.
-                                 Can be provided as an Eq object or a sympy expression.
+        ----------
+        equation : sympy.Eq
+            The partial differential equation to be analyzed.
+            Can be provided as an Eq object or a sympy expression.
 
-        Returns:
-            tuple: A 5-tuple containing:
-
+        Returns
+        -------
+        tuple
+            A 5-tuple containing:
                 - linear_terms (dict): Mapping from derivative/function to coefficient.
                 - nonlinear_terms (list): List of terms classified as nonlinear.
                 - symbol_terms (list): List of (coefficient, symbolic operator) pairs.
                 - source_terms (list): List of terms independent of the unknown function.
                 - pseudo_terms (list): List of (coefficient, pseudo-differential symbol) pairs.
 
-        Notes:
-            - If `psiOp` is present in the equation, expansion is skipped for safety.
-            - When `psiOp` is used, only nonlinear terms, source terms, and possibly
-              a time derivative are allowed; other linear terms and symbolic operators
-              (Op) are forbidden.
-            - Classification logic includes:
-                - Detection of nonlinear structures like products or powers of u
-                - Mixed terms involving both u and its derivatives
-                - External symbolic operators (Op) and pseudo-differential operators (psiOp)
+        Notes
+        -----
+        - If `psiOp` is present in the equation, expansion is skipped for safety.
+        - When `psiOp` is used, only nonlinear terms, source terms, and possibly
+          a time derivative are allowed; other linear terms and symbolic operators
+          (Op) are forbidden.
+        - Classification logic includes:
+            - Detection of nonlinear structures like products or powers of u
+            - Mixed terms involving both u and its derivatives
+            - External symbolic operators (Op) and pseudo-differential operators (psiOp)
+        - For second-order equations, detects the form a*∂ₜ²u + b*∂ₜu, extracts the
+          constant damping γ = b/a, and removes the first derivative from the linear
+          terms to isolate the pure dispersion relation.
         """
         def _is_nonlinear_term(term: Expr, u_func: Function) -> bool:
             """
@@ -1371,21 +1399,21 @@ class PDESolver:
     def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
         """
         Initialize terms derived from the angular frequency ω for time evolution.
-    
+
         This private method precomputes and stores key trigonometric and inverse quantities
         based on the dispersion relation ω(k), used in second-order time integration schemes.
-    
         These values are essential for solving wave-like equations with dispersive behavior:
             cos(ω·dt), sin(ω·dt)/ω
-    
+
         The inverse frequency terms are computed safely to avoid division by zero at ω=0.
-    
+        Additionally, it computes the exact damped propagator matrix for constant damping γ.
+
         Parameters
         ----------
         omega_val : np.ndarray
             Array of angular frequency values ω(k) evaluated at discrete wavenumbers.
             Can be one-dimensional (1D) or two-dimensional (2D) depending on spatial dimension.
-    
+
         Attributes Set
         --------------
         - self.omega_val : np.ndarray
@@ -1397,26 +1425,19 @@ class PDESolver:
         - self.inv_omega_sin : np.ndarray
             Safe computation of sin(ω·dt)/ω using the sinc function:
             sin(ω·dt)/ω = dt·sinc(ω·dt/π), valid for all modes including ω=0.
-            This is the primary quantity used in the spectral propagator for the
-            velocity-to-position coupling term.
         - self.inv_omega : np.ndarray
-            Inverse of ω(k), with zeros where ω(k) == 0. Used for auxiliary
-            computations where the zero mode does not contribute.
-    
+            Inverse of ω(k), with zeros where ω(k) == 0.
+        - self.damp_p11, self.damp_p12, self.damp_p21, self.damp_p22 : np.ndarray
+            Exact damped propagator matrix components for the linear part of second-order
+            equations (u_tt + γ*u_t + ω²*u = 0), handling under-, critically, and over-damped
+            modes via the sinc function. Reduces to cos/sin when γ = 0.
+
         Notes
         -----
         - This method is typically called during setup when solving second-order PDEs
           involving dispersive waves (e.g., Klein-Gordon, Schrödinger, or water wave equations).
         - The computation of sin(ω·dt)/ω via the sinc function ensures numerical stability
           and correctness even when low frequencies (including ω=0) are present.
-        - For the zero mode (ω=0), the limit sin(ω·dt)/ω → dt is correctly captured.
-        - These precomputed arrays are used in spectral propagators for accurate time stepping.
-    
-        See Also
-        --------
-        setup_1D : Sets up internal variables for one-dimensional problems.
-        setup_2D : Sets up internal variables for two-dimensional problems.
-        solve : Time integration using the computed frequency terms.
         """
         self.omega_val = omega_val
         self.cos_omega_dt = np.cos(omega_val * self.dt)
@@ -1432,6 +1453,20 @@ class PDESolver:
         nonzero = omega_val != 0
         self.inv_omega[nonzero] = 1.0 / omega_val[nonzero]
         self.inv_omega[~nonzero] = 0.0  # Will be handled by inv_omega_sin where needed
+
+        # Exact propagator of  u'' + gamma*u' + omega^2*u = 0  for each Fourier mode:
+        #   [u, v](dt) = [[p11, p12], [p21, p22]] [u, v](0)
+        # valid for under-, critically and over-damped modes; for gamma = 0 it reduces to
+        # cos/sin and includes the zero mode.
+        g2 = 0.5 * self.damping
+        wd = np.sqrt(np.asarray(omega_val, dtype=np.complex128) ** 2 - g2 ** 2)
+        S = self.dt * np.sinc(wd * self.dt / np.pi)          # sin(wd*dt)/wd (= dt when wd = 0)
+        C = np.cos(wd * self.dt)
+        E = np.exp(-g2 * self.dt)
+        self.damp_p11 = np.real(E * (C + g2 * S))
+        self.damp_p12 = np.real(E * S)
+        self.damp_p21 = -np.real(E * omega_val ** 2 * S)
+        self.damp_p22 = np.real(E * (C - g2 * S))
 
     def _precompile_source_funcs(self) -> None:
         """
@@ -1522,11 +1557,11 @@ class PDESolver:
 
         This private method sets up the initial state of the solution `u_prev` and, if applicable,
         the time derivative (velocity) `v_prev` for second-order evolution equations.
-
         For second-order equations, it also computes the backward-in-time value `u_prev2`
         needed by the Leap-Frog method. The acceleration at t = 0 is computed from:
-            ∂ₜ²u = L(u) + N(u) + f(x, t=0)
-        where L is the linear operator, N is the nonlinear term, and f is the source term.
+            ∂ₜ²u = L(u) + N(u) + f(x, t=0) − γ ∂ₜu
+        where L is the linear operator, N is the nonlinear term, f is the source term,
+        and γ is the constant damping coefficient.
 
         Parameters
         ----------
@@ -1547,14 +1582,6 @@ class PDESolver:
         - Stores a copy of the initial state in `self.frames` for visualization/output.
         - In second-order systems, initializes `self.u_prev2` using a Taylor expansion:
           u_prev2 = u_prev - dt * v_prev + 0.5 * dt² * (∂ₜ²u)
-
-        See Also
-        --------
-        apply_boundary : Enforces periodic boundary conditions on the solution field.
-        psiOp_apply : Computes pseudo-differential operator action for acceleration.
-        linear_rhs : Evaluates linear part of the equation in Fourier space.
-        apply_nonlinear : Handles nonlinear terms with spectral differentiation.
-        evaluate_source_at_t0 : Evaluates source terms at the initial time.
         """
         # Initial condition
         if self.dim == 1:
@@ -1585,6 +1612,7 @@ class PDESolver:
                 acc0 += rhs_nl
                 if hasattr(self, 'source_terms') and self.source_terms:
                     acc0 += self._evaluate_source_at_t0()
+                acc0 = acc0 - self.damping * self.v_prev
                 self.u_prev2 = self.u_prev - self.dt * self.v_prev + 0.5 * self.dt**2 * acc0
 
         self.frames = [self.u_prev.copy()]
@@ -2256,13 +2284,13 @@ class PDESolver:
         return u_new
 
     def _step_order2_with_psi(self, source_contribution: np.ndarray) -> np.ndarray:
-
         """
         Perform one time step of a second-order time evolution using a pseudo-differential operator.
 
-        Updates the solution field using a second-order accurate leapfrog-style finite
+        Updates the solution field using a damped second-order accurate leapfrog-style finite
         difference in time:
-            uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ + Δt² ⋅ (L(uⁿ) + N(uⁿ) + F)
+            uⁿ⁺¹ = [2uⁿ − (1 − g)uⁿ⁻¹ + Δt² ⋅ (L(uⁿ) + N(uⁿ) + F)] / (1 + g)
+        where g = γ Δt / 2 (+ sponge contribution if active).
 
         Parameters
         ----------
@@ -2278,11 +2306,11 @@ class PDESolver:
         Lu_prev = -self._apply_psiOp(self.u_prev)
         rhs_nl = self._apply_nonlinear(self.u_prev, is_v=False)
         rhs = Lu_prev + rhs_nl + source_contribution
+        
+        g = 0.5 * self.damping * self.dt               # gamma*dt/2 (u_tt + gamma*u_t = ...)
         if self.sponge_profile is not None:
-            g = self.sponge_profile * self.dt          # γ·Δt, array
-            u_new = (2 * self.u_prev - (1 - g) * self.u_prev2 + self.dt ** 2 * rhs) / (1 + g)
-        else:
-            u_new = 2 * self.u_prev - self.u_prev2 + self.dt ** 2 * rhs
+            g = g + self.sponge_profile * self.dt      # sponge (array)
+        u_new = (2 * self.u_prev - (1 - g) * self.u_prev2 + self.dt ** 2 * rhs) / (1 + g)
                 
         self._apply_boundary(u_new)
 
@@ -2315,7 +2343,9 @@ class PDESolver:
             1. Evaluate source contributions (if any).
             2. Apply time evolution:
                 - Order 1: Uses `_step_order1_with_psi`, ETD-RK4, or default linear+nonlinear update.
-                - Order 2: Uses `_step_order2_with_psi`, ETD-RK4, or default leapfrog-style update.
+                - Order 2: Uses `_step_order2_with_psi` (damped leapfrog), ETD-RK4, or the exact
+                  damped exponential propagator (damp_pXX matrices) for the linear part when
+                  time_scheme != 'RK4'.
             3. Enforce boundary conditions.
             4. Save solution snapshot periodically.
             5. Record energy (for second-order systems).
@@ -2371,8 +2401,8 @@ class PDESolver:
                     else:
                         u_hat = self.fft(self.u_prev)
                         v_hat = self.fft(self.v_prev)
-                        u_new_hat = self.cos_omega_dt * u_hat + self.inv_omega_sin * v_hat
-                        v_new_hat = -self.omega_val * self.sin_omega_dt * u_hat + self.cos_omega_dt * v_hat
+                        u_new_hat = self.damp_p11 * u_hat + self.damp_p12 * v_hat
+                        v_new_hat = self.damp_p21 * u_hat + self.damp_p22 * v_hat
                         u_new = self.ifft(u_new_hat)
                         v_new = self.ifft(v_new_hat)
                         u_nl = self._apply_nonlinear(self.u_prev, is_v=False)
@@ -2808,13 +2838,12 @@ class PDESolver:
     def _step_RK4_order2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
         """
         Perform one time step using explicit 4th-order Runge-Kutta for second-order PDEs.
-        
-        Advances the solution of ∂ₜ²u = L·u + N(u) + f(x,t) by rewriting it as a first-order system:
+
+        Advances the solution of ∂ₜ²u + γ ∂ₜu = L·u + N(u) + f(x,t) by rewriting it as a first-order system:
             ∂ₜu = v
-            ∂ₜv = L·u + N(u) + f(x,t)
-        
+            ∂ₜv = L·u + N(u) + f(x,t) − γ v
         and applying the classical 4-stage Runge-Kutta method.
-        
+
         Parameters
         ----------
         u : np.ndarray
@@ -2823,51 +2852,50 @@ class PDESolver:
             Current time derivative ∂ₜu in real space.
         t : float, optional
             Current time. Default is 0.0.
-        
+
         Returns
         -------
         tuple of np.ndarray
             (u_new, v_new): Updated solution and velocity after one time step.
-        
+
         Notes
         -----
         This is an explicit integrator subject to CFL stability restrictions Δt ∝ Δx^(m/2),
         where m is the order of the linear operator L. For stiff operators, consider using
         exponential time differencing schemes (e.g., `step_ETD_RK4_order1` for first-order equations).
-        
         The linear operator L is applied spectrally via FFT, and nonlinear terms are evaluated
         in physical space using the pseudo-spectral method with dealiasing.
-        
-        See Also
-        --------
-        _step_ETD_RK4_order1 : Exponential integrator for first-order equations
         """
         dt = self.dt
         L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
         fft = self.fft
         ifft = self.ifft
         
-        def rhs(u_val, t_val):
+        gamma = self.damping   # u_tt + gamma*u_t = L u + N(u) + f
+
+        def rhs(u_val, v_val, t_val):
             return (ifft(L_fft * fft(u_val))
                     + self._apply_nonlinear(u_val, is_v=False, t=t_val)
-                    + self._eval_source(t_val))
-        
+                    + self._eval_source(t_val)
+                    - gamma * v_val)
+
         # Stage A (t)
-        A = rhs(u, t)
+        A = rhs(u, v, t)
         ua = u + 0.5 * dt * v
         va = v + 0.5 * dt * A
-        
+
         # Stage B (t + dt/2)
-        B = rhs(ua, t + 0.5 * dt)
+        B = rhs(ua, va, t + 0.5 * dt)
         ub = u + 0.5 * dt * va
         vb = v + 0.5 * dt * B
-        
+
         # Stage C (t + dt/2)
-        C = rhs(ub, t + 0.5 * dt)
+        C = rhs(ub, vb, t + 0.5 * dt)
         uc = u + dt * vb
-        
+        vc = v + dt * C
+
         # Stage D (t + dt)
-        D = rhs(uc, t + dt)
+        D = rhs(uc, vc, t + dt)
         
         # Final update (correct RK4 weights for 2nd order system)
         u_new = u + dt * v + (dt**2 / 6.0) * (A + B + C)
@@ -3304,168 +3332,142 @@ class PDESolver:
         t_val: float,
         source_contribution: Union[np.ndarray, float, int] = 0.0
     ) -> Optional[float]:
-            """
-            Compute the total (conserved) energy of the system at time `t_val`.
-        
-            For a second-order evolution ∂ₜ²u = L·u + N(u) + f(x,t), the mechanical
-            energy is split into a kinetic part and a linear-potential part, while the
-            work done by the non-conservative terms (N, f) is accumulated separately
-            so that a conserved quantity can be monitored:
-        
-                E_mech(t) = Eₖ(t) + Eₚ(t)
-                W(t)      = ∫₀ᵗ ⟨v, N(u) + f⟩ dx dt'        (trapezoidal rule)
-                E_total(t) = E_mech(t) − W(t)                  ← conserved
-        
-            with
-                Eₖ(t) = ½ ∫ |v|² dx,
-                Eₚ(t) = ½ ∫ u · (−L) u dx,
-        
-            where v = ∂ₜu and (−L) is the positive-definite potential operator
-            (e.g. −L = k² for the wave equation, −L = k⁴ for the beam equation).
-        
-            Two branches are implemented:
-        
-            1. **Standard (no ψOp)**:
-               - v is taken directly from `self.v_prev`.
-               - The potential energy is computed in Fourier space as
-                     Eₚ = ½ ⟨u, (−Re L) u⟩,
-                 with a safety clipping `max(−Re L, 0)` and a `RuntimeWarning`
-                 if `L` is not negative-definite.
-        
-            2. **Pseudo-differential (ψOp)**:
-               - The velocity is reconstructed by a centered finite difference
-                     v ≈ (uⁿ − uⁿ⁻¹) / Δt
-                 (staggered leap-frog state).
-               - The potential energy uses the fractional power P¹/² of the total
-                 pseudo-differential symbol (precomputed in `_compute_linear_operator`),
-                 so that Eₚ = ½ ∫ |P¹/² u|² dx, which is the natural energy for
-                 non-local operators such as the fractional Laplacian.
-        
-            The instantaneous power P(t) = ⟨v, N(u) + f⟩ is accumulated via the
-            trapezoidal rule to form W(t). The returned value is E_total(t), which
-            should remain constant (up to time-stepping error) for conservative
-            problems, and tracks the energy balance otherwise.
-        
-            Parameters
-            ----------
-            t_val : float
-                Current simulation time.
-            source_contribution : np.ndarray or float, optional
-                Source term f(x,t) evaluated on the spatial grid at time `t_val`.
-                A scalar or `None` is treated as zero.
-        
-            Returns
-            -------
-            float or None
-                The conserved energy E_total(t) = E_mech(t) − W(t), or `None` if
-                the problem is not second-order in time or the required state is
-                not yet initialised.
-        
-            Side effects
-            ------------
-            - Appends `E_mech` to `self.mechanical_energy_history`.
-            - Appends `W(t)` to `self.work_history`.
-            - Updates `self._prev_power` for the next trapezoidal increment.
-            - On first call with nonlinear or source terms, prints a one-time
-              warning that energy monitoring tracks the work balance.
-            """
-            if self.temporal_order != 2:
+        """
+        Compute the total (conserved) energy of the system at time `t_val`.
+
+        For a second-order evolution ∂ₜ²u = L·u + N(u) + f(x,t), the mechanical
+        energy is split into a kinetic part and a linear-potential part, while the
+        work done by the non-conservative terms (N, f) is accumulated separately
+        so that a conserved quantity can be monitored:
+            E_mech(t) = Eₖ(t) + Eₚ(t)
+            W(t)      = ∫₀ᵗ ⟨v, N(u) + f⟩ dx dt'        (trapezoidal rule)
+            E_total(t) = E_mech(t) − W(t)                  ← conserved
+
+        Note: The work done by the constant damping force (−γ v) is NOT tracked in the
+        accumulated work W(t). Consequently, the "Total Conserved Energy" E_total(t)
+        will exhibit a systematic drift corresponding to the energy dissipated by the
+        damping term.
+
+        Parameters
+        ----------
+        t_val : float
+            Current simulation time.
+        source_contribution : np.ndarray or float, optional
+            Source term f(x,t) evaluated on the spatial grid at time `t_val`.
+            A scalar or `None` is treated as zero.
+
+        Returns
+        -------
+        float or None
+            The conserved energy E_total(t) = E_mech(t) − W(t), or `None` if
+            the problem is not second-order in time or the required state is
+            not yet initialised.
+
+        Side effects
+        ------------
+        - Appends `E_mech` to `self.mechanical_energy_history`.
+        - Appends `W(t)` to `self.work_history`.
+        - Updates `self._prev_power` for the next trapezoidal increment.
+        - On first call with nonlinear or source terms, prints a one-time
+          warning that energy monitoring tracks the work balance.
+        """
+        if self.temporal_order != 2:
+            return None
+
+        # Warning for nonlinear/source terms (once)
+        if not getattr(self, '_energy_warning_issued', False):
+            if self.nonlinear_terms or self.source_terms:
+                print("⚠️ Warning: Energy monitoring includes work from nonlinear/source terms.")
+                self._energy_warning_issued = True
+
+        u = self.u_prev
+        dx = self.Lx / self.Nx
+        dy = self.Ly / self.Ny if self.dim > 1 else 1.0
+
+        # 1. Compute Velocity and Potential Operator Terms Consistent with Physics
+        if self.has_psi:
+            if self.u_prev2 is None:
+                return None
+            # Centered difference for velocity when using staggered states
+            v = (self.u_prev - self.u_prev2) / self.dt
+            if not hasattr(self, '_energy_psi_op'):
                 return None
 
-            # Warning for nonlinear/source terms (once)
-            if not getattr(self, '_energy_warning_issued', False):
-                if self.nonlinear_terms or self.source_terms:
-                    print("⚠️ Warning: Energy monitoring includes work from nonlinear/source terms.")
-                    self._energy_warning_issued = True
-
-            u = self.u_prev
-            dx = self.Lx / self.Nx
-            dy = self.Ly / self.Ny if self.dim > 1 else 1.0
-
-            # 1. Compute Velocity and Potential Operator Terms Consistent with Physics
-            if self.has_psi:
-                if self.u_prev2 is None:
-                    return None
-                # Centered difference for velocity when using staggered states
-                v = (self.u_prev - self.u_prev2) / self.dt
-                if not hasattr(self, '_energy_psi_op'):
-                    return None
-
-                # For psi_op path, Lu already represents the correct square-root potential mapped state
-                Lu = self._apply_psiOp(
-                    u, psi_ops=[(1, self._energy_psi_op)],
-                    is_spatial=self._energy_is_spatial
+            # For psi_op path, Lu already represents the correct square-root potential mapped state
+            Lu = self._apply_psiOp(
+                u, psi_ops=[(1, self._energy_psi_op)],
+                is_spatial=self._energy_is_spatial
+            )
+            pot_density = 0.5 * np.abs(Lu)**2
+        else:
+            if self.v_prev is None:
+                return None
+            v = self.v_prev
+            
+            # Compute potential energy via Fourier representation
+            u_hat = self.fft(u)
+            L_vals = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
+            
+            # For well-posed 2nd order equations, L should be negative definite
+            # (e.g., L = -k² for wave equation, L = -k⁴ for beam equation)
+            # The potential energy operator is -L, which should be positive
+            minus_L = -np.real(L_vals)  # Take real part and negate
+            
+            # Check if the operator is indeed negative definite
+            if np.any(minus_L < -1e-10):
+                warnings.warn(
+                    "Linear operator L is not negative definite. "
+                    "Energy computation may be incorrect.",
+                    RuntimeWarning
                 )
-                pot_density = 0.5 * np.abs(Lu)**2
-            else:
-                if self.v_prev is None:
-                    return None
-                v = self.v_prev
-                
-                # Compute potential energy via Fourier representation
-                u_hat = self.fft(u)
-                L_vals = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
-                
-                # For well-posed 2nd order equations, L should be negative definite
-                # (e.g., L = -k² for wave equation, L = -k⁴ for beam equation)
-                # The potential energy operator is -L, which should be positive
-                minus_L = -np.real(L_vals)  # Take real part and negate
-                
-                # Check if the operator is indeed negative definite
-                if np.any(minus_L < -1e-10):
-                    warnings.warn(
-                        "Linear operator L is not negative definite. "
-                        "Energy computation may be incorrect.",
-                        RuntimeWarning
-                    )
-                
-                # Ensure positivity for safety
-                minus_L = np.maximum(minus_L, 0.0)
-                
-                # Compute potential energy density
-                Lu_pot = self.ifft(minus_L * u_hat)
-                pot_density = 0.5 * np.real(u * np.conj(Lu_pot))
+            
+            # Ensure positivity for safety
+            minus_L = np.maximum(minus_L, 0.0)
+            
+            # Compute potential energy density
+            Lu_pot = self.ifft(minus_L * u_hat)
+            pot_density = 0.5 * np.real(u * np.conj(Lu_pot))
 
-            # 2. Compute Total Mechanical Energy
-            kin_density = 0.5 * np.abs(v)**2
-            energy_density = kin_density + pot_density
+        # 2. Compute Total Mechanical Energy
+        kin_density = 0.5 * np.abs(v)**2
+        energy_density = kin_density + pot_density
 
-            if self.dim == 1:
-                E_mech = np.sum(energy_density) * dx
-            else:
-                E_mech = np.sum(energy_density) * dx * dy
+        if self.dim == 1:
+            E_mech = np.sum(energy_density) * dx
+        else:
+            E_mech = np.sum(energy_density) * dx * dy
 
-            # 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx
-            N_u = self._apply_nonlinear(self.u_prev, is_v=False)
+        # 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx
+        N_u = self._apply_nonlinear(self.u_prev, is_v=False)
 
-            if source_contribution is None or np.isscalar(source_contribution):
-                f = np.zeros_like(u)
-            else:
-                f = source_contribution
+        if source_contribution is None or np.isscalar(source_contribution):
+            f = np.zeros_like(u)
+        else:
+            f = source_contribution
 
-            power_density = np.real(v * np.conj(N_u + f))
+        power_density = np.real(v * np.conj(N_u + f))
 
-            if self.dim == 1:
-                power = np.sum(power_density) * dx
-            else:
-                power = np.sum(power_density) * dx * dy
+        if self.dim == 1:
+            power = np.sum(power_density) * dx
+        else:
+            power = np.sum(power_density) * dx * dy
 
-            # 4. Accumulate Work via Trapezoidal Rule
-            if not hasattr(self, '_prev_power'):
-                self._prev_power = power
-
-            work_increment = 0.5 * (self._prev_power + power) * self.dt
-            self.accumulated_work += work_increment
+        # 4. Accumulate Work via Trapezoidal Rule
+        if not hasattr(self, '_prev_power'):
             self._prev_power = power
 
-            # Store histories
-            self.mechanical_energy_history.append(E_mech)
-            self.work_history.append(self.accumulated_work)
+        work_increment = 0.5 * (self._prev_power + power) * self.dt
+        self.accumulated_work += work_increment
+        self._prev_power = power
 
-            # Total conserved energy
-            E_total = E_mech - self.accumulated_work
+        # Store histories
+        self.mechanical_energy_history.append(E_mech)
+        self.work_history.append(self.accumulated_work)
 
-            return E_total
+        # Total conserved energy
+        E_total = E_mech - self.accumulated_work
+
+        return E_total
         
     def _plot_sponge_profile(self) -> None:
         """Plot the sponge damping profile for verification."""

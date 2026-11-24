@@ -746,6 +746,40 @@ class TestTimeDependentSolver1D:
                               threshold=10, component='real')
             assert err < 10
 
+    # -----------------------------------------------------------------------
+    # Damped Wave Equation with psiOp (Nonperiodic BCs)
+    # -----------------------------------------------------------------------
+    def test_damped_wave_equation_1d_psiOp(self):
+        """Tests the pseudo-differential leapfrog path with implicit friction."""
+        t, x, xi = symbols('t x xi', real=True)
+        u = Function('u')(t, x)
+        gamma = 0.5
+        eq = Eq(diff(u, t, t) + gamma * diff(u, t), psiOp(-xi**2, u))
+        solver = PDESolver(eq)
+        Lt, Lx = 5.0, 2 * np.pi
+        Nx, Nt = 512, 1000
+        k0 = 1.0
+        omega_0 = 1.0
+        wd = np.sqrt(omega_0**2 - (gamma/2)**2)
+        
+        solver.setup(
+            Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
+            boundary_condition='nonperiodic',
+            initial_condition=lambda x: np.sin(k0 * x),
+            initial_velocity=lambda x: np.zeros_like(x),
+            plot=False
+        )
+        solver.solve()
+        
+        def u_exact(x, t):
+            return np.sin(k0 * x) * np.exp(-gamma/2 * t) * (np.cos(wd * t) + (gamma / (2 * wd)) * np.sin(wd * t))
+            
+        n_test = 5
+        for i in range(n_test + 1):
+            err = solver.test(u_exact=u_exact, t_eval=i * Lt / n_test,
+                              threshold=1e-3, component='real')
+            assert err < 1e-3
+
 # ===========================================================================
 # 6.  Time‑dependent solver — 2D (strengthened)
 # ===========================================================================
