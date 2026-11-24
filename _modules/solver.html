@@ -144,12 +144,15 @@
 
 <span class="sd">For second‑order equations</span>
 
-<span class="sd">    ∂ₜ² u = L u + N(u) + f(x,t),</span>
+<span class="sd">∂ₜ² u + γ ∂ₜ u = L u + N(u) + f(x,t),</span>
 
-<span class="sd">the system is reduced to first order in time (∂ₜu = v, ∂ₜv = L u + N(u) + f), and explicit Runge–Kutta methods are used.  The solver provides:</span>
+<span class="sd">where γ ≥ 0 is a constant damping coefficient, the system is reduced to first order in time (∂ₜu = v, ∂ₜv = L u + N(u) + f − γ v). The solver provides:</span>
 
-<span class="sd">* **Explicit RK4** (fourth order): a standard Runge–Kutta scheme applied to the first‑order system.  This is subject to the CFL condition Δt ∝ Δx^(m/2) where m is the order of the linear operator L.  For stiff operators, this imposes severe time‑step restrictions.  (Note: despite historical naming, this is not an exponential integrator.)</span>
-<span class="sd">* **Leap‑frog** (second order, for pseudo‑differential operators): an explicit finite‑difference scheme used when `psiOp` is present.</span>
+<span class="sd">* **Default exponential propagator**: an exact matrix exponential integrator for the damped linear part, valid for under‑, critically, and over‑damped modes (using the sinc function to handle the zero‑frequency limit safely).</span>
+
+<span class="sd">* **Explicit RK4 (fourth order)**: a standard Runge‑Kutta scheme applied to the first‑order system (including the −γ v friction term).  This is subject to the CFL condition Δt ∝ Δx^(m/2) where m is the order of the linear operator L.  For stiff operators, this imposes severe time‑step restrictions.  (Note: despite historical naming, this is not an exponential integrator.)</span>
+
+<span class="sd">* **Damped Leap‑frog (second order, for pseudo‑differential operators)**: an explicit finite‑difference scheme used when `psiOp` is present, where the friction term γ ∂ₜu is included implicitly in the update formula.</span>
 
 <span class="sd">**Pseudo‑differential operators.**  When the equation contains `psiOp(p(x,ξ), u)`, the solver builds a `PseudoDifferentialOperator` object (from the companion `psiop` module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.</span>
 
@@ -273,12 +276,12 @@
 <span class="sd">        numerical structures for solving in spectral space.</span>
 
 <span class="sd">        Supported features:</span>
-
 <span class="sd">        - 1D and 2D problems</span>
 <span class="sd">        - Time-dependent and stationary equations</span>
 <span class="sd">        - Linear and nonlinear terms</span>
 <span class="sd">        - Pseudo-differential operators via `psiOp`</span>
 <span class="sd">        - Source terms and boundary conditions</span>
+<span class="sd">        - Constant damping (γ ∂ₜu) for second-order equations</span>
 
 <span class="sd">        The equation is parsed to extract linear, nonlinear, source, and</span>
 <span class="sd">        pseudo-differential components. Symbolic manipulation is used to derive</span>
@@ -305,23 +308,26 @@
 <span class="sd">            Turn it off if setup is too long, there is maybe a problem during</span>
 <span class="sd">            computation of the square root of the operator.</span>
 
-<span class="sd">        Attributes initialized:</span>
+<span class="sd">        Attributes initialized</span>
+<span class="sd">        ----------------------</span>
+<span class="sd">        - self.u : the unknown function (e.g., u(t, x))</span>
+<span class="sd">        - self.dim : spatial dimension (1 or 2)</span>
+<span class="sd">        - self.spatial_vars : list of spatial variables (e.g., [x] or [x, y])</span>
+<span class="sd">        - self.is_stationary : boolean indicating if the problem is stationary</span>
+<span class="sd">        - self.linear_terms : dictionary mapping derivative orders to coefficients</span>
+<span class="sd">        - self.nonlinear_terms : list of nonlinear expressions</span>
+<span class="sd">        - self.source_terms : list of source functions</span>
+<span class="sd">        - self.pseudo_terms : list of pseudo-differential operator expressions</span>
+<span class="sd">        - self.has_psi : boolean indicating presence of pseudo-differential operators</span>
+<span class="sd">        - self.fft / self.ifft : appropriate FFT routines based on spatial dimension</span>
+<span class="sd">        - self.kx, self.ky : symbolic wavenumber variables for Fourier space</span>
+<span class="sd">        - self.damping : float, constant damping coefficient γ for second-order equations</span>
 
-<span class="sd">        - self.u: the unknown function (e.g., u(t, x))</span>
-<span class="sd">        - self.dim: spatial dimension (1 or 2)</span>
-<span class="sd">        - self.spatial_vars: list of spatial variables (e.g., [x] or [x, y])</span>
-<span class="sd">        - self.is_stationary: boolean indicating if the problem is stationary</span>
-<span class="sd">        - self.linear_terms: dictionary mapping derivative orders to coefficients</span>
-<span class="sd">        - self.nonlinear_terms: list of nonlinear expressions</span>
-<span class="sd">        - self.source_terms: list of source functions</span>
-<span class="sd">        - self.pseudo_terms: list of pseudo-differential operator expressions</span>
-<span class="sd">        - self.has_psi: boolean indicating presence of pseudo-differential operators</span>
-<span class="sd">        - self.fft / self.ifft: appropriate FFT routines based on spatial dimension</span>
-<span class="sd">        - self.kx, self.ky: symbolic wavenumber variables for Fourier space</span>
-
-<span class="sd">        Raises:</span>
-<span class="sd">            ValueError: If the equation does not contain exactly one unknown function,</span>
-<span class="sd">                        if unsupported dimensions are detected, or invalid dependencies.</span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the equation does not contain exactly one unknown function,</span>
+<span class="sd">            if unsupported dimensions are detected, or invalid dependencies.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">equation</span> <span class="o">=</span> <span class="n">equation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time_scheme</span> <span class="o">=</span> <span class="n">time_scheme</span> <span class="c1"># 'default'  or 'RK4'</span>
@@ -428,16 +434,34 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ky</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">'kx ky'</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">damping</span> <span class="o">=</span> <span class="mf">0.0</span>   <span class="c1"># gamma in  u_tt + gamma*u_t = ...  (second-order equations only)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span><span class="p">:</span>
             <span class="n">time_derivs</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="n">deriv</span> <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">var</span> <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">deriv</span><span class="o">.</span><span class="n">variable_count</span><span class="p">]</span>
             <span class="p">]</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_derivs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_derivs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># Damped second-order equation:  a*u_tt + b*u_t + ... = 0</span>
+                <span class="n">t_order</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">variable_count</span> <span class="k">if</span> <span class="n">var</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">)</span>
+                <span class="n">d2</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">time_derivs</span> <span class="k">if</span> <span class="n">t_order</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">]</span>
+                <span class="n">d1</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">time_derivs</span> <span class="k">if</span> <span class="n">t_order</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">d2</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">d1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">"Supported temporal parts: a*du/dt, a*d2u/dt2 or a*d2u/dt2 + b*du/dt."</span>
+                    <span class="p">)</span>
+                <span class="n">gamma</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span><span class="p">[</span><span class="n">d1</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span><span class="p">[</span><span class="n">d2</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+                <span class="k">if</span> <span class="n">gamma</span><span class="o">.</span><span class="n">free_symbols</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"The coefficient of du/dt must be constant "</span>
+                                     <span class="s2">"(variable damping is not supported)."</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">damping</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">gamma</span><span class="p">)</span>
+                <span class="c1"># Keep a pure u_tt equation for the dispersion relation; the damping</span>
+                <span class="c1"># enters the acceleration in _step_RK4_order2.</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span><span class="p">[</span><span class="n">d1</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+                <span class="n">time_derivs</span> <span class="o">=</span> <span class="n">d2</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_derivs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">"The temporal part of the equation must be a single monomial "</span>
-                    <span class="s2">"(e.g., a*du/dt or a*d2u/dt2). Mixed time derivatives "</span>
-                    <span class="s2">"(like a*d2u/dt2 + b*du/dt) are not supported."</span>
+                    <span class="s2">"The temporal part must be a*du/dt, a*d2u/dt2 or a*d2u/dt2 + b*du/dt."</span>
                 <span class="p">)</span>
             <span class="c1"># The linear symbol L(k) (and the psi symbols) are already divided</span>
             <span class="c1"># by the coefficient `a` of the time derivative; N and f must be</span>
@@ -492,15 +516,12 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">equation</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Eq</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Expr</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]],</span> <span class="n">List</span><span class="p">[</span><span class="n">Expr</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]]]:</span>
-
-
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op),</span>
 <span class="sd">        source terms, and pseudo-differential operators (psiOp).</span>
 
 <span class="sd">        This method rewrites the input equation in standard form (lhs - rhs = 0),</span>
 <span class="sd">        expands it, and classifies each term into one of the following categories:</span>
-
 <span class="sd">        - Linear terms involving derivatives or the unknown function u</span>
 <span class="sd">        - Nonlinear terms (products with u, powers of u, etc.)</span>
 <span class="sd">        - Symbolic pseudo-differential operators (Op)</span>
@@ -508,27 +529,34 @@
 <span class="sd">        - Pseudo-differential operators (psiOp)</span>
 
 <span class="sd">        Parameters</span>
-<span class="sd">            equation (sympy.Eq): The partial differential equation to be analyzed.</span>
-<span class="sd">                                 Can be provided as an Eq object or a sympy expression.</span>
+<span class="sd">        ----------</span>
+<span class="sd">        equation : sympy.Eq</span>
+<span class="sd">            The partial differential equation to be analyzed.</span>
+<span class="sd">            Can be provided as an Eq object or a sympy expression.</span>
 
-<span class="sd">        Returns:</span>
-<span class="sd">            tuple: A 5-tuple containing:</span>
-
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple</span>
+<span class="sd">            A 5-tuple containing:</span>
 <span class="sd">                - linear_terms (dict): Mapping from derivative/function to coefficient.</span>
 <span class="sd">                - nonlinear_terms (list): List of terms classified as nonlinear.</span>
 <span class="sd">                - symbol_terms (list): List of (coefficient, symbolic operator) pairs.</span>
 <span class="sd">                - source_terms (list): List of terms independent of the unknown function.</span>
 <span class="sd">                - pseudo_terms (list): List of (coefficient, pseudo-differential symbol) pairs.</span>
 
-<span class="sd">        Notes:</span>
-<span class="sd">            - If `psiOp` is present in the equation, expansion is skipped for safety.</span>
-<span class="sd">            - When `psiOp` is used, only nonlinear terms, source terms, and possibly</span>
-<span class="sd">              a time derivative are allowed; other linear terms and symbolic operators</span>
-<span class="sd">              (Op) are forbidden.</span>
-<span class="sd">            - Classification logic includes:</span>
-<span class="sd">                - Detection of nonlinear structures like products or powers of u</span>
-<span class="sd">                - Mixed terms involving both u and its derivatives</span>
-<span class="sd">                - External symbolic operators (Op) and pseudo-differential operators (psiOp)</span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - If `psiOp` is present in the equation, expansion is skipped for safety.</span>
+<span class="sd">        - When `psiOp` is used, only nonlinear terms, source terms, and possibly</span>
+<span class="sd">          a time derivative are allowed; other linear terms and symbolic operators</span>
+<span class="sd">          (Op) are forbidden.</span>
+<span class="sd">        - Classification logic includes:</span>
+<span class="sd">            - Detection of nonlinear structures like products or powers of u</span>
+<span class="sd">            - Mixed terms involving both u and its derivatives</span>
+<span class="sd">            - External symbolic operators (Op) and pseudo-differential operators (psiOp)</span>
+<span class="sd">        - For second-order equations, detects the form a*∂ₜ²u + b*∂ₜu, extracts the</span>
+<span class="sd">          constant damping γ = b/a, and removes the first derivative from the linear</span>
+<span class="sd">          terms to isolate the pure dispersion relation.</span>
 <span class="sd">        """</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_is_nonlinear_term</span><span class="p">(</span><span class="n">term</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">u_func</span><span class="p">:</span> <span class="n">Function</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">"""</span>
@@ -1462,21 +1490,21 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_setup_omega_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize terms derived from the angular frequency ω for time evolution.</span>
-<span class="sd">    </span>
+
 <span class="sd">        This private method precomputes and stores key trigonometric and inverse quantities</span>
 <span class="sd">        based on the dispersion relation ω(k), used in second-order time integration schemes.</span>
-<span class="sd">    </span>
 <span class="sd">        These values are essential for solving wave-like equations with dispersive behavior:</span>
 <span class="sd">            cos(ω·dt), sin(ω·dt)/ω</span>
-<span class="sd">    </span>
+
 <span class="sd">        The inverse frequency terms are computed safely to avoid division by zero at ω=0.</span>
-<span class="sd">    </span>
+<span class="sd">        Additionally, it computes the exact damped propagator matrix for constant damping γ.</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        omega_val : np.ndarray</span>
 <span class="sd">            Array of angular frequency values ω(k) evaluated at discrete wavenumbers.</span>
 <span class="sd">            Can be one-dimensional (1D) or two-dimensional (2D) depending on spatial dimension.</span>
-<span class="sd">    </span>
+
 <span class="sd">        Attributes Set</span>
 <span class="sd">        --------------</span>
 <span class="sd">        - self.omega_val : np.ndarray</span>
@@ -1488,26 +1516,19 @@
 <span class="sd">        - self.inv_omega_sin : np.ndarray</span>
 <span class="sd">            Safe computation of sin(ω·dt)/ω using the sinc function:</span>
 <span class="sd">            sin(ω·dt)/ω = dt·sinc(ω·dt/π), valid for all modes including ω=0.</span>
-<span class="sd">            This is the primary quantity used in the spectral propagator for the</span>
-<span class="sd">            velocity-to-position coupling term.</span>
 <span class="sd">        - self.inv_omega : np.ndarray</span>
-<span class="sd">            Inverse of ω(k), with zeros where ω(k) == 0. Used for auxiliary</span>
-<span class="sd">            computations where the zero mode does not contribute.</span>
-<span class="sd">    </span>
+<span class="sd">            Inverse of ω(k), with zeros where ω(k) == 0.</span>
+<span class="sd">        - self.damp_p11, self.damp_p12, self.damp_p21, self.damp_p22 : np.ndarray</span>
+<span class="sd">            Exact damped propagator matrix components for the linear part of second-order</span>
+<span class="sd">            equations (u_tt + γ*u_t + ω²*u = 0), handling under-, critically, and over-damped</span>
+<span class="sd">            modes via the sinc function. Reduces to cos/sin when γ = 0.</span>
+
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        - This method is typically called during setup when solving second-order PDEs</span>
 <span class="sd">          involving dispersive waves (e.g., Klein-Gordon, Schrödinger, or water wave equations).</span>
 <span class="sd">        - The computation of sin(ω·dt)/ω via the sinc function ensures numerical stability</span>
 <span class="sd">          and correctness even when low frequencies (including ω=0) are present.</span>
-<span class="sd">        - For the zero mode (ω=0), the limit sin(ω·dt)/ω → dt is correctly captured.</span>
-<span class="sd">        - These precomputed arrays are used in spectral propagators for accurate time stepping.</span>
-<span class="sd">    </span>
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        setup_1D : Sets up internal variables for one-dimensional problems.</span>
-<span class="sd">        setup_2D : Sets up internal variables for two-dimensional problems.</span>
-<span class="sd">        solve : Time integration using the computed frequency terms.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">omega_val</span> <span class="o">=</span> <span class="n">omega_val</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cos_omega_dt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">omega_val</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
@@ -1523,6 +1544,20 @@
         <span class="n">nonzero</span> <span class="o">=</span> <span class="n">omega_val</span> <span class="o">!=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">omega_val</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="o">~</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Will be handled by inv_omega_sin where needed</span>
+
+        <span class="c1"># Exact propagator of  u'' + gamma*u' + omega^2*u = 0  for each Fourier mode:</span>
+        <span class="c1">#   [u, v](dt) = [[p11, p12], [p21, p22]] [u, v](0)</span>
+        <span class="c1"># valid for under-, critically and over-damped modes; for gamma = 0 it reduces to</span>
+        <span class="c1"># cos/sin and includes the zero mode.</span>
+        <span class="n">g2</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">damping</span>
+        <span class="n">wd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">omega_val</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">g2</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sinc</span><span class="p">(</span><span class="n">wd</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>          <span class="c1"># sin(wd*dt)/wd (= dt when wd = 0)</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">wd</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">g2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">damp_p11</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="p">(</span><span class="n">C</span> <span class="o">+</span> <span class="n">g2</span> <span class="o">*</span> <span class="n">S</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">damp_p12</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">damp_p21</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">omega_val</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">damp_p22</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="p">(</span><span class="n">C</span> <span class="o">-</span> <span class="n">g2</span> <span class="o">*</span> <span class="n">S</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_precompile_source_funcs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -1613,11 +1648,11 @@
 
 <span class="sd">        This private method sets up the initial state of the solution `u_prev` and, if applicable,</span>
 <span class="sd">        the time derivative (velocity) `v_prev` for second-order evolution equations.</span>
-
 <span class="sd">        For second-order equations, it also computes the backward-in-time value `u_prev2`</span>
 <span class="sd">        needed by the Leap-Frog method. The acceleration at t = 0 is computed from:</span>
-<span class="sd">            ∂ₜ²u = L(u) + N(u) + f(x, t=0)</span>
-<span class="sd">        where L is the linear operator, N is the nonlinear term, and f is the source term.</span>
+<span class="sd">            ∂ₜ²u = L(u) + N(u) + f(x, t=0) − γ ∂ₜu</span>
+<span class="sd">        where L is the linear operator, N is the nonlinear term, f is the source term,</span>
+<span class="sd">        and γ is the constant damping coefficient.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1638,14 +1673,6 @@
 <span class="sd">        - Stores a copy of the initial state in `self.frames` for visualization/output.</span>
 <span class="sd">        - In second-order systems, initializes `self.u_prev2` using a Taylor expansion:</span>
 <span class="sd">          u_prev2 = u_prev - dt * v_prev + 0.5 * dt² * (∂ₜ²u)</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        apply_boundary : Enforces periodic boundary conditions on the solution field.</span>
-<span class="sd">        psiOp_apply : Computes pseudo-differential operator action for acceleration.</span>
-<span class="sd">        linear_rhs : Evaluates linear part of the equation in Fourier space.</span>
-<span class="sd">        apply_nonlinear : Handles nonlinear terms with spectral differentiation.</span>
-<span class="sd">        evaluate_source_at_t0 : Evaluates source terms at the initial time.</span>
 <span class="sd">        """</span>
         <span class="c1"># Initial condition</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1676,6 +1703,7 @@
                 <span class="n">acc0</span> <span class="o">+=</span> <span class="n">rhs_nl</span>
                 <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'source_terms'</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
                     <span class="n">acc0</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_source_at_t0</span><span class="p">()</span>
+                <span class="n">acc0</span> <span class="o">=</span> <span class="n">acc0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">damping</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">acc0</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">frames</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
@@ -2347,13 +2375,13 @@
         <span class="k">return</span> <span class="n">u_new</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_order2_with_psi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_contribution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform one time step of a second-order time evolution using a pseudo-differential operator.</span>
 
-<span class="sd">        Updates the solution field using a second-order accurate leapfrog-style finite</span>
+<span class="sd">        Updates the solution field using a damped second-order accurate leapfrog-style finite</span>
 <span class="sd">        difference in time:</span>
-<span class="sd">            uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ + Δt² ⋅ (L(uⁿ) + N(uⁿ) + F)</span>
+<span class="sd">            uⁿ⁺¹ = [2uⁿ − (1 − g)uⁿ⁻¹ + Δt² ⋅ (L(uⁿ) + N(uⁿ) + F)] / (1 + g)</span>
+<span class="sd">        where g = γ Δt / 2 (+ sponge contribution if active).</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -2369,11 +2397,11 @@
         <span class="n">Lu_prev</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
         <span class="n">rhs_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">rhs</span> <span class="o">=</span> <span class="n">Lu_prev</span> <span class="o">+</span> <span class="n">rhs_nl</span> <span class="o">+</span> <span class="n">source_contribution</span>
+        
+        <span class="n">g</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">damping</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>               <span class="c1"># gamma*dt/2 (u_tt + gamma*u_t = ...)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>          <span class="c1"># γ·Δt, array</span>
-            <span class="n">u_new</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">g</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">g</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">u_new</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">rhs</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="n">g</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">sponge_profile</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>      <span class="c1"># sponge (array)</span>
+        <span class="n">u_new</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">g</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">g</span><span class="p">)</span>
                 
         <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
 
@@ -2408,7 +2436,9 @@
 <span class="sd">            1. Evaluate source contributions (if any).</span>
 <span class="sd">            2. Apply time evolution:</span>
 <span class="sd">                - Order 1: Uses `_step_order1_with_psi`, ETD-RK4, or default linear+nonlinear update.</span>
-<span class="sd">                - Order 2: Uses `_step_order2_with_psi`, ETD-RK4, or default leapfrog-style update.</span>
+<span class="sd">                - Order 2: Uses `_step_order2_with_psi` (damped leapfrog), ETD-RK4, or the exact</span>
+<span class="sd">                  damped exponential propagator (damp_pXX matrices) for the linear part when</span>
+<span class="sd">                  time_scheme != 'RK4'.</span>
 <span class="sd">            3. Enforce boundary conditions.</span>
 <span class="sd">            4. Save solution snapshot periodically.</span>
 <span class="sd">            5. Record energy (for second-order systems).</span>
@@ -2464,8 +2494,8 @@
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                         <span class="n">v_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">)</span>
-                        <span class="n">u_new_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cos_omega_dt</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega_sin</span> <span class="o">*</span> <span class="n">v_hat</span>
-                        <span class="n">v_new_hat</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">omega_val</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sin_omega_dt</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cos_omega_dt</span> <span class="o">*</span> <span class="n">v_hat</span>
+                        <span class="n">u_new_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">damp_p11</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">damp_p12</span> <span class="o">*</span> <span class="n">v_hat</span>
+                        <span class="n">v_new_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">damp_p21</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">damp_p22</span> <span class="o">*</span> <span class="n">v_hat</span>
                         <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_new_hat</span><span class="p">)</span>
                         <span class="n">v_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">v_new_hat</span><span class="p">)</span>
                         <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -2905,13 +2935,12 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform one time step using explicit 4th-order Runge-Kutta for second-order PDEs.</span>
-<span class="sd">        </span>
-<span class="sd">        Advances the solution of ∂ₜ²u = L·u + N(u) + f(x,t) by rewriting it as a first-order system:</span>
+
+<span class="sd">        Advances the solution of ∂ₜ²u + γ ∂ₜu = L·u + N(u) + f(x,t) by rewriting it as a first-order system:</span>
 <span class="sd">            ∂ₜu = v</span>
-<span class="sd">            ∂ₜv = L·u + N(u) + f(x,t)</span>
-<span class="sd">        </span>
+<span class="sd">            ∂ₜv = L·u + N(u) + f(x,t) − γ v</span>
 <span class="sd">        and applying the classical 4-stage Runge-Kutta method.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        u : np.ndarray</span>
@@ -2920,51 +2949,50 @@
 <span class="sd">            Current time derivative ∂ₜu in real space.</span>
 <span class="sd">        t : float, optional</span>
 <span class="sd">            Current time. Default is 0.0.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        tuple of np.ndarray</span>
 <span class="sd">            (u_new, v_new): Updated solution and velocity after one time step.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        This is an explicit integrator subject to CFL stability restrictions Δt ∝ Δx^(m/2),</span>
 <span class="sd">        where m is the order of the linear operator L. For stiff operators, consider using</span>
 <span class="sd">        exponential time differencing schemes (e.g., `step_ETD_RK4_order1` for first-order equations).</span>
-<span class="sd">        </span>
 <span class="sd">        The linear operator L is applied spectrally via FFT, and nonlinear terms are evaluated</span>
 <span class="sd">        in physical space using the pseudo-spectral method with dealiasing.</span>
-<span class="sd">        </span>
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        _step_ETD_RK4_order1 : Exponential integrator for first-order equations</span>
 <span class="sd">        """</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
         <span class="n">L_fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
         <span class="n">fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span>
         <span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span>
         
-        <span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
+        <span class="n">gamma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">damping</span>   <span class="c1"># u_tt + gamma*u_t = L u + N(u) + f</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">v_val</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">L_fft</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">u_val</span><span class="p">))</span>
                     <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t_val</span><span class="p">)</span>
-                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">))</span>
-        
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">)</span>
+                    <span class="o">-</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">v_val</span><span class="p">)</span>
+
         <span class="c1"># Stage A (t)</span>
-        <span class="n">A</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
         <span class="n">ua</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span>
         <span class="n">va</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">A</span>
-        
+
         <span class="c1"># Stage B (t + dt/2)</span>
-        <span class="n">B</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ua</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ua</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
         <span class="n">ub</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">va</span>
         <span class="n">vb</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">B</span>
-        
+
         <span class="c1"># Stage C (t + dt/2)</span>
-        <span class="n">C</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
         <span class="n">uc</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vb</span>
-        
+        <span class="n">vc</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">C</span>
+
         <span class="c1"># Stage D (t + dt)</span>
-        <span class="n">D</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">uc</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">uc</span><span class="p">,</span> <span class="n">vc</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">)</span>
         
         <span class="c1"># Final update (correct RK4 weights for 2nd order system)</span>
         <span class="n">u_new</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="n">B</span> <span class="o">+</span> <span class="n">C</span><span class="p">)</span>
@@ -3401,168 +3429,142 @@
         <span class="n">t_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">source_contribution</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-<span class="w">            </span><span class="sd">"""</span>
-<span class="sd">            Compute the total (conserved) energy of the system at time `t_val`.</span>
-<span class="sd">        </span>
-<span class="sd">            For a second-order evolution ∂ₜ²u = L·u + N(u) + f(x,t), the mechanical</span>
-<span class="sd">            energy is split into a kinetic part and a linear-potential part, while the</span>
-<span class="sd">            work done by the non-conservative terms (N, f) is accumulated separately</span>
-<span class="sd">            so that a conserved quantity can be monitored:</span>
-<span class="sd">        </span>
-<span class="sd">                E_mech(t) = Eₖ(t) + Eₚ(t)</span>
-<span class="sd">                W(t)      = ∫₀ᵗ ⟨v, N(u) + f⟩ dx dt'        (trapezoidal rule)</span>
-<span class="sd">                E_total(t) = E_mech(t) − W(t)                  ← conserved</span>
-<span class="sd">        </span>
-<span class="sd">            with</span>
-<span class="sd">                Eₖ(t) = ½ ∫ |v|² dx,</span>
-<span class="sd">                Eₚ(t) = ½ ∫ u · (−L) u dx,</span>
-<span class="sd">        </span>
-<span class="sd">            where v = ∂ₜu and (−L) is the positive-definite potential operator</span>
-<span class="sd">            (e.g. −L = k² for the wave equation, −L = k⁴ for the beam equation).</span>
-<span class="sd">        </span>
-<span class="sd">            Two branches are implemented:</span>
-<span class="sd">        </span>
-<span class="sd">            1. **Standard (no ψOp)**:</span>
-<span class="sd">               - v is taken directly from `self.v_prev`.</span>
-<span class="sd">               - The potential energy is computed in Fourier space as</span>
-<span class="sd">                     Eₚ = ½ ⟨u, (−Re L) u⟩,</span>
-<span class="sd">                 with a safety clipping `max(−Re L, 0)` and a `RuntimeWarning`</span>
-<span class="sd">                 if `L` is not negative-definite.</span>
-<span class="sd">        </span>
-<span class="sd">            2. **Pseudo-differential (ψOp)**:</span>
-<span class="sd">               - The velocity is reconstructed by a centered finite difference</span>
-<span class="sd">                     v ≈ (uⁿ − uⁿ⁻¹) / Δt</span>
-<span class="sd">                 (staggered leap-frog state).</span>
-<span class="sd">               - The potential energy uses the fractional power P¹/² of the total</span>
-<span class="sd">                 pseudo-differential symbol (precomputed in `_compute_linear_operator`),</span>
-<span class="sd">                 so that Eₚ = ½ ∫ |P¹/² u|² dx, which is the natural energy for</span>
-<span class="sd">                 non-local operators such as the fractional Laplacian.</span>
-<span class="sd">        </span>
-<span class="sd">            The instantaneous power P(t) = ⟨v, N(u) + f⟩ is accumulated via the</span>
-<span class="sd">            trapezoidal rule to form W(t). The returned value is E_total(t), which</span>
-<span class="sd">            should remain constant (up to time-stepping error) for conservative</span>
-<span class="sd">            problems, and tracks the energy balance otherwise.</span>
-<span class="sd">        </span>
-<span class="sd">            Parameters</span>
-<span class="sd">            ----------</span>
-<span class="sd">            t_val : float</span>
-<span class="sd">                Current simulation time.</span>
-<span class="sd">            source_contribution : np.ndarray or float, optional</span>
-<span class="sd">                Source term f(x,t) evaluated on the spatial grid at time `t_val`.</span>
-<span class="sd">                A scalar or `None` is treated as zero.</span>
-<span class="sd">        </span>
-<span class="sd">            Returns</span>
-<span class="sd">            -------</span>
-<span class="sd">            float or None</span>
-<span class="sd">                The conserved energy E_total(t) = E_mech(t) − W(t), or `None` if</span>
-<span class="sd">                the problem is not second-order in time or the required state is</span>
-<span class="sd">                not yet initialised.</span>
-<span class="sd">        </span>
-<span class="sd">            Side effects</span>
-<span class="sd">            ------------</span>
-<span class="sd">            - Appends `E_mech` to `self.mechanical_energy_history`.</span>
-<span class="sd">            - Appends `W(t)` to `self.work_history`.</span>
-<span class="sd">            - Updates `self._prev_power` for the next trapezoidal increment.</span>
-<span class="sd">            - On first call with nonlinear or source terms, prints a one-time</span>
-<span class="sd">              warning that energy monitoring tracks the work balance.</span>
-<span class="sd">            """</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the total (conserved) energy of the system at time `t_val`.</span>
+
+<span class="sd">        For a second-order evolution ∂ₜ²u = L·u + N(u) + f(x,t), the mechanical</span>
+<span class="sd">        energy is split into a kinetic part and a linear-potential part, while the</span>
+<span class="sd">        work done by the non-conservative terms (N, f) is accumulated separately</span>
+<span class="sd">        so that a conserved quantity can be monitored:</span>
+<span class="sd">            E_mech(t) = Eₖ(t) + Eₚ(t)</span>
+<span class="sd">            W(t)      = ∫₀ᵗ ⟨v, N(u) + f⟩ dx dt'        (trapezoidal rule)</span>
+<span class="sd">            E_total(t) = E_mech(t) − W(t)                  ← conserved</span>
+
+<span class="sd">        Note: The work done by the constant damping force (−γ v) is NOT tracked in the</span>
+<span class="sd">        accumulated work W(t). Consequently, the "Total Conserved Energy" E_total(t)</span>
+<span class="sd">        will exhibit a systematic drift corresponding to the energy dissipated by the</span>
+<span class="sd">        damping term.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        t_val : float</span>
+<span class="sd">            Current simulation time.</span>
+<span class="sd">        source_contribution : np.ndarray or float, optional</span>
+<span class="sd">            Source term f(x,t) evaluated on the spatial grid at time `t_val`.</span>
+<span class="sd">            A scalar or `None` is treated as zero.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float or None</span>
+<span class="sd">            The conserved energy E_total(t) = E_mech(t) − W(t), or `None` if</span>
+<span class="sd">            the problem is not second-order in time or the required state is</span>
+<span class="sd">            not yet initialised.</span>
+
+<span class="sd">        Side effects</span>
+<span class="sd">        ------------</span>
+<span class="sd">        - Appends `E_mech` to `self.mechanical_energy_history`.</span>
+<span class="sd">        - Appends `W(t)` to `self.work_history`.</span>
+<span class="sd">        - Updates `self._prev_power` for the next trapezoidal increment.</span>
+<span class="sd">        - On first call with nonlinear or source terms, prints a one-time</span>
+<span class="sd">          warning that energy monitoring tracks the work balance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Warning for nonlinear/source terms (once)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_energy_warning_issued'</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"⚠️ Warning: Energy monitoring includes work from nonlinear/source terms."</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_energy_warning_issued</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ny</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">1.0</span>
+
+        <span class="c1"># 1. Compute Velocity and Potential Operator Terms Consistent with Physics</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="c1"># Centered difference for velocity when using staggered states</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_energy_psi_op'</span><span class="p">):</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
-            <span class="c1"># Warning for nonlinear/source terms (once)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_energy_warning_issued'</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s2">"⚠️ Warning: Energy monitoring includes work from nonlinear/source terms."</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_energy_warning_issued</span> <span class="o">=</span> <span class="kc">True</span>
-
-            <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
-            <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
-            <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ny</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">1.0</span>
-
-            <span class="c1"># 1. Compute Velocity and Potential Operator Terms Consistent with Physics</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="kc">None</span>
-                <span class="c1"># Centered difference for velocity when using staggered states</span>
-                <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_energy_psi_op'</span><span class="p">):</span>
-                    <span class="k">return</span> <span class="kc">None</span>
-
-                <span class="c1"># For psi_op path, Lu already represents the correct square-root potential mapped state</span>
-                <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span>
-                    <span class="n">u</span><span class="p">,</span> <span class="n">psi_ops</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span><span class="p">)],</span>
-                    <span class="n">is_spatial</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span>
+            <span class="c1"># For psi_op path, Lu already represents the correct square-root potential mapped state</span>
+            <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">psi_ops</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span><span class="p">)],</span>
+                <span class="n">is_spatial</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span>
+            <span class="p">)</span>
+            <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
+            
+            <span class="c1"># Compute potential energy via Fourier representation</span>
+            <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+            
+            <span class="c1"># For well-posed 2nd order equations, L should be negative definite</span>
+            <span class="c1"># (e.g., L = -k² for wave equation, L = -k⁴ for beam equation)</span>
+            <span class="c1"># The potential energy operator is -L, which should be positive</span>
+            <span class="n">minus_L</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">L_vals</span><span class="p">)</span>  <span class="c1"># Take real part and negate</span>
+            
+            <span class="c1"># Check if the operator is indeed negative definite</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">1e-10</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">"Linear operator L is not negative definite. "</span>
+                    <span class="s2">"Energy computation may be incorrect."</span><span class="p">,</span>
+                    <span class="ne">RuntimeWarning</span>
                 <span class="p">)</span>
-                <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="kc">None</span>
-                <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
-                
-                <span class="c1"># Compute potential energy via Fourier representation</span>
-                <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-                <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
-                
-                <span class="c1"># For well-posed 2nd order equations, L should be negative definite</span>
-                <span class="c1"># (e.g., L = -k² for wave equation, L = -k⁴ for beam equation)</span>
-                <span class="c1"># The potential energy operator is -L, which should be positive</span>
-                <span class="n">minus_L</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">L_vals</span><span class="p">)</span>  <span class="c1"># Take real part and negate</span>
-                
-                <span class="c1"># Check if the operator is indeed negative definite</span>
-                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">1e-10</span><span class="p">):</span>
-                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                        <span class="s2">"Linear operator L is not negative definite. "</span>
-                        <span class="s2">"Energy computation may be incorrect."</span><span class="p">,</span>
-                        <span class="ne">RuntimeWarning</span>
-                    <span class="p">)</span>
-                
-                <span class="c1"># Ensure positivity for safety</span>
-                <span class="n">minus_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">minus_L</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-                
-                <span class="c1"># Compute potential energy density</span>
-                <span class="n">Lu_pot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
-                <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">Lu_pot</span><span class="p">))</span>
+            
+            <span class="c1"># Ensure positivity for safety</span>
+            <span class="n">minus_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">minus_L</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            
+            <span class="c1"># Compute potential energy density</span>
+            <span class="n">Lu_pot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">Lu_pot</span><span class="p">))</span>
 
-            <span class="c1"># 2. Compute Total Mechanical Energy</span>
-            <span class="n">kin_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
-            <span class="n">energy_density</span> <span class="o">=</span> <span class="n">kin_density</span> <span class="o">+</span> <span class="n">pot_density</span>
+        <span class="c1"># 2. Compute Total Mechanical Energy</span>
+        <span class="n">kin_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">energy_density</span> <span class="o">=</span> <span class="n">kin_density</span> <span class="o">+</span> <span class="n">pot_density</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
 
-            <span class="c1"># 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx</span>
-            <span class="n">N_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx</span>
+        <span class="n">N_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">source_contribution</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">):</span>
-                <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">f</span> <span class="o">=</span> <span class="n">source_contribution</span>
+        <span class="k">if</span> <span class="n">source_contribution</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">):</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">source_contribution</span>
 
-            <span class="n">power_density</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">N_u</span> <span class="o">+</span> <span class="n">f</span><span class="p">))</span>
+        <span class="n">power_density</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">N_u</span> <span class="o">+</span> <span class="n">f</span><span class="p">))</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
 
-            <span class="c1"># 4. Accumulate Work via Trapezoidal Rule</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_prev_power'</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="n">power</span>
-
-            <span class="n">work_increment</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">+</span> <span class="n">power</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span> <span class="o">+=</span> <span class="n">work_increment</span>
+        <span class="c1"># 4. Accumulate Work via Trapezoidal Rule</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_prev_power'</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="n">power</span>
 
-            <span class="c1"># Store histories</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E_mech</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span><span class="p">)</span>
+        <span class="n">work_increment</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">+</span> <span class="n">power</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span> <span class="o">+=</span> <span class="n">work_increment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="n">power</span>
 
-            <span class="c1"># Total conserved energy</span>
-            <span class="n">E_total</span> <span class="o">=</span> <span class="n">E_mech</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span>
+        <span class="c1"># Store histories</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E_mech</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span><span class="p">)</span>
 
-            <span class="k">return</span> <span class="n">E_total</span>
+        <span class="c1"># Total conserved energy</span>
+        <span class="n">E_total</span> <span class="o">=</span> <span class="n">E_mech</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span>
+
+        <span class="k">return</span> <span class="n">E_total</span>
         
     <span class="k">def</span><span class="w"> </span><span class="nf">_plot_sponge_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Plot the sponge damping profile for verification."""</span>
